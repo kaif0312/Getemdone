@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import { playSound } from '@/utils/sounds';
@@ -32,6 +33,8 @@ export default function TaskItem({
   const [showDeferPicker, setShowDeferPicker] = useState(false);
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
 
   const handleToggleComplete = async () => {
     if (!isOwnTask) return;
@@ -84,6 +87,55 @@ export default function TaskItem({
     setShowDeferPicker(false);
   };
 
+  // Swipe handlers
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => {
+      if (!isOwnTask) return;
+      
+      const deltaX = eventData.deltaX;
+      const absX = Math.abs(deltaX);
+      
+      // Only allow swipe if not already completed (for complete action) or if completed (for delete)
+      if (deltaX > 0 && !task.completed) {
+        // Swipe right - Complete
+        setSwipeOffset(Math.min(deltaX, 100));
+        setSwipeAction(absX > 50 ? 'complete' : null);
+      } else if (deltaX < 0) {
+        // Swipe left - Delete
+        setSwipeOffset(Math.max(deltaX, -100));
+        setSwipeAction(absX > 50 ? 'delete' : null);
+      }
+    },
+    onSwiped: (eventData) => {
+      if (!isOwnTask) return;
+      
+      const absX = Math.abs(eventData.deltaX);
+      
+      if (absX > 100) { // Threshold for action
+        if (eventData.deltaX > 0 && !task.completed) {
+          // Complete task
+          handleToggleComplete();
+          if ('vibrate' in navigator) {
+            navigator.vibrate(50);
+          }
+        } else if (eventData.deltaX < 0) {
+          // Delete task
+          onDelete(task.id);
+          if ('vibrate' in navigator) {
+            navigator.vibrate([30, 50]);
+          }
+        }
+      }
+      
+      // Reset swipe state
+      setSwipeOffset(0);
+      setSwipeAction(null);
+    },
+    trackMouse: false, // Disable mouse swiping on desktop to avoid conflicts with drag-to-reorder
+    trackTouch: true,
+    preventScrollOnSwipe: true,
+  });
+
   return (
     <>
       {/* Completion Animations */}
@@ -91,13 +143,50 @@ export default function TaskItem({
         <Confetti onComplete={() => setShowCompletionAnimation(false)} />
       )}
 
-      <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
-          task.completed 
-            ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 
-            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
-        } ${isAnimatingOut ? 'animate-task-complete' : ''}`}
-      >
+      <div className="relative overflow-hidden rounded-lg">
+        {/* Swipe Action Background */}
+        {swipeOffset !== 0 && isOwnTask && (
+          <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
+            {swipeOffset > 0 && (
+              <div className={`flex items-center gap-2 transition-all duration-200 ${
+                swipeAction === 'complete' ? 'scale-110' : 'scale-100'
+              }`}>
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                  <FaCheck className="text-white" size={18} />
+                </div>
+                <span className="text-green-600 dark:text-green-400 font-semibold">Complete</span>
+              </div>
+            )}
+            {swipeOffset < 0 && (
+              <div className={`ml-auto flex items-center gap-2 transition-all duration-200 ${
+                swipeAction === 'delete' ? 'scale-110' : 'scale-100'
+              }`}>
+                <span className="text-red-600 dark:text-red-400 font-semibold">Delete</span>
+                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
+                  <FaTrash className="text-white" size={16} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Task Item with Swipe */}
+        <div 
+          {...(isOwnTask ? swipeHandlers : {})}
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+          }}
+          className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
+            task.completed 
+              ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 
+              : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+          } ${isAnimatingOut ? 'animate-task-complete' : ''} ${
+            swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-100 dark:bg-green-900/40' : ''
+          } ${
+            swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
+          }`}
+        >
         <div className="flex items-start gap-3">
           <button
             onClick={handleToggleComplete}
@@ -276,6 +365,7 @@ export default function TaskItem({
           </div>
         )}
         </div>
+      </div>
       </div>
 
       <style jsx>{`

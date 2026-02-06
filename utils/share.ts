@@ -32,7 +32,7 @@ Hold me accountable! 👊`;
 
   try {
     // Try native share sheet first (works on iOS/Android)
-    if (navigator.share && navigator.canShare) {
+    if (navigator.share) {
       await navigator.share({
         title: `${userData.displayName}'s Daily Tasks`,
         text: message,

@@ -222,6 +222,12 @@ export function useTasks() {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
             console.log('[useTasks] Friend task change:', change.type, task.id, 'User:', task.userId, 'Deleted:', task.deleted, 'Comments:', task.comments?.length || 0);
             
+            // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
+            if (task.userId === user.uid) {
+              console.log('[useTasks] Skipping friend task - it is actually OUR task:', task.id);
+              return; // Don't process our own tasks as friend tasks
+            }
+            
             if (change.type === 'removed') {
               console.log('[useTasks] Friend task removed from Firestore:', change.doc.id);
               allTasks.delete(change.doc.id);

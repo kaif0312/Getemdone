@@ -29,17 +29,20 @@ export default function VoiceButton({
   } = useVoiceInput({
     onResult: (transcript) => {
       console.log('Voice transcript received:', transcript);
-      // Accumulate transcripts
-      const newText = fullTranscript ? fullTranscript + ' ' + transcript : transcript;
-      console.log('Setting full transcript:', newText);
-      setFullTranscript(newText);
-      onTranscript(newText);
+      // Accumulate transcripts - add space if there's already text
+      setFullTranscript(prev => {
+        const newText = prev ? prev + ' ' + transcript.trim() : transcript.trim();
+        console.log('Accumulated transcript:', newText);
+        // Update the input field with accumulated text
+        onTranscript(newText);
+        return newText;
+      });
     },
     onError: (error) => {
       console.error('Voice input error:', error);
     },
     language: selectedLanguage,
-    continuous: true, // FIXED: Keep listening until manually stopped
+    continuous: true,
   });
 
   const languages = [
@@ -63,9 +66,10 @@ export default function VoiceButton({
     if (isListening) {
       console.log('Stopping voice input...');
       stopListening();
+      // Keep the accumulated transcript - don't clear it
     } else {
       console.log('Starting voice input...');
-      setFullTranscript('');
+      setFullTranscript(''); // Clear transcript when starting fresh
       startListening();
     }
   };

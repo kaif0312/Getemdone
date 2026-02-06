@@ -92,21 +92,32 @@ export function useVoiceInput({
           fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,isManuallyStopped:isManuallyStopped.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
           // #endregion
           
-          // Always auto-restart unless manually stopped
+          // Always auto-restart unless manually stopped - NO DELAY
           if (!isManuallyStopped.current && recognitionRef.current) {
-            console.log('[useVoiceInput] Auto-restarting recognition (keep alive)...');
-            restartTimeoutRef.current = setTimeout(() => {
+            console.log('[useVoiceInput] Auto-restarting recognition immediately...');
+            // Use requestAnimationFrame for immediate restart (no delay)
+            requestAnimationFrame(() => {
               try {
                 if (recognitionRef.current && !isManuallyStopped.current) {
                   recognitionRef.current.start();
-                  console.log('[useVoiceInput] Recognition restarted');
+                  console.log('[useVoiceInput] Recognition restarted immediately');
                 }
               } catch (err) {
                 console.error('[useVoiceInput] Failed to restart:', err);
-                setIsListening(false);
-                setInterimTranscript('');
+                // If we get an error, try again after a short delay
+                setTimeout(() => {
+                  if (recognitionRef.current && !isManuallyStopped.current) {
+                    try {
+                      recognitionRef.current.start();
+                    } catch (e) {
+                      console.error('[useVoiceInput] Retry failed:', e);
+                      setIsListening(false);
+                      setInterimTranscript('');
+                    }
+                  }
+                }, 300);
               }
-            }, 100);
+            });
           } else {
             console.log('[useVoiceInput] Not restarting - manually stopped');
             setIsListening(false);

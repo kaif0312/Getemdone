@@ -42,6 +42,10 @@ export function useTasks() {
       }
       updateTimer = setTimeout(() => {
         const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+        console.log('[useTasks] Updating tasks state, total tasks:', sortedTasks.length);
+        sortedTasks.forEach(t => {
+          console.log('  - Task:', t.id.substring(0, 8), 'User:', t.userName, 'Comments:', t.comments?.length || 0);
+        });
         setTasks(sortedTasks);
         setLoading(false);
       }, 300); // 300ms debounce to reduce Firestore reads
@@ -49,13 +53,16 @@ export function useTasks() {
     
     // Pre-fetch friend names to avoid async delays during snapshot
     const prefetchFriendNames = async () => {
+      console.log('[useTasks] Prefetching friend names, friends count:', userData.friends?.length || 0);
       if (userData.friends && userData.friends.length > 0) {
         const promises = userData.friends.map(async (friendId) => {
           if (!friendNameCache.has(friendId)) {
             try {
               const userDoc = await getDoc(doc(db, 'users', friendId));
               if (userDoc.exists()) {
-                friendNameCache.set(friendId, (userDoc.data() as User).displayName);
+                const name = (userDoc.data() as User).displayName;
+                friendNameCache.set(friendId, name);
+                console.log('[useTasks] Cached friend name:', friendId.substring(0, 8), '->', name);
               }
             } catch (error) {
               console.error('Error fetching friend name:', error);
@@ -63,6 +70,7 @@ export function useTasks() {
           }
         });
         await Promise.all(promises);
+        console.log('[useTasks] Friend names cached, total:', friendNameCache.size);
       }
     };
     
@@ -76,9 +84,12 @@ export function useTasks() {
       );
 
       const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
+        console.log('[useTasks] Own tasks snapshot received, changes:', snapshot.docChanges().length);
+        
         // Only process actual changes to reduce reads
         snapshot.docChanges().forEach((change) => {
           const task = { id: change.doc.id, ...change.doc.data() } as Task;
+          console.log('[useTasks] Own task change:', change.type, task.id, 'Comments:', task.comments?.length || 0);
           
           if (change.type === 'removed') {
             allTasks.delete(change.doc.id);
@@ -93,6 +104,7 @@ export function useTasks() {
           }
         });
         
+        console.log('[useTasks] Total tasks in map after own tasks update:', allTasks.size);
         scheduleUpdate();
       }, (error) => {
         console.error('Error fetching own tasks:', error);
@@ -110,6 +122,8 @@ export function useTasks() {
         const maxFriends = Math.min(userData.friends.length, 10);
         const friendsToQuery = userData.friends.slice(0, maxFriends);
         
+        console.log('[useTasks] Setting up friend tasks query for friends:', friendsToQuery.map(f => f.substring(0, 8)));
+        
         const friendTasksQuery = query(
           tasksRef,
           where('userId', 'in', friendsToQuery),
@@ -118,9 +132,12 @@ export function useTasks() {
         );
 
         const unsubFriendTasks = onSnapshot(friendTasksQuery, (snapshot) => {
+          console.log('[useTasks] Friend tasks snapshot received, changes:', snapshot.docChanges().length);
+          
           // Only process actual changes to reduce reads
           snapshot.docChanges().forEach((change) => {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
+            console.log('[useTasks] Friend task change:', change.type, task.id, 'User:', task.userId, 'Comments:', task.comments?.length || 0);
             
             if (change.type === 'removed') {
               allTasks.delete(change.doc.id);
@@ -129,6 +146,7 @@ export function useTasks() {
               if (!task.deleted) {
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
+                console.log('[useTasks] Adding friend task to map:', task.id, 'userName:', userName);
                 allTasks.set(task.id, { ...task, userName });
               } else {
                 // Remove from map if it was marked as deleted
@@ -137,6 +155,7 @@ export function useTasks() {
             }
           });
           
+          console.log('[useTasks] Total tasks in map after friend tasks update:', allTasks.size);
           scheduleUpdate();
         }, (error) => {
           console.error('Error fetching friend tasks:', error);

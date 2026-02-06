@@ -99,9 +99,16 @@ export default function TaskItem({
       
       // Only activate swipe if horizontal movement is significantly more than vertical
       // This prevents interference with vertical scrolling
-      if (absY > absX * 0.5) {
+      if (absY > absX * 0.3) {
         // More vertical than horizontal - allow scrolling, don't swipe
+        setSwipeOffset(0);
+        setSwipeAction(null);
         return;
+      }
+      
+      // Prevent default to stop screen from moving
+      if (eventData.event && absX > absY) {
+        eventData.event.preventDefault();
       }
       
       // Only allow swipe if not already completed (for complete action) or if completed (for delete)
@@ -122,7 +129,7 @@ export default function TaskItem({
       const absY = Math.abs(eventData.deltaY);
       
       // Only trigger action if it was clearly a horizontal swipe
-      if (absY > absX * 0.5) {
+      if (absY > absX * 0.3) {
         // Was more vertical than horizontal - cancel swipe
         setSwipeOffset(0);
         setSwipeAction(null);
@@ -151,8 +158,10 @@ export default function TaskItem({
     },
     trackMouse: false, // Disable mouse swiping on desktop to avoid conflicts with drag-to-reorder
     trackTouch: true,
-    preventScrollOnSwipe: false, // CHANGED: Allow vertical scroll to work
-    delta: 15, // Require 15px movement before recognizing swipe (prevents accidental triggers)
+    preventScrollOnSwipe: false, // Allow vertical scroll to work
+    delta: 20, // Require 20px movement before recognizing swipe (prevents accidental triggers)
+    swipeDuration: 500, // Maximum swipe duration in ms
+    touchEventOptions: { passive: false }, // Allow preventDefault to work
   });
 
   return (
@@ -321,43 +330,52 @@ export default function TaskItem({
           <div className="flex items-center gap-1">
             {/* Defer Button - Only for incomplete tasks */}
             {!task.completed && onDeferTask && (
-              <div className="relative">
+              <div className="relative z-[10000]">
                 <button
                   onClick={() => setShowDeferPicker(!showDeferPicker)}
-                  className="p-2 hover:bg-amber-50 rounded-full transition-colors min-w-[36px] min-h-[36px]"
+                  className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
                   title="Defer task"
                 >
-                  <FaCalendarPlus className="text-amber-600" size={16} />
+                  <FaCalendarPlus className="text-amber-600 dark:text-amber-500" size={16} />
                 </button>
                 
                 {showDeferPicker && (
-                  <div className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-[150px]">
-                    <div className="text-xs font-semibold text-gray-700 mb-2 px-2">Defer to:</div>
-                    <button
-                      onClick={() => handleDeferTask(1)}
-                      className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm transition-colors"
-                    >
-                      Tomorrow
-                    </button>
-                    <button
-                      onClick={() => handleDeferTask(2)}
-                      className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm transition-colors"
-                    >
-                      In 2 days
-                    </button>
-                    <button
-                      onClick={() => handleDeferTask(3)}
-                      className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm transition-colors"
-                    >
-                      In 3 days
-                    </button>
-                    <button
-                      onClick={() => handleDeferTask(7)}
-                      className="block w-full text-left px-3 py-2 hover:bg-gray-100 rounded text-sm transition-colors"
-                    >
-                      Next week
-                    </button>
-                  </div>
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-[9998]" 
+                      onClick={() => setShowDeferPicker(false)}
+                    />
+                    
+                    {/* Defer Menu */}
+                    <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[9999] min-w-[150px]">
+                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Defer to:</div>
+                      <button
+                        onClick={() => handleDeferTask(1)}
+                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                      >
+                        Tomorrow
+                      </button>
+                      <button
+                        onClick={() => handleDeferTask(2)}
+                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                      >
+                        In 2 days
+                      </button>
+                      <button
+                        onClick={() => handleDeferTask(3)}
+                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                      >
+                        In 3 days
+                      </button>
+                      <button
+                        onClick={() => handleDeferTask(7)}
+                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                      >
+                        Next week
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             )}

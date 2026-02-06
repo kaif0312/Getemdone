@@ -31,6 +31,9 @@ export default function CommentsModal({
     if (isOpen && commentsEndRef.current) {
       commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+    if (isOpen) {
+      console.log('[CommentsModal] Comments updated, count:', task.comments?.length || 0);
+    }
   }, [task.comments, isOpen]);
 
   // Focus input when modal opens
@@ -47,6 +50,7 @@ export default function CommentsModal({
 
     setIsSending(true);
     try {
+      console.log('[CommentsModal] Submitting comment:', commentText.trim());
       await onAddComment(task.id, commentText.trim());
       setCommentText('');
       
@@ -54,6 +58,10 @@ export default function CommentsModal({
       if ('vibrate' in navigator) {
         navigator.vibrate(30);
       }
+      console.log('[CommentsModal] Comment submitted successfully');
+    } catch (error) {
+      console.error('[CommentsModal] Error submitting comment:', error);
+      alert('Failed to add comment. Please try again.');
     } finally {
       setIsSending(false);
     }

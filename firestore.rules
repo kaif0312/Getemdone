@@ -64,20 +64,30 @@ service cloud.firestore {
       
       // Users can update their own tasks OR add reactions/comments to friends' tasks
       allow update: if isAuthenticated() && (
-        (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId) ||
-        (areFriends(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])) ||
-        (areFriends(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments']))
-      ) &&
-      // Validate deferredTo if present
-      (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
-      // Validate order if present
-      (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number || request.resource.data.order == null) &&
-      // Validate committed if present
-      (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
-      // Validate deleted if present (for soft delete)
-      (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
-      // Validate deletedAt if present
-      (!request.resource.data.keys().hasAny(['deletedAt']) || request.resource.data.deletedAt is number || request.resource.data.deletedAt == null);
+        // Task owner can update their own tasks
+        (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId &&
+          // Validate deferredTo if being updated
+          (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
+          // Validate order if being updated
+          (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number || request.resource.data.order == null) &&
+          // Validate committed if being updated
+          (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
+          // Validate deleted if being updated
+          (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
+          // Validate deletedAt if being updated
+          (!request.resource.data.keys().hasAny(['deletedAt']) || request.resource.data.deletedAt is number || request.resource.data.deletedAt == null)
+        ) ||
+        // Friends can ONLY add reactions
+        (areFriends(resource.data.userId) && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']) &&
+          request.resource.data.userId == resource.data.userId
+        ) ||
+        // Friends can ONLY add comments
+        (areFriends(resource.data.userId) && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments']) &&
+          request.resource.data.userId == resource.data.userId
+        )
+      );
       
       // Users can only delete their own tasks
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);

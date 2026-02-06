@@ -291,26 +291,40 @@ export function useTasks() {
   };
 
   const addComment = async (taskId: string, text: string) => {
-    if (!user || !userData) return;
+    if (!user || !userData) {
+      console.error('[addComment] No user or userData');
+      return;
+    }
 
-    const taskRef = doc(db, 'tasks', taskId);
-    const taskDoc = await getDoc(taskRef);
-    
-    if (!taskDoc.exists()) return;
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskDoc = await getDoc(taskRef);
+      
+      if (!taskDoc.exists()) {
+        console.error('[addComment] Task does not exist:', taskId);
+        return;
+      }
 
-    const task = taskDoc.data() as Task;
-    const comments = task.comments || [];
-    
-    const newComment: Comment = {
-      id: `${user.uid}_${Date.now()}`,
-      userId: user.uid,
-      userName: userData.displayName,
-      text: text.substring(0, 500), // Limit to 500 characters
-      timestamp: Date.now(),
-    };
+      const task = taskDoc.data() as Task;
+      const comments = task.comments || [];
+      
+      const newComment: Comment = {
+        id: `${user.uid}_${Date.now()}`,
+        userId: user.uid,
+        userName: userData.displayName,
+        text: text.substring(0, 500), // Limit to 500 characters
+        timestamp: Date.now(),
+      };
 
-    comments.push(newComment);
-    await updateDoc(taskRef, { comments });
+      comments.push(newComment);
+      
+      console.log('[addComment] Adding comment to task:', taskId, 'Current comments:', comments.length);
+      await updateDoc(taskRef, { comments });
+      console.log('[addComment] Comment added successfully');
+    } catch (error) {
+      console.error('[addComment] Error adding comment:', error);
+      throw error;
+    }
   };
 
   const deferTask = async (taskId: string, deferToDate: string) => {

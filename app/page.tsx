@@ -446,10 +446,16 @@ export default function Home() {
       {/* Comments Modal */}
       {selectedTaskForComments && (() => {
         const selectedTask = tasks.find(t => t.id === selectedTaskForComments);
-        if (!selectedTask) return null;
+        if (!selectedTask) {
+          console.log('[Home] Task not found for comments:', selectedTaskForComments);
+          return null;
+        }
+        
+        console.log('[Home] Rendering CommentsModal for task:', selectedTask.id, 'Comments:', selectedTask.comments?.length || 0);
         
         return (
           <CommentsModal
+            key={`comments-${selectedTask.id}-${selectedTask.comments?.length || 0}`}
             isOpen={true}
             task={selectedTask}
             currentUserId={user.uid}

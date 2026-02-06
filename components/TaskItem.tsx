@@ -43,19 +43,6 @@ export default function TaskItem({
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
-  const [deferMenuPosition, setDeferMenuPosition] = useState<{ top: number; right: number } | null>(null);
-  const deferButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Calculate defer menu position when it opens
-  useEffect(() => {
-    if (showDeferPicker && deferButtonRef.current) {
-      const rect = deferButtonRef.current.getBoundingClientRect();
-      setDeferMenuPosition({
-        top: rect.bottom + 8, // 8px below the button
-        right: window.innerWidth - rect.right, // Align to right edge of button
-      });
-    }
-  }, [showDeferPicker]);
 
   const handleToggleComplete = async () => {
     if (!isOwnTask) return;
@@ -365,9 +352,8 @@ export default function TaskItem({
           <div className="flex items-center gap-1">
             {/* Defer Button - Only for incomplete tasks */}
             {!task.completed && onDeferTask && (
-              <div className="relative">
+              <>
                 <button
-                  ref={deferButtonRef}
                   onClick={() => setShowDeferPicker(!showDeferPicker)}
                   className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
                   title="Defer task"
@@ -375,7 +361,7 @@ export default function TaskItem({
                   <FaCalendarPlus className="text-amber-600 dark:text-amber-500" size={16} />
                 </button>
                 
-                {showDeferPicker && deferMenuPosition && (
+                {showDeferPicker && (
                   <>
                     {/* Backdrop */}
                     <div 
@@ -383,43 +369,44 @@ export default function TaskItem({
                       onClick={() => setShowDeferPicker(false)}
                     />
                     
-                    {/* Defer Menu - using fixed positioning to escape stacking context */}
-                    <div 
-                      className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[99999] min-w-[150px] animate-in fade-in zoom-in duration-150"
-                      style={{
-                        top: `${deferMenuPosition.top}px`,
-                        right: `${deferMenuPosition.right}px`,
-                      }}
-                    >
-                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Defer to:</div>
-                      <button
-                        onClick={() => handleDeferTask(1)}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
-                      >
-                        Tomorrow
-                      </button>
-                      <button
-                        onClick={() => handleDeferTask(2)}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
-                      >
-                        In 2 days
-                      </button>
-                      <button
-                        onClick={() => handleDeferTask(3)}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
-                      >
-                        In 3 days
-                      </button>
-                      <button
-                        onClick={() => handleDeferTask(7)}
-                        className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
-                      >
-                        Next week
-                      </button>
+                    {/* Defer Menu Wrapper - portal-like positioning */}
+                    <div className="fixed inset-0 z-[99999] pointer-events-none">
+                      <div className="relative w-full h-full">
+                        {/* Defer Menu - positioned in bottom right, mobile-friendly */}
+                        <div 
+                          className="absolute bottom-20 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 min-w-[150px] pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-200"
+                        >
+                          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Defer to:</div>
+                          <button
+                            onClick={() => handleDeferTask(1)}
+                            className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                          >
+                            Tomorrow
+                          </button>
+                          <button
+                            onClick={() => handleDeferTask(2)}
+                            className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                          >
+                            In 2 days
+                          </button>
+                          <button
+                            onClick={() => handleDeferTask(3)}
+                            className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                          >
+                            In 3 days
+                          </button>
+                          <button
+                            onClick={() => handleDeferTask(7)}
+                            className="block w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-sm transition-colors text-gray-900 dark:text-gray-100"
+                          >
+                            Next week
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
-              </div>
+              </>
             )}
             
             <button

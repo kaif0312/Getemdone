@@ -1,0 +1,267 @@
+'use client';
+
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { 
+  User as FirebaseUser, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { User, StreakData } from '@/lib/types';
+
+interface AuthContextType {
+  user: FirebaseUser | null;
+  userData: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  updateStreakData: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      
+      // Clean up previous snapshot listener
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+      
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        // Set up real-time listener for user data
+        unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const userData = docSnapshot.data() as User;
+            
+            // If user doesn't have a friend code (existing user), add one
+            if (!userData.friendCode) {
+              const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+              let friendCode = '';
+              for (let i = 0; i < 6; i++) {
+                friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
+              }
+              
+              await setDoc(userDocRef, { ...userData, friendCode }, { merge: true });
+              setUserData({ ...userData, friendCode });
+            } else {
+              setUserData(userData);
+            }
+          }
+          setLoading(false);
+        }, (error) => {
+          console.error("Error in user data listener:", error);
+          if (error.code === 'resource-exhausted') {
+            alert('Firestore quota exceeded. Please wait and refresh.');
+          }
+          setLoading(false);
+        });
+      } else {
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const generateFriendCode = () => {
+    // Generate a 6-character alphanumeric code
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude similar chars
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  const signUp = async (email: string, password: string, displayName: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userId = userCredential.user.uid;
+
+    // Create user document in Firestore
+    const newUser: User = {
+      id: userId,
+      displayName,
+      email,
+      friendCode: generateFriendCode(),
+      friends: [],
+      createdAt: Date.now(),
+    };
+
+    await setDoc(doc(db, 'users', userId), newUser);
+    setUserData(newUser);
+  };
+
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const userId = result.user.uid;
+
+    // Check if user document exists
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      // Generate friend code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let friendCode = '';
+      for (let i = 0; i < 6; i++) {
+        friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      
+      // Create new user document
+      const newUser: User = {
+        id: userId,
+        displayName: result.user.displayName || 'User',
+        email: result.user.email || '',
+        friendCode: friendCode,
+        friends: [],
+        createdAt: Date.now(),
+      };
+
+      await setDoc(userDocRef, newUser);
+      setUserData(newUser);
+    }
+  };
+
+  const signOut = async () => {
+    await firebaseSignOut(auth);
+    setUserData(null);
+  };
+
+  const updateStreakData = useCallback(async () => {
+    if (!user) return;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const tasksRef = collection(db, 'tasks');
+    const q = query(tasksRef, where('userId', '==', user.uid), where('completed', '==', true));
+    
+    const querySnapshot = await getDocs(q);
+    
+    // Build completion history
+    const completionHistory: { [date: string]: number } = {};
+    
+    querySnapshot.forEach((doc) => {
+      const task = doc.data();
+      if (task.completedAt) {
+        const date = new Date(task.completedAt);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        completionHistory[dateStr] = (completionHistory[dateStr] || 0) + 1;
+      }
+    });
+
+    // Calculate streak
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let tempStreak = 0;
+    let lastCompletionDate = '';
+    
+    // Sort dates in descending order
+    const sortedDates = Object.keys(completionHistory).sort((a, b) => b.localeCompare(a));
+    
+    // Calculate current streak (working backwards from today)
+    let checkDate = new Date(today);
+    let foundGap = false;
+    
+    while (!foundGap) {
+      const checkDateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+      
+      if (completionHistory[checkDateStr]) {
+        currentStreak++;
+        lastCompletionDate = checkDateStr;
+      } else if (checkDateStr === todayStr) {
+        // Today is allowed to have no completions (streak continues)
+        // Do nothing, just continue checking
+      } else {
+        // Gap found (neither today nor a completion day)
+        foundGap = true;
+      }
+      
+      checkDate.setDate(checkDate.getDate() - 1);
+      
+      // Safety limit: don't check more than 365 days
+      if (currentStreak > 365) break;
+    }
+    
+    // Calculate longest streak
+    if (sortedDates.length > 0) {
+      tempStreak = 1;
+      longestStreak = 1;
+      
+      for (let i = 0; i < sortedDates.length - 1; i++) {
+        const currentDate = new Date(sortedDates[i]);
+        const nextDate = new Date(sortedDates[i + 1]);
+        
+        // Check if dates are consecutive
+        const diffInDays = Math.floor((currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffInDays === 1) {
+          tempStreak++;
+          longestStreak = Math.max(longestStreak, tempStreak);
+        } else {
+          tempStreak = 1;
+        }
+      }
+    }
+
+    const streakData: StreakData = {
+      currentStreak,
+      longestStreak,
+      lastCompletionDate,
+      completionHistory,
+    };
+
+    // Update user document with streak data
+    await setDoc(userDocRef, { streakData }, { merge: true });
+    
+    // Update local state
+    if (userData) {
+      setUserData({ ...userData, streakData });
+    }
+  }, [user, userData]);
+
+  return (
+    <AuthContext.Provider value={{ user, userData, loading, signIn, signUp, signInWithGoogle, signOut, updateStreakData }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

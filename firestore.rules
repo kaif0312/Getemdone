@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Helper function to check if users are friends
+    function areFriends(userId) {
+      return userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Any authenticated user can read any user profile (needed for friend search)
+      allow read: if isAuthenticated();
+      
+      // Users can only create their own profile
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // Users can update their own profile OR update another user's friends array (for friend requests)
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']))
+      );
+      
+      // Users cannot delete their profile
+      allow delete: if false;
+    }
+    
+    // Tasks collection
+    match /tasks/{taskId} {
+      // Users can read:
+      // 1. Their own tasks (both private and public)
+      // 2. Public tasks from their friends
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) ||
+        (!resource.data.isPrivate && areFriends(resource.data.userId))
+      );
+      
+      // Users can only create tasks with their own userId
+      allow create: if isAuthenticated() && 
+        isOwner(request.resource.data.userId) &&
+        request.resource.data.keys().hasAll(['userId', 'text', 'isPrivate', 'completed', 'createdAt', 'completedAt']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 500 &&
+        request.resource.data.isPrivate is bool &&
+        request.resource.data.completed is bool &&
+        request.resource.data.createdAt is int &&
+        (request.resource.data.completedAt == null || request.resource.data.completedAt is int) &&
+        (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string) &&
+        (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number);
+      
+      // Users can update their own tasks OR add reactions to friends' tasks
+      allow update: if isAuthenticated() && (
+        (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId) ||
+        (areFriends(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']))
+      ) &&
+      // Validate deferredTo if present
+      (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
+      // Validate order if present
+      (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number || request.resource.data.order == null);
+      
+      // Users can only delete their own tasks
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}

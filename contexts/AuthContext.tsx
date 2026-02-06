@@ -212,9 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Calculate streak
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
+    // Note: today and todayStr already defined above for missed commitments
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;

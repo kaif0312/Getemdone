@@ -94,19 +94,37 @@ export function useTasks() {
       };
       
       // Function to check what user is currently logged in
-      (window as any).whoAmI = () => {
+      (window as any).whoAmI = async () => {
         if (!user) {
           console.log('[whoAmI] No user logged in');
           return null;
         }
-        console.log('[whoAmI] Current user:');
+        console.log('[whoAmI] Current user from Firebase Auth:');
         console.log('  - UID:', user.uid);
         console.log('  - Email:', user.email);
-        console.log('  - Display Name:', userData?.displayName);
+        console.log('  - Display Name from userData:', userData?.displayName);
+        console.log('  - userData object:', userData);
+        
+        // Check if user document exists in Firestore
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            console.log('[whoAmI] ✅ User document EXISTS in Firestore:', userDoc.data());
+          } else {
+            console.error('[whoAmI] ❌ User document does NOT exist in Firestore!');
+            console.error('[whoAmI] This is why userData is undefined!');
+            console.error('[whoAmI] You need to sign out and sign in again to create user document.');
+          }
+        } catch (error) {
+          console.error('[whoAmI] Error checking user document:', error);
+        }
+        
         return {
           uid: user.uid,
           email: user.email,
-          displayName: userData?.displayName
+          displayName: userData?.displayName,
+          userData: userData
         };
       };
       

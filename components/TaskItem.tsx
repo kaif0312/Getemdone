@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import { playSound } from '@/utils/sounds';
@@ -22,6 +22,7 @@ interface TaskItemProps {
   onDelete: (taskId: string) => void;
   onToggleCommitment?: (taskId: string, committed: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
+  onOpenComments?: (taskId: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
   currentUserId?: string;
   dragHandleProps?: DragHandleProps;
@@ -35,6 +36,7 @@ export default function TaskItem({
   onDelete,
   onToggleCommitment,
   onAddReaction,
+  onOpenComments,
   onDeferTask,
   currentUserId,
   dragHandleProps
@@ -330,6 +332,22 @@ export default function TaskItem({
                   </button>
                 ))}
               </div>
+            )}
+            
+            {/* Comment Button - Visible for all tasks */}
+            {onOpenComments && (
+              <button
+                onClick={() => onOpenComments(task.id)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
+                title="View comments"
+              >
+                <FaComment size={11} className="text-gray-600 dark:text-gray-300" />
+                {task.comments && task.comments.length > 0 && (
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">
+                    {task.comments.length}
+                  </span>
+                )}
+              </button>
             )}
             
             {/* Add Reaction Button - Only for completed tasks */}

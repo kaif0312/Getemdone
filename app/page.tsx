@@ -11,6 +11,7 @@ import SortableTaskItem from '@/components/SortableTaskItem';
 import FriendsModal from '@/components/FriendsModal';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
+import CommentsModal from '@/components/CommentsModal';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp } from 'react-icons/fa';
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -19,11 +20,12 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, toggleCommitment, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, deferTask, reorderTasks } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, toggleCommitment, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -278,6 +280,7 @@ export default function Home() {
                             onToggleCommitment={toggleCommitment}
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
+                            onOpenComments={setSelectedTaskForComments}
                             onDeferTask={deferTask}
                             currentUserId={user.uid}
                           />
@@ -296,6 +299,7 @@ export default function Home() {
                         onToggleCommitment={toggleCommitment}
                         onDelete={deleteTask}
                         onAddReaction={addReaction}
+                        onOpenComments={setSelectedTaskForComments}
                         onDeferTask={deferTask}
                         currentUserId={user.uid}
                       />
@@ -371,6 +375,7 @@ export default function Home() {
                           onTogglePrivacy={togglePrivacy}
                           onDelete={deleteTask}
                           onAddReaction={addReaction}
+                          onOpenComments={setSelectedTaskForComments}
                           onDeferTask={deferTask}
                           currentUserId={user.uid}
                         />
@@ -414,6 +419,7 @@ export default function Home() {
           onTogglePrivacy={togglePrivacy}
           onDelete={deleteTask}
           onAddReaction={addReaction}
+          onOpenComments={setSelectedTaskForComments}
           onDeferTask={deferTask}
         />
       )}
@@ -436,6 +442,23 @@ export default function Home() {
         }}
         getDeletedTasks={getDeletedTasks}
       />
+
+      {/* Comments Modal */}
+      {selectedTaskForComments && (() => {
+        const selectedTask = tasks.find(t => t.id === selectedTaskForComments);
+        if (!selectedTask) return null;
+        
+        return (
+          <CommentsModal
+            isOpen={true}
+            task={selectedTask}
+            currentUserId={user.uid}
+            currentUserName={userData.displayName}
+            onClose={() => setSelectedTaskForComments(null)}
+            onAddComment={addComment}
+          />
+        );
+      })()}
     </div>
   );
 }

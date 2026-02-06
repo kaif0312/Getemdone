@@ -14,7 +14,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Task, TaskWithUser, User, Reaction } from '@/lib/types';
+import { Task, TaskWithUser, User, Reaction, Comment } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useTasks() {
@@ -290,6 +290,29 @@ export function useTasks() {
     }
   };
 
+  const addComment = async (taskId: string, text: string) => {
+    if (!user || !userData) return;
+
+    const taskRef = doc(db, 'tasks', taskId);
+    const taskDoc = await getDoc(taskRef);
+    
+    if (!taskDoc.exists()) return;
+
+    const task = taskDoc.data() as Task;
+    const comments = task.comments || [];
+    
+    const newComment: Comment = {
+      id: `${user.uid}_${Date.now()}`,
+      userId: user.uid,
+      userName: userData.displayName,
+      text: text.substring(0, 500), // Limit to 500 characters
+      timestamp: Date.now(),
+    };
+
+    comments.push(newComment);
+    await updateDoc(taskRef, { comments });
+  };
+
   const deferTask = async (taskId: string, deferToDate: string) => {
     if (!user) return;
 
@@ -322,6 +345,7 @@ export function useTasks() {
     permanentlyDeleteTask,
     getDeletedTasks,
     addReaction,
+    addComment,
     deferTask,
     reorderTasks,
   };

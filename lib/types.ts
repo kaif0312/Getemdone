@@ -23,6 +23,14 @@ export interface Reaction {
   timestamp: number;
 }
 
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -32,6 +40,7 @@ export interface Task {
   createdAt: number;
   completedAt: number | null;
   reactions?: Reaction[];
+  comments?: Comment[];
   deferredTo?: string; // YYYY-MM-DD format - date this task is deferred to
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag

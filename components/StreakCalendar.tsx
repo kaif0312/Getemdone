@@ -14,6 +14,7 @@ interface StreakCalendarProps {
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
   onAddReaction: (taskId: string, emoji: string) => void;
+  onOpenComments?: (taskId: string) => void;
   onDeferTask: (taskId: string, deferToDate: string) => void;
 }
 
@@ -26,6 +27,7 @@ export default function StreakCalendar({
   onTogglePrivacy,
   onDelete,
   onAddReaction,
+  onOpenComments,
   onDeferTask
 }: StreakCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -164,6 +166,7 @@ export default function StreakCalendar({
                     onTogglePrivacy={onTogglePrivacy}
                     onDelete={onDelete}
                     onAddReaction={onAddReaction}
+                    onOpenComments={onOpenComments}
                     onDeferTask={onDeferTask}
                     currentUserId={currentUserId}
                   />

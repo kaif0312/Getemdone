@@ -11,7 +11,8 @@ import SortableTaskItem from '@/components/SortableTaskItem';
 import FriendsModal from '@/components/FriendsModal';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp } from 'react-icons/fa';
+import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 
@@ -93,6 +94,11 @@ export default function Home() {
     }
   };
 
+  const handleShare = async () => {
+    if (!userData) return;
+    await shareMyTasks({ userData, tasks });
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -126,6 +132,14 @@ export default function Home() {
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} />}
+              </button>
+
+              <button
+                onClick={handleShare}
+                className="bg-green-500 dark:bg-green-600 text-white p-3 rounded-full hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                title="Share on WhatsApp"
+              >
+                <FaWhatsapp size={18} />
               </button>
 
               <button

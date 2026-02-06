@@ -369,9 +369,9 @@ export default function TaskItem({
                       onClick={() => setShowDeferPicker(false)}
                     />
                     
-                    {/* Defer Menu - appears below the button */}
+                    {/* Defer Menu - appears above the button */}
                     <div 
-                      className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[99999] min-w-[150px] animate-in fade-in slide-in-from-top-2 duration-200"
+                      className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[99999] min-w-[150px] animate-in fade-in slide-in-from-bottom-2 duration-200"
                     >
                       <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Defer to:</div>
                       <button

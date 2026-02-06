@@ -143,7 +143,7 @@ export default function TaskItem({
         <Confetti onComplete={() => setShowCompletionAnimation(false)} />
       )}
 
-      <div className="relative overflow-hidden rounded-lg">
+      <div className="relative rounded-lg" style={{ overflow: 'visible' }}>
         {/* Swipe Action Background */}
         {swipeOffset !== 0 && isOwnTask && (
           <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">

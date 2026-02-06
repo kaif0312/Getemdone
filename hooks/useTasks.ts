@@ -84,22 +84,29 @@ export function useTasks() {
       );
 
       const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
-        console.log('[useTasks] Own tasks snapshot received, changes:', snapshot.docChanges().length);
+        console.log('[useTasks] Own tasks snapshot received, total docs:', snapshot.docs.length, 'changes:', snapshot.docChanges().length);
+        console.log('[useTasks] All own tasks in snapshot:', snapshot.docs.map(d => ({
+          id: d.id.substring(0, 8),
+          text: d.data().text.substring(0, 20),
+          deleted: d.data().deleted
+        })));
         
         // Only process actual changes to reduce reads
         snapshot.docChanges().forEach((change) => {
           const task = { id: change.doc.id, ...change.doc.data() } as Task;
-          console.log('[useTasks] Own task change:', change.type, task.id, 'Comments:', task.comments?.length || 0);
+          console.log('[useTasks] Own task change:', change.type, task.id, 'Deleted:', task.deleted, 'Comments:', task.comments?.length || 0);
           
           if (change.type === 'removed') {
+            console.log('[useTasks] Task removed from Firestore:', change.doc.id);
             allTasks.delete(change.doc.id);
           } else {
-            // Filter out deleted tasks client-side
-            if (!task.deleted) {
-              allTasks.set(task.id, { ...task, userName: 'You' });
-            } else {
-              // Remove from map if it was marked as deleted
+            // Filter out deleted tasks client-side (only if explicitly deleted: true)
+            if (task.deleted === true) {
+              console.log('[useTasks] Task is soft-deleted, removing from map:', task.id);
               allTasks.delete(change.doc.id);
+            } else {
+              console.log('[useTasks] Adding/updating task in map:', task.id);
+              allTasks.set(task.id, { ...task, userName: 'You' });
             }
           }
         });
@@ -137,20 +144,21 @@ export function useTasks() {
           // Only process actual changes to reduce reads
           snapshot.docChanges().forEach((change) => {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
-            console.log('[useTasks] Friend task change:', change.type, task.id, 'User:', task.userId, 'Comments:', task.comments?.length || 0);
+            console.log('[useTasks] Friend task change:', change.type, task.id, 'User:', task.userId, 'Deleted:', task.deleted, 'Comments:', task.comments?.length || 0);
             
             if (change.type === 'removed') {
+              console.log('[useTasks] Friend task removed from Firestore:', change.doc.id);
               allTasks.delete(change.doc.id);
             } else {
-              // Filter out deleted tasks client-side
-              if (!task.deleted) {
+              // Filter out deleted tasks client-side (only if explicitly deleted: true)
+              if (task.deleted === true) {
+                console.log('[useTasks] Friend task is soft-deleted, removing from map:', task.id);
+                allTasks.delete(change.doc.id);
+              } else {
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
-                console.log('[useTasks] Adding friend task to map:', task.id, 'userName:', userName);
+                console.log('[useTasks] Adding/updating friend task in map:', task.id, 'userName:', userName);
                 allTasks.set(task.id, { ...task, userName });
-              } else {
-                // Remove from map if it was marked as deleted
-                allTasks.delete(change.doc.id);
               }
             }
           });
@@ -185,7 +193,7 @@ export function useTasks() {
       ? Math.max(...userTasks.map(t => t.order || 0))
       : 0;
 
-    await addDoc(collection(db, 'tasks'), {
+    const newTask = {
       userId: user.uid,
       text,
       isPrivate,
@@ -193,7 +201,12 @@ export function useTasks() {
       createdAt: Date.now(),
       completedAt: null,
       order: maxOrder + 1,
-    });
+      deleted: false, // Explicitly set deleted to false
+    };
+    
+    console.log('[addTask] Creating new task:', newTask);
+    await addDoc(collection(db, 'tasks'), newTask);
+    console.log('[addTask] Task created successfully');
   };
 
   const toggleComplete = async (taskId: string, completed: boolean) => {

@@ -60,7 +60,8 @@ service cloud.firestore {
         (request.resource.data.completedAt == null || request.resource.data.completedAt is int) &&
         (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string) &&
         (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number) &&
-        (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool);
+        (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
+        (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool);
       
       // Users can update their own tasks OR add reactions/comments to friends' tasks
       allow update: if isAuthenticated() && (

@@ -36,16 +36,32 @@ export default function RecycleBin({
   };
 
   const handleRestore = async (taskId: string) => {
-    await onRestore(taskId);
-    // Remove from local state
+    // Optimistic UI update - remove immediately for instant feedback
     setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
+    
+    // Then perform the actual restore in the background
+    try {
+      await onRestore(taskId);
+    } catch (error) {
+      console.error('Failed to restore task:', error);
+      // If it fails, reload the deleted tasks
+      loadDeletedTasks();
+    }
   };
 
   const handlePermanentDelete = async (taskId: string) => {
     if (confirm('Are you sure? This task will be permanently deleted and cannot be recovered.')) {
-      await onPermanentDelete(taskId);
-      // Remove from local state
+      // Optimistic UI update - remove immediately for instant feedback
       setDeletedTasks(prev => prev.filter(t => t.id !== taskId));
+      
+      // Then perform the actual delete in the background
+      try {
+        await onPermanentDelete(taskId);
+      } catch (error) {
+        console.error('Failed to permanently delete task:', error);
+        // If it fails, reload the deleted tasks
+        loadDeletedTasks();
+      }
     }
   };
 
@@ -129,21 +145,21 @@ export default function RecycleBin({
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Action Buttons - Always visible for mobile */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleRestore(task.id)}
-                          className="p-2 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg transition-colors"
+                          className="p-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-400 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                           title="Restore task"
                         >
-                          <FaUndo size={16} />
+                          <FaUndo size={18} />
                         </button>
                         <button
                           onClick={() => handlePermanentDelete(task.id)}
-                          className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                          className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                           title="Delete permanently"
                         >
-                          <FaTrash size={16} />
+                          <FaTrash size={18} />
                         </button>
                       </div>
                     </div>
@@ -157,7 +173,7 @@ export default function RecycleBin({
           {deletedTasks.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                💡 Tip: Hover over a task to restore or permanently delete it
+                💡 Tip: Tap the green button to restore or red button to permanently delete
               </p>
             </div>
           )}

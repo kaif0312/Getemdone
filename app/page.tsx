@@ -220,26 +220,42 @@ export default function Home() {
               const today = new Date();
               const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               
+              console.log('[Home] Filtering tasks for display, total tasks:', tasks.length, 'todayStr:', todayStr);
+              
               const myTasks = tasks.filter(task => {
-                if (task.userId !== user.uid) return false;
+                if (task.userId !== user.uid) {
+                  console.log('[Home] Task filtered out (not my task):', task.id.substring(0, 8));
+                  return false;
+                }
+                
+                console.log('[Home] My task:', task.id.substring(0, 8), 'deferredTo:', task.deferredTo, 'completed:', task.completed);
                 
                 // Hide deferred tasks that are deferred to a future date
                 if (task.deferredTo && task.deferredTo > todayStr) {
+                  console.log('[Home] Task filtered out (deferred to future):', task.id.substring(0, 8), 'deferredTo:', task.deferredTo, '> todayStr:', todayStr);
                   return false;
                 }
                 
                 // Show incomplete tasks (including deferred to today or past)
-                if (!task.completed) return true;
+                if (!task.completed) {
+                  console.log('[Home] Task INCLUDED (incomplete):', task.id.substring(0, 8));
+                  return true;
+                }
                 
                 // For completed tasks, only show if completed today
                 if (task.completedAt) {
                   const completedDate = new Date(task.completedAt);
                   const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
-                  return completedStr === todayStr;
+                  const shouldShow = completedStr === todayStr;
+                  console.log('[Home] Task completed:', task.id.substring(0, 8), 'completedStr:', completedStr, 'shouldShow:', shouldShow);
+                  return shouldShow;
                 }
                 
+                console.log('[Home] Task filtered out (no condition matched):', task.id.substring(0, 8));
                 return false;
               });
+              
+              console.log('[Home] After filtering, myTasks count:', myTasks.length);
 
               // Separate incomplete and completed tasks
               const incompleteTasks = myTasks.filter(t => !t.completed).sort((a, b) => (a.order || 0) - (b.order || 0));

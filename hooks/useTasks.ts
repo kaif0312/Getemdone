@@ -22,6 +22,27 @@ export function useTasks() {
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Debug function to check specific task in Firestore
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).checkTask = async (taskId: string) => {
+        try {
+          const taskRef = doc(db, 'tasks', taskId);
+          const taskDoc = await getDoc(taskRef);
+          if (taskDoc.exists()) {
+            console.log('[checkTask] Task exists in Firestore:', taskDoc.data());
+            return taskDoc.data();
+          } else {
+            console.log('[checkTask] Task does NOT exist in Firestore');
+            return null;
+          }
+        } catch (error) {
+          console.error('[checkTask] Error:', error);
+        }
+      };
+    }
+  }, []);
+
   useEffect(() => {
     console.log('[useTasks] useEffect triggered, user:', user?.uid.substring(0, 8), 'userData:', userData?.displayName);
     
@@ -250,12 +271,16 @@ export function useTasks() {
   };
 
   const deleteTask = async (taskId: string) => {
+    console.log('[deleteTask] Soft deleting task:', taskId);
+    console.trace('[deleteTask] Stack trace:'); // This will show WHO called deleteTask
+    
     // Soft delete - mark as deleted instead of permanently removing
     const taskRef = doc(db, 'tasks', taskId);
     await updateDoc(taskRef, {
       deleted: true,
       deletedAt: Date.now(),
     });
+    console.log('[deleteTask] Task marked as deleted:', taskId);
   };
 
   const restoreTask = async (taskId: string) => {

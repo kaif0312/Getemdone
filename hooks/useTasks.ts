@@ -11,7 +11,8 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  getDoc
+  getDoc,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Task, TaskWithUser, User, Reaction, Comment } from '@/lib/types';
@@ -27,21 +28,67 @@ export function useTasks() {
     if (typeof window !== 'undefined') {
       (window as any).checkTask = async (taskId: string) => {
         try {
+          console.log('[checkTask] Checking task:', taskId);
+          console.log('[checkTask] Current user:', user?.uid);
+          
           const taskRef = doc(db, 'tasks', taskId);
           const taskDoc = await getDoc(taskRef);
+          
           if (taskDoc.exists()) {
-            console.log('[checkTask] Task exists in Firestore:', taskDoc.data());
-            return taskDoc.data();
+            const data = taskDoc.data();
+            console.log('[checkTask] ✅ Task EXISTS in Firestore:', data);
+            console.log('[checkTask] Task userId:', data.userId);
+            console.log('[checkTask] Your userId:', user?.uid);
+            console.log('[checkTask] Match?', data.userId === user?.uid);
+            return data;
           } else {
-            console.log('[checkTask] Task does NOT exist in Firestore');
+            console.log('[checkTask] ❌ Task does NOT exist in Firestore');
             return null;
           }
+        } catch (error: any) {
+          if (error.code === 'permission-denied') {
+            console.error('[checkTask] ⚠️ PERMISSION DENIED - Task exists but you cannot read it');
+            console.error('[checkTask] This usually means:');
+            console.error('[checkTask] 1. Task has wrong userId (not yours)');
+            console.error('[checkTask] 2. Task is private and you are not the owner');
+            console.error('[checkTask] 3. Task was deleted from Firestore');
+          } else {
+            console.error('[checkTask] Error:', error);
+          }
+          return null;
+        }
+      };
+      
+      // Function to list all your tasks directly from Firestore
+      (window as any).listMyTasks = async () => {
+        if (!user) {
+          console.log('[listMyTasks] No user logged in');
+          return [];
+        }
+        
+        try {
+          const tasksRef = collection(db, 'tasks');
+          const q = query(tasksRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+          const snapshot = await getDocs(q);
+          
+          console.log('[listMyTasks] Found', snapshot.docs.length, 'tasks in Firestore');
+          const tasksList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          tasksList.forEach((task: any, index) => {
+            console.log(`[listMyTasks] ${index + 1}. ID: ${task.id} | Text: "${task.text.substring(0, 30)}" | Deleted: ${task.deleted || false}`);
+          });
+          
+          return tasksList;
         } catch (error) {
-          console.error('[checkTask] Error:', error);
+          console.error('[listMyTasks] Error:', error);
+          return [];
         }
       };
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     console.log('[useTasks] useEffect triggered, user:', user?.uid.substring(0, 8), 'userData:', userData?.displayName);

@@ -23,12 +23,16 @@ export function useTasks() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[useTasks] useEffect triggered, user:', user?.uid.substring(0, 8), 'userData:', userData?.displayName);
+    
     if (!user || !userData) {
+      console.log('[useTasks] No user/userData, clearing tasks');
       setTasks([]);
       setLoading(false);
       return;
     }
 
+    console.log('[useTasks] Setting up listeners for user:', user.uid.substring(0, 8));
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
     const allTasks = new Map<string, TaskWithUser>();
@@ -76,12 +80,16 @@ export function useTasks() {
     
     // Pre-fetch friend names before setting up listeners
     prefetchFriendNames().then(() => {
+      console.log('[useTasks] Setting up own tasks query for userId:', user.uid.substring(0, 8));
+      
       // Query 1: Get user's own tasks (private + public)
       const ownTasksQuery = query(
         tasksRef,
         where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
+      
+      console.log('[useTasks] Own tasks query created, starting listener...');
 
       const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
         console.log('[useTasks] Own tasks snapshot received, total docs:', snapshot.docs.length, 'changes:', snapshot.docChanges().length);
@@ -177,10 +185,12 @@ export function useTasks() {
     });
 
     return () => {
+      console.log('[useTasks] Cleaning up listeners');
       if (updateTimer) {
         clearTimeout(updateTimer);
       }
       unsubscribers.forEach(unsub => unsub());
+      console.log('[useTasks] Cleanup complete, unsubscribed from', unsubscribers.length, 'listeners');
     };
   }, [user, userData]);
 
@@ -205,8 +215,16 @@ export function useTasks() {
     };
     
     console.log('[addTask] Creating new task:', newTask);
-    await addDoc(collection(db, 'tasks'), newTask);
-    console.log('[addTask] Task created successfully');
+    const docRef = await addDoc(collection(db, 'tasks'), newTask);
+    console.log('[addTask] Task created successfully with ID:', docRef.id);
+    
+    // Verify task was created by reading it back
+    const verifyDoc = await getDoc(docRef);
+    if (verifyDoc.exists()) {
+      console.log('[addTask] Verified task exists in Firestore:', verifyDoc.data());
+    } else {
+      console.error('[addTask] ERROR: Task not found after creation!');
+    }
   };
 
   const toggleComplete = async (taskId: string, completed: boolean) => {

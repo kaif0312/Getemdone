@@ -221,10 +221,11 @@ export default function Home() {
               const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               
               console.log('[Home] Filtering tasks for display, total tasks:', tasks.length, 'todayStr:', todayStr);
+              console.log('[Home] Current user.uid:', user.uid);
               
               const myTasks = tasks.filter(task => {
                 if (task.userId !== user.uid) {
-                  console.log('[Home] Task filtered out (not my task):', task.id.substring(0, 8));
+                  console.log('[Home] Task filtered out (not my task):', task.id.substring(0, 8), 'Task userId:', task.userId, 'My uid:', user.uid, 'Match:', task.userId === user.uid);
                   return false;
                 }
                 

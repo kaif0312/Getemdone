@@ -66,26 +66,69 @@ export function useTasks() {
           return [];
         }
         
+        console.log('[listMyTasks] Current user.uid:', user.uid);
+        
         try {
           const tasksRef = collection(db, 'tasks');
           const q = query(tasksRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
           const snapshot = await getDocs(q);
           
-          console.log('[listMyTasks] Found', snapshot.docs.length, 'tasks in Firestore');
+          console.log('[listMyTasks] Found', snapshot.docs.length, 'tasks in Firestore for user:', user.uid);
           const tasksList = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           }));
           
           tasksList.forEach((task: any, index) => {
-            console.log(`[listMyTasks] ${index + 1}. ID: ${task.id} | Text: "${task.text.substring(0, 30)}" | Deleted: ${task.deleted || false}`);
+            console.log(`[listMyTasks] ${index + 1}. ID: ${task.id} | Text: "${task.text.substring(0, 30)}" | userId: ${task.userId} | Deleted: ${task.deleted || false}`);
           });
+          
+          console.log('[listMyTasks] Comparing: Current user.uid =', user.uid);
+          console.log('[listMyTasks] All tasks have matching userId?', tasksList.every((t: any) => t.userId === user.uid));
           
           return tasksList;
         } catch (error) {
           console.error('[listMyTasks] Error:', error);
           return [];
         }
+      };
+      
+      // Function to check what user is currently logged in
+      (window as any).whoAmI = () => {
+        if (!user) {
+          console.log('[whoAmI] No user logged in');
+          return null;
+        }
+        console.log('[whoAmI] Current user:');
+        console.log('  - UID:', user.uid);
+        console.log('  - Email:', user.email);
+        console.log('  - Display Name:', userData?.displayName);
+        return {
+          uid: user.uid,
+          email: user.email,
+          displayName: userData?.displayName
+        };
+      };
+      
+      // Function to see ALL tasks in current state (regardless of filtering)
+      (window as any).debugTasks = () => {
+        console.log('[debugTasks] Total tasks in state:', tasks.length);
+        console.log('[debugTasks] Current user.uid:', user?.uid);
+        
+        const myTasks = tasks.filter(t => t.userId === user?.uid);
+        const otherTasks = tasks.filter(t => t.userId !== user?.uid);
+        
+        console.log('[debugTasks] Tasks with MY userId:', myTasks.length);
+        myTasks.forEach((t, i) => {
+          console.log(`  ${i+1}. ${t.id.substring(0,8)} | "${t.text.substring(0,20)}" | userName: ${t.userName}`);
+        });
+        
+        console.log('[debugTasks] Tasks with OTHER userId:', otherTasks.length);
+        otherTasks.forEach((t, i) => {
+          console.log(`  ${i+1}. ${t.id.substring(0,8)} | "${t.text.substring(0,20)}" | userId: ${t.userId.substring(0,8)} | userName: ${t.userName}`);
+        });
+        
+        return { myTasks, otherTasks, total: tasks.length };
       };
     }
   }, [user]);
@@ -170,7 +213,7 @@ export function useTasks() {
         // Only process actual changes to reduce reads
         snapshot.docChanges().forEach((change) => {
           const task = { id: change.doc.id, ...change.doc.data() } as Task;
-          console.log('[useTasks] Own task change:', change.type, task.id, 'Deleted:', task.deleted, 'Comments:', task.comments?.length || 0);
+          console.log('[useTasks] Own task change:', change.type, task.id, 'userId:', task.userId, 'Expected:', user.uid, 'Match:', task.userId === user.uid, 'Deleted:', task.deleted);
           
           if (change.type === 'removed') {
             console.log('[useTasks] Task removed from Firestore:', change.doc.id);
@@ -181,7 +224,7 @@ export function useTasks() {
               console.log('[useTasks] Task is soft-deleted, removing from map:', task.id);
               allTasks.delete(change.doc.id);
             } else {
-              console.log('[useTasks] Adding/updating task in map:', task.id);
+              console.log('[useTasks] Adding/updating task in map:', task.id, 'with userName: You');
               allTasks.set(task.id, { ...task, userName: 'You' });
             }
           }

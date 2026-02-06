@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
 import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck } from 'react-icons/fa';
@@ -35,6 +35,19 @@ export default function TaskItem({
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
+  const [deferMenuPosition, setDeferMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const deferButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Calculate defer menu position when it opens
+  useEffect(() => {
+    if (showDeferPicker && deferButtonRef.current) {
+      const rect = deferButtonRef.current.getBoundingClientRect();
+      setDeferMenuPosition({
+        top: rect.bottom + 8, // 8px below the button
+        right: window.innerWidth - rect.right, // Align to right edge of button
+      });
+    }
+  }, [showDeferPicker]);
 
   const handleToggleComplete = async () => {
     if (!isOwnTask) return;
@@ -330,8 +343,9 @@ export default function TaskItem({
           <div className="flex items-center gap-1">
             {/* Defer Button - Only for incomplete tasks */}
             {!task.completed && onDeferTask && (
-              <div className="relative z-[10000]">
+              <div className="relative">
                 <button
+                  ref={deferButtonRef}
                   onClick={() => setShowDeferPicker(!showDeferPicker)}
                   className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
                   title="Defer task"
@@ -339,16 +353,22 @@ export default function TaskItem({
                   <FaCalendarPlus className="text-amber-600 dark:text-amber-500" size={16} />
                 </button>
                 
-                {showDeferPicker && (
+                {showDeferPicker && deferMenuPosition && (
                   <>
                     {/* Backdrop */}
                     <div 
-                      className="fixed inset-0 z-[9998]" 
+                      className="fixed inset-0 z-[99998]" 
                       onClick={() => setShowDeferPicker(false)}
                     />
                     
-                    {/* Defer Menu */}
-                    <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[9999] min-w-[150px]">
+                    {/* Defer Menu - using fixed positioning to escape stacking context */}
+                    <div 
+                      className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-2 z-[99999] min-w-[150px] animate-in fade-in zoom-in duration-150"
+                      style={{
+                        top: `${deferMenuPosition.top}px`,
+                        right: `${deferMenuPosition.right}px`,
+                      }}
+                    >
                       <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">Defer to:</div>
                       <button
                         onClick={() => handleDeferTask(1)}

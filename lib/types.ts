@@ -33,6 +33,8 @@ export interface Task {
   reactions?: Reaction[];
   deferredTo?: string; // YYYY-MM-DD format - date this task is deferred to
   order?: number; // For drag-and-drop ordering
+  deleted?: boolean; // Soft delete flag
+  deletedAt?: number | null; // Timestamp when deleted
 }
 
 export interface TaskWithUser extends Task {

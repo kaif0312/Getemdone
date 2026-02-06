@@ -10,16 +10,19 @@ import TaskItem from '@/components/TaskItem';
 import SortableTaskItem from '@/components/SortableTaskItem';
 import FriendsModal from '@/components/FriendsModal';
 import StreakCalendar from '@/components/StreakCalendar';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
+import RecycleBin from '@/components/RecycleBin';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash } from 'react-icons/fa';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, deleteTask, addReaction, deferTask, reorderTasks } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, deferTask, reorderTasks } = useTasks();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [deletedCount, setDeletedCount] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -68,6 +71,13 @@ export default function Home() {
       updateStreakData();
     }
   }, [user, userData, updateStreakData]);
+
+  // Update deleted tasks count
+  useEffect(() => {
+    if (user) {
+      getDeletedTasks().then(tasks => setDeletedCount(tasks.length));
+    }
+  }, [user, tasks]); // Re-check when tasks change
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
     await toggleComplete(taskId, completed);
@@ -118,6 +128,19 @@ export default function Home() {
                 title="Manage Friends"
               >
                 <FaUsers size={18} />
+              </button>
+
+              <button
+                onClick={() => setShowRecycleBin(true)}
+                className="relative bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                title="Recycle Bin"
+              >
+                <FaTrash size={18} />
+                {deletedCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {deletedCount > 9 ? '9+' : deletedCount}
+                  </span>
+                )}
               </button>
               
               <button
@@ -372,6 +395,25 @@ export default function Home() {
           onDeferTask={deferTask}
         />
       )}
+
+      {/* Recycle Bin Modal */}
+      <RecycleBin
+        isOpen={showRecycleBin}
+        onClose={() => setShowRecycleBin(false)}
+        onRestore={async (taskId) => {
+          await restoreTask(taskId);
+          // Refresh deleted count
+          const deletedTasks = await getDeletedTasks();
+          setDeletedCount(deletedTasks.length);
+        }}
+        onPermanentDelete={async (taskId) => {
+          await permanentlyDeleteTask(taskId);
+          // Refresh deleted count
+          const deletedTasks = await getDeletedTasks();
+          setDeletedCount(deletedTasks.length);
+        }}
+        getDeletedTasks={getDeletedTasks}
+      />
     </div>
   );
 }

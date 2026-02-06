@@ -68,10 +68,11 @@ export function useTasks() {
     
     // Pre-fetch friend names before setting up listeners
     prefetchFriendNames().then(() => {
-      // Query 1: Get user's own tasks (private + public)
+      // Query 1: Get user's own tasks (private + public) - exclude deleted
       const ownTasksQuery = query(
         tasksRef,
         where('userId', '==', user.uid),
+        where('deleted', '!=', true),
         orderBy('createdAt', 'desc')
       );
 
@@ -108,6 +109,7 @@ export function useTasks() {
           tasksRef,
           where('userId', 'in', friendsToQuery),
           where('isPrivate', '==', false),
+          where('deleted', '!=', true),
           orderBy('createdAt', 'desc')
         );
 
@@ -181,7 +183,58 @@ export function useTasks() {
   };
 
   const deleteTask = async (taskId: string) => {
+    // Soft delete - mark as deleted instead of permanently removing
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      deleted: true,
+      deletedAt: Date.now(),
+    });
+  };
+
+  const restoreTask = async (taskId: string) => {
+    // Restore a deleted task
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      deleted: false,
+      deletedAt: null,
+    });
+  };
+
+  const permanentlyDeleteTask = async (taskId: string) => {
+    // Permanently delete task from database
     await deleteDoc(doc(db, 'tasks', taskId));
+  };
+
+  const getDeletedTasks = () => {
+    // This will be used by the RecycleBin component
+    return new Promise<TaskWithUser[]>((resolve) => {
+      if (!user) {
+        resolve([]);
+        return;
+      }
+
+      const tasksRef = collection(db, 'tasks');
+      const deletedQuery = query(
+        tasksRef,
+        where('userId', '==', user.uid),
+        where('deleted', '==', true),
+        orderBy('deletedAt', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(deletedQuery, (snapshot) => {
+        const deletedTasks = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          userName: 'You',
+        })) as TaskWithUser[];
+        
+        unsubscribe(); // Unsubscribe immediately after getting data
+        resolve(deletedTasks);
+      }, (error) => {
+        console.error('Error fetching deleted tasks:', error);
+        resolve([]);
+      });
+    });
   };
 
   const addReaction = async (taskId: string, emoji: string) => {
@@ -247,6 +300,9 @@ export function useTasks() {
     toggleComplete,
     togglePrivacy,
     deleteTask,
+    restoreTask,
+    permanentlyDeleteTask,
+    getDeletedTasks,
     addReaction,
     deferTask,
     reorderTasks,

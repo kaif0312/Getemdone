@@ -35,6 +35,7 @@ export function useVoiceInput({
   const recognitionRef = useRef<any>(null);
   const hasReceivedSpeech = useRef(false);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isManuallyStopped = useRef(false);
 
   useEffect(() => {
     // Check if Web Speech API is supported
@@ -82,16 +83,17 @@ export function useVoiceInput({
         recognitionRef.current.onend = () => {
           console.log('[useVoiceInput] onend event fired!');
           console.log('[useVoiceInput] Has received speech:', hasReceivedSpeech.current);
+          console.log('[useVoiceInput] Is manually stopped:', isManuallyStopped.current);
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,hasReceivedSpeech:hasReceivedSpeech.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,hasReceivedSpeech:hasReceivedSpeech.current,isManuallyStopped:isManuallyStopped.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
           // #endregion
           
-          // If we haven't received any speech yet and continuous mode is on, try to restart
-          if (continuous && !hasReceivedSpeech.current && recognitionRef.current) {
+          // Only auto-restart if NOT manually stopped and haven't received speech yet
+          if (continuous && !hasReceivedSpeech.current && !isManuallyStopped.current && recognitionRef.current) {
             console.log('[useVoiceInput] Auto-restarting recognition...');
             restartTimeoutRef.current = setTimeout(() => {
               try {
-                if (recognitionRef.current) {
+                if (recognitionRef.current && !isManuallyStopped.current) {
                   recognitionRef.current.start();
                   console.log('[useVoiceInput] Recognition restarted');
                 }
@@ -105,6 +107,7 @@ export function useVoiceInput({
             setIsListening(false);
             setInterimTranscript('');
             hasReceivedSpeech.current = false;
+            isManuallyStopped.current = false;
           }
         };
         
@@ -259,6 +262,10 @@ export function useVoiceInput({
     console.log('[useVoiceInput] isListening:', isListening);
     console.log('[useVoiceInput] language:', language);
     
+    // Reset the manually stopped flag when starting
+    isManuallyStopped.current = false;
+    hasReceivedSpeech.current = false;
+    
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:startListening',message:'Checking mic permissions',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
     // #endregion
@@ -305,15 +312,32 @@ export function useVoiceInput({
   }, [isListening, language, onError]);
 
   const stopListening = useCallback(() => {
+    console.log('[useVoiceInput] stopListening called - manually stopping');
+    
+    // Set the manually stopped flag FIRST
+    isManuallyStopped.current = true;
+    hasReceivedSpeech.current = false;
+    
+    // Clear any pending restart
     if (restartTimeoutRef.current) {
       clearTimeout(restartTimeoutRef.current);
       restartTimeoutRef.current = null;
     }
-    if (recognitionRef.current && isListening) {
-      hasReceivedSpeech.current = false;
-      recognitionRef.current.stop();
+    
+    // Stop recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        console.log('[useVoiceInput] Recognition stopped');
+      } catch (err) {
+        console.error('[useVoiceInput] Error stopping recognition:', err);
+      }
     }
-  }, [isListening]);
+    
+    // Update UI state
+    setIsListening(false);
+    setInterimTranscript('');
+  }, []);
 
   const resetTranscript = useCallback(() => {
     setTranscript('');

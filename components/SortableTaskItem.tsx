@@ -22,6 +22,7 @@ export default function SortableTaskItem(props: SortableTaskItemProps) {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -33,30 +34,38 @@ export default function SortableTaskItem(props: SortableTaskItemProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.7 : 1,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const canDrag = props.isOwnTask && !props.task.completed;
+
+  const handleDragStart = () => {
+    // Haptic feedback when drag starts
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+  };
 
   return (
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`relative group ${isDragging ? 'z-50 shadow-2xl' : ''}`}
+      className={`relative ${isDragging ? 'z-50 shadow-2xl scale-105' : ''} transition-transform`}
     >
-      {canDrag && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
-          style={{ touchAction: 'none' }}
-        >
-          <div className="bg-gray-200 hover:bg-gray-300 rounded p-1">
-            <MdDragIndicator size={20} className="text-gray-600" />
-          </div>
-        </div>
-      )}
-      <TaskItem {...props} />
+      <TaskItem 
+        {...props} 
+        dragHandleProps={canDrag ? {
+          ref: setActivatorNodeRef,
+          attributes,
+          listeners: {
+            ...listeners,
+            onPointerDown: (e: React.PointerEvent) => {
+              handleDragStart();
+              listeners?.onPointerDown?.(e as any);
+            }
+          }
+        } : undefined}
+      />
     </div>
   );
 }

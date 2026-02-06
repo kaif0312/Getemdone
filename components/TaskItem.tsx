@@ -3,10 +3,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import { playSound } from '@/utils/sounds';
+
+interface DragHandleProps {
+  ref: (element: HTMLElement | null) => void;
+  attributes: any;
+  listeners: any;
+}
 
 interface TaskItemProps {
   task: TaskWithUser;
@@ -17,6 +23,7 @@ interface TaskItemProps {
   onAddReaction?: (taskId: string, emoji: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
   currentUserId?: string;
+  dragHandleProps?: DragHandleProps;
 }
 
 export default function TaskItem({ 
@@ -27,7 +34,8 @@ export default function TaskItem({
   onDelete,
   onAddReaction,
   onDeferTask,
-  currentUserId
+  currentUserId,
+  dragHandleProps
 }: TaskItemProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showDeferPicker, setShowDeferPicker] = useState(false);
@@ -229,10 +237,24 @@ export default function TaskItem({
           }`}
         >
         <div className="flex items-start gap-3">
+          {/* Drag Handle - Mobile-friendly, always visible */}
+          {dragHandleProps && (
+            <button
+              ref={dragHandleProps.ref}
+              {...dragHandleProps.attributes}
+              {...dragHandleProps.listeners}
+              className="flex-shrink-0 p-2 -ml-2 touch-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors mt-0.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              title="Drag to reorder"
+              style={{ touchAction: 'none' }}
+            >
+              <FaGripVertical size={18} />
+            </button>
+          )}
+
           <button
             onClick={handleToggleComplete}
             disabled={!isOwnTask}
-            className={`min-w-[24px] min-h-[24px] w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-300 mt-1 relative ${
+            className={`min-w-[24px] min-h-[24px] w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-300 mt-1 relative flex-shrink-0 ${
               task.completed 
                 ? 'bg-green-500 border-green-500 scale-110 shadow-lg shadow-green-500/50' 
                 : 'border-gray-300 hover:border-green-400 hover:scale-105 hover:shadow-md active:scale-95'

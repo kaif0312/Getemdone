@@ -68,11 +68,10 @@ export function useTasks() {
     
     // Pre-fetch friend names before setting up listeners
     prefetchFriendNames().then(() => {
-      // Query 1: Get user's own tasks (private + public) - exclude deleted
+      // Query 1: Get user's own tasks (private + public)
       const ownTasksQuery = query(
         tasksRef,
         where('userId', '==', user.uid),
-        where('deleted', '!=', true),
         orderBy('createdAt', 'desc')
       );
 
@@ -84,7 +83,13 @@ export function useTasks() {
           if (change.type === 'removed') {
             allTasks.delete(change.doc.id);
           } else {
-            allTasks.set(task.id, { ...task, userName: 'You' });
+            // Filter out deleted tasks client-side
+            if (!task.deleted) {
+              allTasks.set(task.id, { ...task, userName: 'You' });
+            } else {
+              // Remove from map if it was marked as deleted
+              allTasks.delete(change.doc.id);
+            }
           }
         });
         
@@ -109,7 +114,6 @@ export function useTasks() {
           tasksRef,
           where('userId', 'in', friendsToQuery),
           where('isPrivate', '==', false),
-          where('deleted', '!=', true),
           orderBy('createdAt', 'desc')
         );
 
@@ -121,9 +125,15 @@ export function useTasks() {
             if (change.type === 'removed') {
               allTasks.delete(change.doc.id);
             } else {
-              // Get friend's name from cache
-              const userName = friendNameCache.get(task.userId) || 'Unknown';
-              allTasks.set(task.id, { ...task, userName });
+              // Filter out deleted tasks client-side
+              if (!task.deleted) {
+                // Get friend's name from cache
+                const userName = friendNameCache.get(task.userId) || 'Unknown';
+                allTasks.set(task.id, { ...task, userName });
+              } else {
+                // Remove from map if it was marked as deleted
+                allTasks.delete(change.doc.id);
+              }
             }
           });
           

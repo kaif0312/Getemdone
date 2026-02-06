@@ -277,13 +277,13 @@ export default function TaskItem({
             
             {/* Add Reaction Button - Only for completed tasks */}
             {task.completed && onAddReaction && (
-              <div className="relative">
+              <div className="relative z-[10000]">
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
                   title="Add reaction"
                 >
-                  <FaSmile size={12} className="text-gray-600" />
+                  <FaSmile size={12} className="text-gray-600 dark:text-gray-300" />
                 </button>
                 
                 {showEmojiPicker && (

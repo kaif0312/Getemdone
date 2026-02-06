@@ -33,6 +33,8 @@ export function useVoiceInput({
   const [isSupported, setIsSupported] = useState(false);
   
   const recognitionRef = useRef<any>(null);
+  const hasReceivedSpeech = useRef(false);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check if Web Speech API is supported
@@ -79,11 +81,31 @@ export function useVoiceInput({
 
         recognitionRef.current.onend = () => {
           console.log('[useVoiceInput] onend event fired!');
+          console.log('[useVoiceInput] Has received speech:', hasReceivedSpeech.current);
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,hasReceivedSpeech:hasReceivedSpeech.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
           // #endregion
-          setIsListening(false);
-          setInterimTranscript('');
+          
+          // If we haven't received any speech yet and continuous mode is on, try to restart
+          if (continuous && !hasReceivedSpeech.current && recognitionRef.current) {
+            console.log('[useVoiceInput] Auto-restarting recognition...');
+            restartTimeoutRef.current = setTimeout(() => {
+              try {
+                if (recognitionRef.current) {
+                  recognitionRef.current.start();
+                  console.log('[useVoiceInput] Recognition restarted');
+                }
+              } catch (err) {
+                console.error('[useVoiceInput] Failed to restart:', err);
+                setIsListening(false);
+                setInterimTranscript('');
+              }
+            }, 100);
+          } else {
+            setIsListening(false);
+            setInterimTranscript('');
+            hasReceivedSpeech.current = false;
+          }
         };
         
         recognitionRef.current.onaudiostart = () => {
@@ -118,6 +140,7 @@ export function useVoiceInput({
         
         recognitionRef.current.onspeechstart = () => {
           console.log('[useVoiceInput] onspeechstart - speech detected!');
+          hasReceivedSpeech.current = true;
           // #region agent log
           fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onspeechstart',message:'Speech detected',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
           // #endregion
@@ -221,6 +244,9 @@ export function useVoiceInput({
     }
 
     return () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
@@ -279,7 +305,12 @@ export function useVoiceInput({
   }, [isListening, language, onError]);
 
   const stopListening = useCallback(() => {
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
     if (recognitionRef.current && isListening) {
+      hasReceivedSpeech.current = false;
       recognitionRef.current.stop();
     }
   }, [isListening]);

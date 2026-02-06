@@ -93,7 +93,16 @@ export default function TaskItem({
       if (!isOwnTask) return;
       
       const deltaX = eventData.deltaX;
+      const deltaY = eventData.deltaY;
       const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      
+      // Only activate swipe if horizontal movement is significantly more than vertical
+      // This prevents interference with vertical scrolling
+      if (absY > absX * 0.5) {
+        // More vertical than horizontal - allow scrolling, don't swipe
+        return;
+      }
       
       // Only allow swipe if not already completed (for complete action) or if completed (for delete)
       if (deltaX > 0 && !task.completed) {
@@ -110,8 +119,17 @@ export default function TaskItem({
       if (!isOwnTask) return;
       
       const absX = Math.abs(eventData.deltaX);
+      const absY = Math.abs(eventData.deltaY);
       
-      if (absX > 100) { // Threshold for action
+      // Only trigger action if it was clearly a horizontal swipe
+      if (absY > absX * 0.5) {
+        // Was more vertical than horizontal - cancel swipe
+        setSwipeOffset(0);
+        setSwipeAction(null);
+        return;
+      }
+      
+      if (absX > 120) { // Increased threshold for action (was 100)
         if (eventData.deltaX > 0 && !task.completed) {
           // Complete task
           handleToggleComplete();
@@ -133,7 +151,8 @@ export default function TaskItem({
     },
     trackMouse: false, // Disable mouse swiping on desktop to avoid conflicts with drag-to-reorder
     trackTouch: true,
-    preventScrollOnSwipe: true,
+    preventScrollOnSwipe: false, // CHANGED: Allow vertical scroll to work
+    delta: 15, // Require 15px movement before recognizing swipe (prevents accidental triggers)
   });
 
   return (

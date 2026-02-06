@@ -33,9 +33,6 @@ export function useVoiceInput({
   const [isSupported, setIsSupported] = useState(false);
   
   const recognitionRef = useRef<any>(null);
-  const hasReceivedSpeech = useRef(false);
-  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isManuallyStopped = useRef(false);
 
   useEffect(() => {
     // Check if Web Speech API is supported
@@ -73,10 +70,7 @@ export function useVoiceInput({
         console.log('[useVoiceInput] maxAlternatives:', 1);
 
         recognitionRef.current.onstart = () => {
-          console.log('[useVoiceInput] onstart event fired!');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onstart',message:'Recognition started',data:{lang:language,continuous:continuous},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
+          console.log('[useVoiceInput] Recognition started - continuous mode');
           setIsListening(true);
           setError(null);
           // Haptic feedback on mobile
@@ -86,114 +80,20 @@ export function useVoiceInput({
         };
 
         recognitionRef.current.onend = () => {
-          console.log('[useVoiceInput] onend event fired!');
-          console.log('[useVoiceInput] Is manually stopped:', isManuallyStopped.current);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,isManuallyStopped:isManuallyStopped.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-          // #endregion
-          
-          // Always auto-restart unless manually stopped - NO DELAY
-          if (!isManuallyStopped.current && recognitionRef.current) {
-            console.log('[useVoiceInput] Auto-restarting recognition immediately...');
-            // Use requestAnimationFrame for immediate restart (no delay)
-            requestAnimationFrame(() => {
-              try {
-                if (recognitionRef.current && !isManuallyStopped.current) {
-                  recognitionRef.current.start();
-                  console.log('[useVoiceInput] Recognition restarted immediately');
-                }
-              } catch (err) {
-                console.error('[useVoiceInput] Failed to restart:', err);
-                // If we get an error, try again after a short delay
-                setTimeout(() => {
-                  if (recognitionRef.current && !isManuallyStopped.current) {
-                    try {
-                      recognitionRef.current.start();
-                    } catch (e) {
-                      console.error('[useVoiceInput] Retry failed:', e);
-                      setIsListening(false);
-                      setInterimTranscript('');
-                    }
-                  }
-                }, 300);
-              }
-            });
-          } else {
-            console.log('[useVoiceInput] Not restarting - manually stopped');
-            setIsListening(false);
-            setInterimTranscript('');
-            hasReceivedSpeech.current = false;
-            isManuallyStopped.current = false;
-          }
+          console.log('[useVoiceInput] Recognition ended');
+          setIsListening(false);
+          setInterimTranscript('');
         };
         
-        recognitionRef.current.onaudiostart = () => {
-          console.log('[useVoiceInput] onaudiostart - mic is capturing audio');
-          const startTime = Date.now();
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onaudiostart',message:'Audio capture started',data:{timestamp:startTime},timestamp:startTime,sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onaudioend = () => {
-          console.log('[useVoiceInput] onaudioend - mic stopped capturing');
-          const endTime = Date.now();
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onaudioend',message:'Audio capture ended',data:{timestamp:endTime,note:'Check duration from onaudiostart'},timestamp:endTime,sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onsoundstart = () => {
-          console.log('[useVoiceInput] onsoundstart - sound detected');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onsoundstart',message:'Sound detected',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H10'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onsoundend = () => {
-          console.log('[useVoiceInput] onsoundend - sound ended');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onsoundend',message:'Sound ended',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H10'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onspeechstart = () => {
-          console.log('[useVoiceInput] onspeechstart - speech detected!');
-          hasReceivedSpeech.current = true;
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onspeechstart',message:'Speech detected',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onspeechend = () => {
-          console.log('[useVoiceInput] onspeechend - speech stopped');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onspeechend',message:'Speech ended',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
-        };
-        
-        recognitionRef.current.onnomatch = () => {
-          console.log('[useVoiceInput] onnomatch - speech not recognized');
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onnomatch',message:'No speech match',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-          // #endregion
-        };
+        // Removed extra event handlers - keeping it simple
 
         recognitionRef.current.onresult = (event: any) => {
-          console.log('[useVoiceInput] onresult event fired!', event);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onresult',message:'Result received',data:{resultIndex:event.resultIndex,resultsLength:event.results.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          
           let finalTranscript = '';
           let interimText = '';
 
+          // Process all results
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            console.log('[useVoiceInput] Result', i, ':', transcript, 'isFinal:', event.results[i].isFinal);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onresult-loop',message:'Processing result',data:{index:i,transcript:transcript,isFinal:event.results[i].isFinal,confidence:event.results[i][0].confidence},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-            // #endregion
             if (event.results[i].isFinal) {
               finalTranscript += transcript;
             } else {
@@ -201,33 +101,26 @@ export function useVoiceInput({
             }
           }
 
-          console.log('[useVoiceInput] Final transcript:', finalTranscript);
-          console.log('[useVoiceInput] Interim text:', interimText);
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onresult-after',message:'Transcripts processed',data:{finalTranscript:finalTranscript,interimText:interimText,hasFinal:!!finalTranscript,hasInterim:!!interimText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-
+          // Update transcripts
           if (finalTranscript) {
             setTranscript(prev => prev + finalTranscript);
-            console.log('[useVoiceInput] Calling onResult with:', finalTranscript);
             onResult(finalTranscript);
-            // Don't clear interim - keep listening for more
-            // Haptic feedback on success
+            // Haptic feedback
             if ('vibrate' in navigator) {
               navigator.vibrate([30, 50, 30]);
             }
           }
           
-          // Always show interim text
           setInterimTranscript(interimText);
         };
 
         recognitionRef.current.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onerror',message:'Recognition error',data:{error:event.error,message:event.message,type:event.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H12'})}).catch(()=>{});
-          // #endregion
+          
+          // Ignore aborted errors (user stopped)
+          if (event.error === 'aborted') {
+            return;
+          }
           
           let errorMessage = 'Voice input error';
           switch (event.error) {
@@ -235,23 +128,14 @@ export function useVoiceInput({
               errorMessage = 'No speech detected. Please try again.';
               break;
             case 'audio-capture':
-              errorMessage = 'Microphone not accessible. Please check permissions.';
+              errorMessage = 'Microphone not accessible.';
               break;
             case 'not-allowed':
-              errorMessage = 'Microphone access denied. Please enable in browser settings.';
+              errorMessage = 'Microphone access denied.';
               break;
             case 'network':
-              errorMessage = 'Network error. Please check your connection.';
+              errorMessage = 'Network error. Check connection.';
               break;
-            case 'service-not-allowed':
-              errorMessage = 'Speech recognition service blocked. Check Chrome settings.';
-              break;
-            case 'aborted':
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onerror-aborted',message:'Recognition aborted',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H12'})}).catch(()=>{});
-              // #endregion
-              // User stopped, not really an error
-              return;
             default:
               errorMessage = `Error: ${event.error}`;
           }
@@ -264,97 +148,41 @@ export function useVoiceInput({
     }
 
     return () => {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
     };
-  }, [language, continuous, onResult, onError]);
+  }, [language, onResult, onError]);
 
   const startListening = useCallback(async () => {
-    console.log('[useVoiceInput] startListening called');
-    console.log('[useVoiceInput] recognitionRef.current:', !!recognitionRef.current);
-    console.log('[useVoiceInput] isListening:', isListening);
-    console.log('[useVoiceInput] language:', language);
-    
-    // Reset the manually stopped flag when starting
-    isManuallyStopped.current = false;
-    hasReceivedSpeech.current = false;
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:startListening',message:'Checking mic permissions',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
-    // #endregion
-    
-    // Check microphone permissions first
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('[useVoiceInput] Microphone access granted');
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:getUserMedia',message:'Mic permission granted',data:{audioTracks:stream.getAudioTracks().length,trackLabel:stream.getAudioTracks()[0]?.label},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
-      // #endregion
-      // Stop the stream, we just needed to check permissions
-      stream.getTracks().forEach(track => track.stop());
-    } catch (err: any) {
-      console.error('[useVoiceInput] Microphone permission error:', err);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:getUserMedia-error',message:'Mic permission denied',data:{error:err.name,message:err.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H6'})}).catch(()=>{});
-      // #endregion
-      setError('Microphone access denied. Please allow microphone in browser settings.');
-      if (onError) onError('Microphone access denied');
-      return;
-    }
-    
     if (recognitionRef.current && !isListening) {
       try {
         setError(null);
         setTranscript('');
         setInterimTranscript('');
         recognitionRef.current.lang = language;
-        console.log('[useVoiceInput] Calling recognition.start()...');
         recognitionRef.current.start();
-        console.log('[useVoiceInput] recognition.start() called successfully');
+        console.log('[useVoiceInput] Started continuous recognition');
       } catch (err: any) {
-        console.error('[useVoiceInput] Failed to start recognition:', err);
-        console.error('[useVoiceInput] Error message:', err.message);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:start-error',message:'Recognition start failed',data:{error:err.name,message:err.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H7'})}).catch(()=>{});
-        // #endregion
-        setError('Failed to start voice input: ' + err.message);
+        console.error('[useVoiceInput] Failed to start:', err);
+        setError('Failed to start voice input');
+        if (onError) onError('Failed to start voice input');
       }
-    } else {
-      console.log('[useVoiceInput] Cannot start - recognitionRef:', !!recognitionRef.current, 'isListening:', isListening);
     }
   }, [isListening, language, onError]);
 
   const stopListening = useCallback(() => {
-    console.log('[useVoiceInput] stopListening called - manually stopping');
-    
-    // Set the manually stopped flag FIRST
-    isManuallyStopped.current = true;
-    hasReceivedSpeech.current = false;
-    
-    // Clear any pending restart
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = null;
-    }
-    
-    // Stop recognition
-    if (recognitionRef.current) {
+    if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();
-        console.log('[useVoiceInput] Recognition stopped');
+        console.log('[useVoiceInput] Stopped recognition');
       } catch (err) {
-        console.error('[useVoiceInput] Error stopping recognition:', err);
+        console.error('[useVoiceInput] Error stopping:', err);
       }
     }
-    
-    // Update UI state
     setIsListening(false);
     setInterimTranscript('');
-  }, []);
+  }, [isListening]);
 
   const resetTranscript = useCallback(() => {
     setTranscript('');

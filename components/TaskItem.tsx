@@ -382,22 +382,22 @@ export default function TaskItem({
             
             <button
               onClick={() => onTogglePrivacy(task.id, !task.isPrivate)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors min-w-[36px] min-h-[36px]"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors min-w-[36px] min-h-[36px]"
               title={task.isPrivate ? 'Make shared' : 'Make private'}
             >
               {task.isPrivate ? (
-                <FaEyeSlash className="text-gray-500" size={16} />
+                <FaEyeSlash className="text-gray-500 dark:text-gray-400" size={16} />
               ) : (
-                <FaEye className="text-blue-500" size={16} />
+                <FaEye className="text-blue-500 dark:text-blue-400" size={16} />
               )}
             </button>
             
             <button
               onClick={() => onDelete(task.id)}
-              className="p-2 hover:bg-red-50 rounded-full transition-colors min-w-[36px] min-h-[36px]"
+              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
               title="Delete task"
             >
-              <FaTrash className="text-red-500" size={14} />
+              <FaTrash className="text-red-500 dark:text-red-400" size={14} />
             </button>
           </div>
         )}

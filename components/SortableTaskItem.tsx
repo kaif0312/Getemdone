@@ -12,6 +12,7 @@ interface SortableTaskItemProps {
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
+  onToggleCommitment?: (taskId: string, committed: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
   currentUserId?: string;

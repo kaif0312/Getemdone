@@ -59,6 +59,11 @@ export default function StreakCalendar({
     return streakData.completionHistory[dateStr] || 0;
   };
 
+  const getMissedCommitmentCount = (day: number): number => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return streakData.missedCommitments?.[dateStr] || 0;
+  };
+
   const isToday = (day: number): boolean => {
     const today = new Date();
     return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
@@ -192,21 +197,34 @@ export default function StreakCalendar({
       else bgColor = 'bg-green-500 hover:bg-green-600';
     }
 
+    const missedCount = getMissedCommitmentCount(day);
+    
     calendarDays.push(
       <button
         key={day}
         onClick={() => handleDateClick(day)}
-        className={`p-2 text-center rounded-lg ${bgColor} ${today ? 'ring-2 ring-blue-500' : ''} transition-all cursor-pointer`}
-        title={taskCount > 0 ? `${taskCount} task${taskCount > 1 ? 's' : ''} - Click to view` : 'Click to view tasks'}
+        className={`p-2 text-center rounded-lg ${bgColor} ${today ? 'ring-2 ring-blue-500' : ''} transition-all cursor-pointer relative`}
+        title={
+          taskCount > 0 || missedCount > 0
+            ? `${taskCount} completed${missedCount > 0 ? `, ${missedCount} missed commitment${missedCount > 1 ? 's' : ''}` : ''} - Click to view`
+            : 'Click to view tasks'
+        }
       >
         <div className={`text-sm font-medium ${taskCount > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
           {day}
         </div>
-        {taskCount > 0 && (
-          <div className="text-xs font-bold text-gray-700 mt-1">
-            {taskCount}
-          </div>
-        )}
+        <div className="flex items-center justify-center gap-1 mt-1">
+          {taskCount > 0 && (
+            <div className="text-xs font-bold text-green-600">
+              ✓{taskCount}
+            </div>
+          )}
+          {missedCount > 0 && (
+            <div className="text-xs font-bold text-red-600">
+              ⚠{missedCount}
+            </div>
+          )}
+        </div>
       </button>
     );
   }

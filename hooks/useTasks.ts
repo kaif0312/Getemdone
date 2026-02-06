@@ -192,6 +192,13 @@ export function useTasks() {
     });
   };
 
+  const toggleCommitment = async (taskId: string, committed: boolean) => {
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      committed,
+    });
+  };
+
   const deleteTask = async (taskId: string) => {
     // Soft delete - mark as deleted instead of permanently removing
     const taskRef = doc(db, 'tasks', taskId);
@@ -309,6 +316,7 @@ export function useTasks() {
     addTask,
     toggleComplete,
     togglePrivacy,
+    toggleCommitment,
     deleteTask,
     restoreTask,
     permanentlyDeleteTask,

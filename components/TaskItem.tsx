@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import { playSound } from '@/utils/sounds';
@@ -20,6 +20,7 @@ interface TaskItemProps {
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
+  onToggleCommitment?: (taskId: string, committed: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
   currentUserId?: string;
@@ -32,6 +33,7 @@ export default function TaskItem({
   onToggleComplete, 
   onTogglePrivacy,
   onDelete,
+  onToggleCommitment,
   onAddReaction,
   onDeferTask,
   currentUserId,
@@ -273,11 +275,16 @@ export default function TaskItem({
             )}
           </div>
           
-          <p className={`text-base ${
-            task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-          }`} suppressHydrationWarning>
-            {task.text}
-          </p>
+          <div className="flex items-start gap-2">
+            {task.committed && (
+              <FaStar className="text-yellow-500 mt-1 flex-shrink-0" size={16} title="Committed Task - Must Complete Today!" />
+            )}
+            <p className={`text-base ${
+              task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+            }`} suppressHydrationWarning>
+              {task.text}
+            </p>
+          </div>
           
           {task.deferredTo && (
             <div className="mt-1 inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
@@ -404,6 +411,24 @@ export default function TaskItem({
                   </>
                 )}
               </>
+            )}
+
+            {/* Commitment Toggle - Only for incomplete tasks */}
+            {!task.completed && onToggleCommitment && (
+              <button
+                onClick={() => onToggleCommitment(task.id, !task.committed)}
+                className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
+                  task.committed
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={task.committed ? 'Remove commitment' : 'Commit to complete today!'}
+              >
+                <FaStar 
+                  className={task.committed ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'} 
+                  size={16} 
+                />
+              </button>
             )}
             
             <button

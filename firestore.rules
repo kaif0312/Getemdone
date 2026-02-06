@@ -59,7 +59,8 @@ service cloud.firestore {
         request.resource.data.createdAt is int &&
         (request.resource.data.completedAt == null || request.resource.data.completedAt is int) &&
         (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string) &&
-        (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number);
+        (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number) &&
+        (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool);
       
       // Users can update their own tasks OR add reactions to friends' tasks
       allow update: if isAuthenticated() && (
@@ -70,6 +71,8 @@ service cloud.firestore {
       (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
       // Validate order if present
       (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number || request.resource.data.order == null) &&
+      // Validate committed if present
+      (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
       // Validate deleted if present (for soft delete)
       (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
       // Validate deletedAt if present

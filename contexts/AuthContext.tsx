@@ -178,6 +178,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // Build missed commitments history
+    const missedCommitments: { [date: string]: number } = {};
+    
+    // Query for committed tasks that were not completed
+    const committedQuery = query(
+      tasksRef, 
+      where('userId', '==', user.uid), 
+      where('committed', '==', true), 
+      where('completed', '==', false)
+    );
+    
+    const committedSnapshot = await getDocs(committedQuery);
+    
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    committedSnapshot.forEach((doc) => {
+      const task = doc.data();
+      // Only count as missed if the task was created before today and not deferred to a future date
+      const createdDate = new Date(task.createdAt);
+      const createdDateStr = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')}`;
+      
+      // If task is deferred to today or future, don't count as missed yet
+      if (task.deferredTo && task.deferredTo >= todayStr) {
+        return;
+      }
+      
+      // If task was created before today and not completed, it's a missed commitment
+      if (createdDateStr < todayStr) {
+        missedCommitments[createdDateStr] = (missedCommitments[createdDateStr] || 0) + 1;
+      }
+    });
+
     // Calculate streak
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -240,6 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       longestStreak,
       lastCompletionDate,
       completionHistory,
+      missedCommitments,
     };
 
     // Update user document with streak data

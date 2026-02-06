@@ -19,7 +19,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, deferTask, reorderTasks } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, toggleCommitment, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, deferTask, reorderTasks } = useTasks();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
@@ -275,6 +275,7 @@ export default function Home() {
                             isOwnTask={true}
                             onToggleComplete={handleToggleComplete}
                             onTogglePrivacy={togglePrivacy}
+                            onToggleCommitment={toggleCommitment}
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
                             onDeferTask={deferTask}
@@ -292,6 +293,7 @@ export default function Home() {
                         isOwnTask={true}
                         onToggleComplete={handleToggleComplete}
                         onTogglePrivacy={togglePrivacy}
+                        onToggleCommitment={toggleCommitment}
                         onDelete={deleteTask}
                         onAddReaction={addReaction}
                         onDeferTask={deferTask}

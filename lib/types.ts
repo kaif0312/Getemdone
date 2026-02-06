@@ -3,6 +3,7 @@ export interface StreakData {
   longestStreak: number;
   lastCompletionDate: string; // YYYY-MM-DD format
   completionHistory: { [date: string]: number }; // date -> count of completed tasks
+  missedCommitments: { [date: string]: number }; // date -> count of missed committed tasks
 }
 
 export interface User {
@@ -35,6 +36,7 @@ export interface Task {
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted
+  committed?: boolean; // Commitment Mode - must complete today!
 }
 
 export interface TaskWithUser extends Task {

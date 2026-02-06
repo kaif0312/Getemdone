@@ -70,7 +70,11 @@ export function useVoiceInput({
         console.log('[useVoiceInput] maxAlternatives:', 1);
 
         recognitionRef.current.onstart = () => {
-          console.log('[useVoiceInput] Recognition started - continuous mode');
+          const now = Date.now();
+          console.log('[useVoiceInput] Recognition started at:', now);
+          console.log('[useVoiceInput] continuous:', recognitionRef.current.continuous);
+          console.log('[useVoiceInput] interimResults:', recognitionRef.current.interimResults);
+          console.log('[useVoiceInput] lang:', recognitionRef.current.lang);
           setIsListening(true);
           setError(null);
           // Haptic feedback on mobile
@@ -80,12 +84,38 @@ export function useVoiceInput({
         };
 
         recognitionRef.current.onend = () => {
-          console.log('[useVoiceInput] Recognition ended');
+          const now = Date.now();
+          console.log('[useVoiceInput] Recognition ended at:', now);
+          console.log('[useVoiceInput] Was continuous?', recognitionRef.current.continuous);
+          console.log('[useVoiceInput] Current state - isListening:', isListening);
           setIsListening(false);
           setInterimTranscript('');
         };
         
-        // Removed extra event handlers - keeping it simple
+        // Debug handlers to see what's happening
+        recognitionRef.current.onsoundstart = () => {
+          console.log('[useVoiceInput] 🔊 Sound detected!');
+        };
+        
+        recognitionRef.current.onsoundend = () => {
+          console.log('[useVoiceInput] 🔇 Sound ended');
+        };
+        
+        recognitionRef.current.onspeechstart = () => {
+          console.log('[useVoiceInput] 🗣️ Speech started!');
+        };
+        
+        recognitionRef.current.onspeechend = () => {
+          console.log('[useVoiceInput] 🤐 Speech ended');
+        };
+        
+        recognitionRef.current.onaudiostart = () => {
+          console.log('[useVoiceInput] 🎤 Audio capture started');
+        };
+        
+        recognitionRef.current.onaudioend = () => {
+          console.log('[useVoiceInput] 🎤 Audio capture ended');
+        };
 
         recognitionRef.current.onresult = (event: any) => {
           let finalTranscript = '';
@@ -160,9 +190,19 @@ export function useVoiceInput({
         setError(null);
         setTranscript('');
         setInterimTranscript('');
+        
+        // Set these RIGHT BEFORE starting
         recognitionRef.current.lang = language;
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.maxAlternatives = 1;
+        
         recognitionRef.current.start();
-        console.log('[useVoiceInput] Started continuous recognition');
+        console.log('[useVoiceInput] Started continuous recognition with settings:', {
+          lang: language,
+          continuous: true,
+          interimResults: true
+        });
       } catch (err: any) {
         console.error('[useVoiceInput] Failed to start:', err);
         setError('Failed to start voice input');

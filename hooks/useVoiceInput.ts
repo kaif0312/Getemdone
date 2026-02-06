@@ -56,13 +56,18 @@ export function useVoiceInput({
 
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = continuous;
+        recognitionRef.current.continuous = true; // Always continuous
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = language;
         recognitionRef.current.maxAlternatives = 1;
         
+        // These settings help keep it alive longer
+        if ('maxTimeBeforeNoSpeechRecognized' in recognitionRef.current) {
+          recognitionRef.current.maxTimeBeforeNoSpeechRecognized = 30000; // 30 seconds
+        }
+        
         console.log('[useVoiceInput] Speech recognition initialized');
-        console.log('[useVoiceInput] continuous:', continuous);
+        console.log('[useVoiceInput] continuous: true (always)');
         console.log('[useVoiceInput] interimResults:', true);
         console.log('[useVoiceInput] lang:', language);
         console.log('[useVoiceInput] maxAlternatives:', 1);
@@ -82,15 +87,14 @@ export function useVoiceInput({
 
         recognitionRef.current.onend = () => {
           console.log('[useVoiceInput] onend event fired!');
-          console.log('[useVoiceInput] Has received speech:', hasReceivedSpeech.current);
           console.log('[useVoiceInput] Is manually stopped:', isManuallyStopped.current);
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,hasReceivedSpeech:hasReceivedSpeech.current,isManuallyStopped:isManuallyStopped.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/57ba9c7c-d66c-49e3-b3ac-38a58928614f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useVoiceInput.ts:onend',message:'Recognition ended',data:{hadTranscript:!!transcript,hadInterim:!!interimTranscript,isManuallyStopped:isManuallyStopped.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
           // #endregion
           
-          // Only auto-restart if NOT manually stopped and haven't received speech yet
-          if (continuous && !hasReceivedSpeech.current && !isManuallyStopped.current && recognitionRef.current) {
-            console.log('[useVoiceInput] Auto-restarting recognition...');
+          // Always auto-restart unless manually stopped
+          if (!isManuallyStopped.current && recognitionRef.current) {
+            console.log('[useVoiceInput] Auto-restarting recognition (keep alive)...');
             restartTimeoutRef.current = setTimeout(() => {
               try {
                 if (recognitionRef.current && !isManuallyStopped.current) {
@@ -104,6 +108,7 @@ export function useVoiceInput({
               }
             }, 100);
           } else {
+            console.log('[useVoiceInput] Not restarting - manually stopped');
             setIsListening(false);
             setInterimTranscript('');
             hasReceivedSpeech.current = false;
@@ -194,16 +199,17 @@ export function useVoiceInput({
 
           if (finalTranscript) {
             setTranscript(prev => prev + finalTranscript);
-            setInterimTranscript('');
             console.log('[useVoiceInput] Calling onResult with:', finalTranscript);
             onResult(finalTranscript);
+            // Don't clear interim - keep listening for more
             // Haptic feedback on success
             if ('vibrate' in navigator) {
               navigator.vibrate([30, 50, 30]);
             }
-          } else {
-            setInterimTranscript(interimText);
           }
+          
+          // Always show interim text
+          setInterimTranscript(interimText);
         };
 
         recognitionRef.current.onerror = (event: any) => {

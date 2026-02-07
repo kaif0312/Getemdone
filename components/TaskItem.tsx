@@ -1023,8 +1023,8 @@ export default function TaskItem({
             className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-sm" 
             onClick={() => setShowDueDatePicker(false)}
           />
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 min-w-[280px] max-w-[90vw] pointer-events-auto animate-in fade-in zoom-in duration-200">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none p-4">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-full max-w-[90vw] sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
                   {task.dueDate ? 'Change Deadline' : 'Set Deadline'}
@@ -1045,21 +1045,29 @@ export default function TaskItem({
                   </button>
                 )}
               </div>
-              <input
-                ref={dueDateInputRef}
-                type="datetime-local"
-                onChange={async (e) => {
-                  const value = e.target.value;
-                  if (value && onUpdateDueDate) {
-                    const date = new Date(value);
-                    await onUpdateDueDate(task.id, date.getTime());
-                    // Don't auto-close - let user see the selected date and click Done
-                  }
-                }}
-                min={new Date().toISOString().slice(0, 16)}
-                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
-                className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 mb-3"
-              />
+              <div className="w-full mb-3">
+                <input
+                  ref={dueDateInputRef}
+                  type="datetime-local"
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    if (value && onUpdateDueDate) {
+                      const date = new Date(value);
+                      await onUpdateDueDate(task.id, date.getTime());
+                      // Don't auto-close - let user see the selected date and click Done
+                    }
+                  }}
+                  min={new Date().toISOString().slice(0, 16)}
+                  defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
+                  className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  style={{
+                    WebkitAppearance: 'none',
+                    appearance: 'none',
+                    boxSizing: 'border-box',
+                    minHeight: '44px', // iOS touch target minimum
+                  }}
+                />
+              </div>
               {task.dueDate && (
                 <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
                   Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 

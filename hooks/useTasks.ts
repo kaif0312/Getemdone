@@ -338,6 +338,12 @@ export function useTasks() {
               return; // Don't process our own tasks as friend tasks
             }
             
+            // CRITICAL FIX: Remove tasks from friends who are no longer in our friends list
+            if (!userData.friends.includes(task.userId)) {
+              allTasks.delete(change.doc.id);
+              return;
+            }
+            
             if (change.type === 'removed') {
               allTasks.delete(change.doc.id);
             } else {
@@ -366,6 +372,23 @@ export function useTasks() {
         unsubscribers.push(unsubFriendTasks);
       }
     });
+    
+    // CRITICAL FIX: When friends list changes, immediately remove tasks from removed friends
+    // This runs on every render, but we check if friend was removed
+    if (userData.friends) {
+      const currentFriendIds = new Set(userData.friends);
+      // Remove tasks from friends who are no longer in the list
+      allTasks.forEach((task, taskId) => {
+        if (task.userId !== user.uid && !currentFriendIds.has(task.userId)) {
+          console.log('[useTasks] 🗑️ Removing task from removed friend:', taskId, task.userId);
+          allTasks.delete(taskId);
+        }
+      });
+      // Schedule update if we removed any tasks
+      if (allTasks.size > 0) {
+        scheduleUpdate();
+      }
+    }
 
     return () => {
       // Cleanup listeners
@@ -379,7 +402,7 @@ export function useTasks() {
       }
       console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
     };
-  }, [user?.uid, userData?.id]); // Use stable IDs instead of whole objects to prevent infinite loops
+  }, [user?.uid, userData?.id, userData?.friends?.join(',')]); // Include friends list to recreate query when friends change
 
   const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
     if (!user) return;

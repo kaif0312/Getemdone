@@ -575,21 +575,41 @@ export function useTasks() {
   };
 
   const updateTaskDueDate = async (taskId: string, dueDate: number | null) => {
-    if (!user) return;
+    if (!user) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[updateTaskDueDate] No user');
+      }
+      return;
+    }
 
     const taskRef = doc(db, 'tasks', taskId);
+    
+    // Get the current allTasks map from ref - ensure we have the latest
+    const allTasks = allTasksRef.current;
+    const existingTask = allTasks?.get(taskId);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[updateTaskDueDate] Updating task:', taskId, 'dueDate:', dueDate ? new Date(dueDate) : 'null', 'task exists:', !!existingTask);
+    }
+    
+    // Store original for rollback
+    const originalTask = existingTask ? { ...existingTask } : null;
     
     if (dueDate === null || dueDate === undefined) {
       // Remove the dueDate field entirely using deleteField()
       // Optimistically update local state immediately for better UX
-      const allTasks = allTasksRef.current;
-      const existingTask = allTasks.get(taskId);
-      if (existingTask) {
+      if (existingTask && allTasks) {
         const updatedTask = { ...existingTask, dueDate: undefined };
         allTasks.set(taskId, updatedTask);
+        allTasksRef.current = allTasks; // Sync ref
         // Trigger immediate state update
         const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
         setTasks(sortedTasks);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[updateTaskDueDate] ✅ Optimistically removed dueDate from task:', taskId);
+        }
+      } else if (process.env.NODE_ENV === 'development') {
+        console.warn('[updateTaskDueDate] Task not in allTasks, will rely on Firestore listener:', taskId);
       }
       
       try {
@@ -597,13 +617,14 @@ export function useTasks() {
           dueDate: deleteField(),
         });
         if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Removed dueDate from task:', taskId);
+          console.log('[updateTaskDueDate] ✅ Firestore: Removed dueDate from task:', taskId);
         }
       } catch (error) {
         console.error('[updateTaskDueDate] ❌ Error removing dueDate:', error);
         // Revert optimistic update on error
-        if (existingTask) {
-          allTasks.set(taskId, existingTask);
+        if (originalTask && allTasks) {
+          allTasks.set(taskId, originalTask);
+          allTasksRef.current = allTasks; // Sync ref
           const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
           setTasks(sortedTasks);
         }
@@ -612,14 +633,18 @@ export function useTasks() {
     } else {
       // Set the dueDate
       // Optimistically update local state immediately for better UX
-      const allTasks = allTasksRef.current;
-      const existingTask = allTasks.get(taskId);
-      if (existingTask) {
+      if (existingTask && allTasks) {
         const updatedTask = { ...existingTask, dueDate: dueDate };
         allTasks.set(taskId, updatedTask);
+        allTasksRef.current = allTasks; // Sync ref
         // Trigger immediate state update
         const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
         setTasks(sortedTasks);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[updateTaskDueDate] ✅ Optimistically set dueDate for task:', taskId, 'to:', new Date(dueDate));
+        }
+      } else if (process.env.NODE_ENV === 'development') {
+        console.warn('[updateTaskDueDate] Task not in allTasks, will rely on Firestore listener:', taskId);
       }
       
       try {
@@ -627,13 +652,14 @@ export function useTasks() {
           dueDate: dueDate,
         });
         if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Set dueDate for task:', taskId, 'to:', new Date(dueDate));
+          console.log('[updateTaskDueDate] ✅ Firestore: Set dueDate for task:', taskId, 'to:', new Date(dueDate));
         }
       } catch (error) {
         console.error('[updateTaskDueDate] ❌ Error setting dueDate:', error);
         // Revert optimistic update on error
-        if (existingTask) {
-          allTasks.set(taskId, existingTask);
+        if (originalTask && allTasks) {
+          allTasks.set(taskId, originalTask);
+          allTasksRef.current = allTasks; // Sync ref
           const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
           setTasks(sortedTasks);
         }

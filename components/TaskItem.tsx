@@ -1056,9 +1056,12 @@ export default function TaskItem({
                 <button
                   type="button"
                   onClick={async () => {
+                    console.log('[TaskItem] Remove Deadline button clicked, taskId:', task.id, 'onUpdateDueDate:', !!onUpdateDueDate);
                     try {
                       if (onUpdateDueDate) {
+                        console.log('[TaskItem] Calling onUpdateDueDate with null');
                         await onUpdateDueDate(task.id, null);
+                        console.log('[TaskItem] onUpdateDueDate completed successfully');
                         setShowDueDatePicker(false);
                       }
                     } catch (error) {
@@ -1122,13 +1125,17 @@ export default function TaskItem({
                 <button
                   type="button"
                   onClick={async () => {
+                    console.log('[TaskItem] Done button clicked, pendingDueDate:', pendingDueDate, 'onUpdateDueDate:', !!onUpdateDueDate);
                     try {
                       // Save the selected date when Done is clicked
                       if (pendingDueDate && pendingDueDate.trim() !== '' && onUpdateDueDate) {
+                        console.log('[TaskItem] Calling onUpdateDueDate with taskId:', task.id);
                         const date = new Date(pendingDueDate);
                         await onUpdateDueDate(task.id, date.getTime());
+                        console.log('[TaskItem] onUpdateDueDate completed successfully');
                         setShowDueDatePicker(false);
                       } else {
+                        console.log('[TaskItem] Skipping update - no date or no handler');
                         // No date selected - just close
                         setShowDueDatePicker(false);
                       }

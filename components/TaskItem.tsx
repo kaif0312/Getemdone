@@ -201,59 +201,71 @@ export default function TaskItem({
       return;
     }
     
-    // Prevent text selection immediately
-    e.preventDefault();
+    // DON'T prevent default immediately - allow scrolling to work normally
+    // We'll only prevent default if we actually detect a long-press
     
     const touch = e.touches[0];
     if (touch) {
-      // Prevent text selection immediately to avoid interference
-      const element = e.currentTarget as HTMLElement;
-      element.style.userSelect = 'none';
-      element.style.webkitUserSelect = 'none';
-      element.style.setProperty('-webkit-touch-callout', 'none');
-      
-      // Start long-press animation
-      setIsLongPressing(true);
-      
       longPressStartRef.current = {
         x: touch.clientX,
         y: touch.clientY,
         time: Date.now()
       };
       
+      // Start timer for long-press detection
       longPressTimerRef.current = setTimeout(() => {
-        // Long press detected - show context menu
-        // Haptic feedback
-        if ('vibrate' in navigator) {
-          navigator.vibrate([10, 50, 10]); // iOS-style haptic pattern
+        // Only proceed if touch hasn't moved significantly (user is still pressing)
+        if (longPressStartRef.current) {
+          // Long press detected - now prevent default and show menu
+          // Haptic feedback
+          if ('vibrate' in navigator) {
+            navigator.vibrate([10, 50, 10]); // iOS-style haptic pattern
+          }
+          
+          // Start long-press animation
+          setIsLongPressing(true);
+          
+          setContextMenuPosition({ 
+            x: longPressStartRef.current.x, 
+            y: longPressStartRef.current.y 
+          });
+          setShowContextMenu(true);
+          
+          // Prevent text selection only when long-press is confirmed
+          const element = e.currentTarget as HTMLElement;
+          element.style.userSelect = 'none';
+          element.style.webkitUserSelect = 'none';
+          element.style.setProperty('-webkit-touch-callout', 'none');
+          
+          longPressStartRef.current = null;
         }
-        
-        setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
-        setShowContextMenu(true);
-        setIsLongPressing(false); // Stop animation
-        longPressStartRef.current = null;
-      }, 400); // 400ms for better UX
+      }, 500); // Increased to 500ms to reduce accidental triggers
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    // Restore text selection if long-press was cancelled
+    // Cancel long-press if user lifts finger before timer completes
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
-      // Stop long-press animation
+    }
+    
+    // Stop long-press animation if it was active
+    if (isLongPressing) {
       setIsLongPressing(false);
-      // Restore text selection since long-press was cancelled
+      // Restore text selection
       const element = e.currentTarget as HTMLElement;
       element.style.userSelect = '';
       element.style.webkitUserSelect = '';
       element.style.removeProperty('-webkit-touch-callout');
     }
+    
     longPressStartRef.current = null;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Cancel long press if user moves finger significantly (but allow for small movements)
+    // Cancel long press if user moves finger (scrolling)
+    // Use a smaller threshold to detect scrolling early
     if (longPressTimerRef.current && longPressStartRef.current) {
       const touch = e.touches[0];
       if (touch) {
@@ -261,14 +273,34 @@ export default function TaskItem({
           Math.pow(touch.clientX - longPressStartRef.current.x, 2) + 
           Math.pow(touch.clientY - longPressStartRef.current.y, 2)
         );
-        // Increased threshold to 15px to be more forgiving on mobile
-        if (moveDistance > 15) {
+        // Reduced threshold to 8px to detect scrolling earlier
+        // This prevents long-press from triggering during scroll
+        if (moveDistance > 8) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
           longPressStartRef.current = null;
           // Stop long-press animation
           setIsLongPressing(false);
           // Restore text selection since long-press was cancelled
+          const element = e.currentTarget as HTMLElement;
+          element.style.userSelect = '';
+          element.style.webkitUserSelect = '';
+          element.style.removeProperty('-webkit-touch-callout');
+        }
+      }
+    }
+    
+    // Also cancel if long-press animation is active and user moves
+    if (isLongPressing && longPressStartRef.current) {
+      const touch = e.touches[0];
+      if (touch) {
+        const moveDistance = Math.sqrt(
+          Math.pow(touch.clientX - longPressStartRef.current.x, 2) + 
+          Math.pow(touch.clientY - longPressStartRef.current.y, 2)
+        );
+        if (moveDistance > 10) {
+          setIsLongPressing(false);
+          setShowContextMenu(false);
           const element = e.currentTarget as HTMLElement;
           element.style.userSelect = '';
           element.style.webkitUserSelect = '';
@@ -541,9 +573,7 @@ export default function TaskItem({
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
-            touchAction: 'pan-y', // Allow vertical scrolling, prevent text selection
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
+            touchAction: 'pan-y pinch-zoom', // Allow vertical scrolling and pinch zoom
           } as React.CSSProperties}
           className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
             task.completed 

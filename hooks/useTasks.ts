@@ -347,6 +347,7 @@ export function useTasks() {
 
     return () => {
       // Cleanup listeners
+      quotaExceeded = false; // Reset circuit breaker on cleanup
       if (updateTimer) {
         clearTimeout(updateTimer);
       }

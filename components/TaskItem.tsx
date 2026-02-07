@@ -544,8 +544,7 @@ export default function TaskItem({
             touchAction: 'pan-y', // Allow vertical scrolling, prevent text selection
             userSelect: 'none',
             WebkitUserSelect: 'none',
-            WebkitTouchCallout: 'none',
-          }}
+          } as React.CSSProperties}
           className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
             task.completed 
               ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 

@@ -24,10 +24,28 @@ export function useTasks() {
   const [loading, setLoading] = useState(true);
   
   // Create stable key for friends list to avoid infinite loops
+  // Use ref to track last value and only update if contents actually changed
+  const lastFriendsKeyRef = useRef<string>('');
+  const lastSetupKeyRef = useRef<string>('');
+  
   const friendsKey = useMemo(() => {
-    if (!userData?.friends || userData.friends.length === 0) return '';
-    return userData.friends.slice().sort().join(',');
+    if (!userData?.friends || userData.friends.length === 0) {
+      const emptyKey = '';
+      if (lastFriendsKeyRef.current !== emptyKey) {
+        lastFriendsKeyRef.current = emptyKey;
+      }
+      return emptyKey;
+    }
+    const newKey = userData.friends.slice().sort().join(',');
+    // Only update ref if key actually changed
+    if (lastFriendsKeyRef.current !== newKey) {
+      lastFriendsKeyRef.current = newKey;
+    }
+    return lastFriendsKeyRef.current;
   }, [userData?.friends]);
+  
+  // Create stable setup key to prevent re-running effect unnecessarily
+  const setupKey = `${user?.uid || ''}_${userData?.id || ''}_${friendsKey}`;
 
   // Debug function to check specific task in Firestore
   useEffect(() => {
@@ -182,8 +200,16 @@ export function useTasks() {
     if (!userId || !userDataId) {
       setTasks([]);
       setLoading(false);
+      lastSetupKeyRef.current = '';
       return;
     }
+    
+    // CRITICAL: Only set up listeners if setup key actually changed
+    // This prevents infinite loops when userData object reference changes but data is the same
+    if (lastSetupKeyRef.current === setupKey) {
+      return; // Already set up for this user/friends combination, skip re-setup
+    }
+    lastSetupKeyRef.current = setupKey;
     
     // Capture current values to avoid closure issues
     const currentUserId = userId;

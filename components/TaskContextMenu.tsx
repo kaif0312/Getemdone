@@ -68,7 +68,7 @@ export default function TaskContextMenu({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen || !isOwnTask || task.completed) return null;
+  if (!isOpen || !isOwnTask) return null;
 
   // Calculate position to keep menu on screen
   const menuWidth = 200;
@@ -94,8 +94,8 @@ export default function TaskContextMenu({
         }}
       >
         <div className="py-1">
-          {/* Edit Task */}
-          {onEdit && (
+          {/* Edit Task - Only for incomplete tasks */}
+          {onEdit && !task.completed && (
             <button
               onClick={() => {
                 onEdit();
@@ -108,8 +108,8 @@ export default function TaskContextMenu({
             </button>
           )}
 
-          {/* Set Deadline */}
-          {onSetDeadline && (
+          {/* Set Deadline - Only for incomplete tasks */}
+          {onSetDeadline && !task.completed && (
             <button
               onClick={() => {
                 onSetDeadline();
@@ -124,8 +124,8 @@ export default function TaskContextMenu({
             </button>
           )}
 
-          {/* Defer Task */}
-          {onDefer && (
+          {/* Defer Task - Only for incomplete tasks */}
+          {onDefer && !task.completed && (
             <button
               onClick={() => {
                 onDefer();
@@ -154,8 +154,8 @@ export default function TaskContextMenu({
             </button>
           )}
 
-          {/* Toggle Commitment */}
-          {onToggleCommitment && (
+          {/* Toggle Commitment - Only for incomplete tasks */}
+          {onToggleCommitment && !task.completed && (
             <button
               onClick={() => {
                 onToggleCommitment();

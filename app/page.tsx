@@ -229,11 +229,20 @@ export default function Home() {
       setExpandedFriends(prev => {
         const newSet = new Set(prev);
         if (newSet.has(friendId)) {
-          newSet.delete(friendId);
+          newSet.delete(friendId); // Collapse
         } else {
-          newSet.add(friendId);
+          newSet.add(friendId); // Expand
         }
         return newSet;
+      });
+      // Also remove from collapsed set if it was there (cleanup)
+      setCollapsedFriends(prev => {
+        if (prev.has(friendId)) {
+          const newSet = new Set(prev);
+          newSet.delete(friendId);
+          return newSet;
+        }
+        return prev;
       });
     }
   };
@@ -241,8 +250,12 @@ export default function Home() {
   // Scroll to friend when clicked in summary bar
   const handleFriendClick = (friendId: string) => {
     setActiveFriendId(friendId);
-    // Expand if not already expanded
-    if (!expandedFriends.has(friendId)) {
+    // Expand if not already expanded (check both states)
+    const isCurrentlyExpanded = showAllFriends 
+      ? !collapsedFriends.has(friendId)
+      : expandedFriends.has(friendId);
+    
+    if (!isCurrentlyExpanded) {
       toggleFriend(friendId);
     }
     // Scroll to friend card

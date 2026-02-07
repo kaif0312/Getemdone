@@ -181,15 +181,27 @@ export default function TaskItem({
     }
   };
 
-  // Long-press detection for mobile (only on task text, not entire card)
+  // Long-press detection for mobile - show context menu
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isOwnTask || task.completed || isEditing || !onUpdateTask) return;
+    if (!isOwnTask || task.completed || isEditing) return;
     
-    // Only trigger on the text element itself, not on buttons or other elements
+    // Don't trigger on buttons, inputs, or interactive elements
     const target = e.target as HTMLElement;
-    if (target.tagName === 'BUTTON' || target.closest('button')) {
+    if (
+      target.tagName === 'BUTTON' || 
+      target.tagName === 'INPUT' || 
+      target.tagName === 'TEXTAREA' ||
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('textarea') ||
+      target.closest('.swipe-action') ||
+      target.closest('[role="button"]')
+    ) {
       return;
     }
+    
+    // Don't prevent default immediately - let swipe gestures work
+    // Only prevent if we actually trigger long-press
     
     const touch = e.touches[0];
     if (touch) {
@@ -200,13 +212,17 @@ export default function TaskItem({
       };
       
       longPressTimerRef.current = setTimeout(() => {
-        // Long press detected (500ms)
-        setIsEditing(true);
+        // Long press detected - show context menu
+        // Prevent default now to avoid text selection
+        e.preventDefault();
+        
         if ('vibrate' in navigator) {
-          navigator.vibrate(30); // Haptic feedback
+          navigator.vibrate([10, 50, 10]); // iOS-style haptic pattern
         }
+        setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
+        setShowContextMenu(true);
         longPressStartRef.current = null;
-      }, 500);
+      }, 400); // 400ms for better UX
     }
   };
 
@@ -219,7 +235,7 @@ export default function TaskItem({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Cancel long press if user moves finger significantly
+    // Cancel long press if user moves finger significantly (but allow for small movements)
     if (longPressTimerRef.current && longPressStartRef.current) {
       const touch = e.touches[0];
       if (touch) {
@@ -227,7 +243,8 @@ export default function TaskItem({
           Math.pow(touch.clientX - longPressStartRef.current.x, 2) + 
           Math.pow(touch.clientY - longPressStartRef.current.y, 2)
         );
-        if (moveDistance > 10) { // 10px movement threshold
+        // Increased threshold to 15px to be more forgiving on mobile
+        if (moveDistance > 15) {
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
           longPressStartRef.current = null;
@@ -482,6 +499,10 @@ export default function TaskItem({
         {/* Task Item with Swipe */}
         <div 
           {...(isOwnTask && !isEditing ? swipeHandlers : {})}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
+          onContextMenu={handleContextMenu}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
@@ -551,9 +572,6 @@ export default function TaskItem({
           
           <div 
             className="flex items-start gap-2"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            onTouchMove={handleTouchMove}
             onDoubleClick={handleDoubleClick}
           >
             {task.committed && (

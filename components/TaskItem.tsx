@@ -200,11 +200,14 @@ export default function TaskItem({
       return;
     }
     
-    // Don't prevent default immediately - let swipe gestures work
-    // Only prevent if we actually trigger long-press
-    
     const touch = e.touches[0];
     if (touch) {
+      // Prevent text selection immediately to avoid interference
+      // We'll allow swipe gestures to work, but prevent text selection
+      const element = e.currentTarget as HTMLElement;
+      element.style.userSelect = 'none';
+      element.style.webkitUserSelect = 'none';
+      
       longPressStartRef.current = {
         x: touch.clientX,
         y: touch.clientY,
@@ -213,7 +216,7 @@ export default function TaskItem({
       
       longPressTimerRef.current = setTimeout(() => {
         // Long press detected - show context menu
-        // Prevent default now to avoid text selection
+        // Prevent default to avoid any remaining text selection
         e.preventDefault();
         
         if ('vibrate' in navigator) {
@@ -226,10 +229,15 @@ export default function TaskItem({
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    // Restore text selection if long-press was cancelled
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+      // Restore text selection since long-press was cancelled
+      const element = e.currentTarget as HTMLElement;
+      element.style.userSelect = '';
+      element.style.webkitUserSelect = '';
     }
     longPressStartRef.current = null;
   };
@@ -248,6 +256,10 @@ export default function TaskItem({
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
           longPressStartRef.current = null;
+          // Restore text selection since long-press was cancelled
+          const element = e.currentTarget as HTMLElement;
+          element.style.userSelect = '';
+          element.style.webkitUserSelect = '';
         }
       }
     }
@@ -503,11 +515,18 @@ export default function TaskItem({
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
           onContextMenu={handleContextMenu}
+          onSelectStart={(e) => {
+            // Prevent text selection on long-press
+            if (isOwnTask && !task.completed && !isEditing) {
+              e.preventDefault();
+            }
+          }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+            touchAction: 'pan-y', // Allow vertical scrolling, prevent text selection
           }}
-          className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
+          className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none ${
             task.completed 
               ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 
               : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'

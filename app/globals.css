@@ -36,3 +36,22 @@ body {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
 }
+
+/* Prevent text selection on task items during touch interactions */
+.task-item-touchable {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* Disable iOS callout menu */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+}
+
+/* Allow text selection in input fields and textareas */
+.task-item-touchable input,
+.task-item-touchable textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}

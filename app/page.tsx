@@ -134,9 +134,17 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Task Accountability</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {userData.displayName}!</p>
+            <div className="flex items-center gap-2">
+              {/* App Icon/Logo */}
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <svg width="20" height="20" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                  <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">GetDone</h1>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {userData.displayName}!</p>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">

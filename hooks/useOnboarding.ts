@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 interface OnboardingState {
   hasSeenFirstTask: boolean;
@@ -35,6 +35,12 @@ export function useOnboarding() {
   const [isLoaded, setIsLoaded] = useState(false);
   const lastSavedRef = useRef<string>('');
 
+  // Use refs to track dismissed items for stable callbacks
+  const dismissedTipsRef = useRef<Set<string>>(new Set());
+  const dismissedBadgesRef = useRef<Set<string>>(new Set());
+  const lastTipsKeyRef = useRef<string>('');
+  const lastBadgesKeyRef = useRef<string>('');
+
   // Load from localStorage on mount
   useEffect(() => {
     try {
@@ -55,21 +61,65 @@ export function useOnboarding() {
     }
   }, []);
 
+  // Create stable keys for arrays (memoized to avoid recreating on every render)
+  const tipsKey = useMemo(() => state.dismissedTips.slice().sort().join(','), [state.dismissedTips]);
+  const badgesKey = useMemo(() => state.dismissedFeatureBadges.slice().sort().join(','), [state.dismissedFeatureBadges]);
+  
+  // Update refs when state changes (only if contents actually changed)
+  useEffect(() => {
+    // Only update if contents actually changed
+    if (tipsKey !== lastTipsKeyRef.current) {
+      dismissedTipsRef.current = new Set(state.dismissedTips);
+      lastTipsKeyRef.current = tipsKey;
+    }
+    
+    if (badgesKey !== lastBadgesKeyRef.current) {
+      dismissedBadgesRef.current = new Set(state.dismissedFeatureBadges);
+      lastBadgesKeyRef.current = badgesKey;
+    }
+  }, [tipsKey, badgesKey]);
+
+  // Create stable string representation of state for comparison
+  const stateKey = useMemo(() => {
+    return JSON.stringify({
+      hasSeenFirstTask: state.hasSeenFirstTask,
+      hasSeenSwipe: state.hasSeenSwipe,
+      hasSeenLongPress: state.hasSeenLongPress,
+      hasSeenFriends: state.hasSeenFriends,
+      hasSeenVoiceInput: state.hasSeenVoiceInput,
+      hasSeenTemplates: state.hasSeenTemplates,
+      hasSeenStreak: state.hasSeenStreak,
+      completedTour: state.completedTour,
+      dismissedTips: state.dismissedTips.slice().sort(),
+      dismissedFeatureBadges: state.dismissedFeatureBadges.slice().sort(),
+    });
+  }, [
+    state.hasSeenFirstTask,
+    state.hasSeenSwipe,
+    state.hasSeenLongPress,
+    state.hasSeenFriends,
+    state.hasSeenVoiceInput,
+    state.hasSeenTemplates,
+    state.hasSeenStreak,
+    state.completedTour,
+    tipsKey,
+    badgesKey,
+  ]);
+
   // Save to localStorage whenever state changes (with debouncing)
   useEffect(() => {
     if (!isLoaded) return;
     
     try {
-      const toStore = JSON.stringify(state);
       // Only save if state actually changed
-      if (toStore !== lastSavedRef.current) {
-        localStorage.setItem(STORAGE_KEY, toStore);
-        lastSavedRef.current = toStore;
+      if (stateKey !== lastSavedRef.current) {
+        localStorage.setItem(STORAGE_KEY, stateKey);
+        lastSavedRef.current = stateKey;
       }
     } catch (error) {
       console.error('Error saving onboarding state:', error);
     }
-  }, [state, isLoaded]);
+  }, [isLoaded, stateKey]);
 
   const markFeatureSeen = useCallback((feature: keyof OnboardingState) => {
     if (feature === 'dismissedTips' || feature === 'dismissedFeatureBadges' || feature === 'completedTour') {
@@ -104,29 +154,6 @@ export function useOnboarding() {
       };
     });
   }, []);
-
-  // Use refs to track dismissed items for stable callbacks
-  const dismissedTipsRef = useRef<Set<string>>(new Set());
-  const dismissedBadgesRef = useRef<Set<string>>(new Set());
-  const lastTipsKeyRef = useRef<string>('');
-  const lastBadgesKeyRef = useRef<string>('');
-
-  // Update refs when state changes (only if contents actually changed)
-  useEffect(() => {
-    const tipsKey = state.dismissedTips.sort().join(',');
-    const badgesKey = state.dismissedFeatureBadges.sort().join(',');
-    
-    // Only update if contents actually changed
-    if (tipsKey !== lastTipsKeyRef.current) {
-      dismissedTipsRef.current = new Set(state.dismissedTips);
-      lastTipsKeyRef.current = tipsKey;
-    }
-    
-    if (badgesKey !== lastBadgesKeyRef.current) {
-      dismissedBadgesRef.current = new Set(state.dismissedFeatureBadges);
-      lastBadgesKeyRef.current = badgesKey;
-    }
-  }, [state.dismissedTips, state.dismissedFeatureBadges]);
 
   const shouldShowTip = useCallback((tipId: string, condition: boolean): boolean => {
     if (!condition) return false;

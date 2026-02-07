@@ -252,7 +252,7 @@ export default function TaskItem({
     try {
       await onUpdateTask(task.id, trimmedText);
       setIsEditing(false);
-      playSound('pop');
+      playSound(true);
       if ('vibrate' in navigator) {
         navigator.vibrate(20);
       }

@@ -31,6 +31,7 @@ export default function StreakCalendar({
   onDelete,
   onUpdateTask,
   onUpdateDueDate,
+  onUpdateNotes,
   onAddReaction,
   onOpenComments,
   onDeferTask

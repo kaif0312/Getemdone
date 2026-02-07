@@ -467,7 +467,9 @@ export function useTasks() {
       if (typeof window !== 'undefined' && visibilityHandler) {
         document.removeEventListener('visibilitychange', visibilityHandler);
       }
-      console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
+      }
       // Reset setup key on cleanup so effect can run again if needed
       lastSetupKeyRef.current = '';
     };

@@ -380,21 +380,7 @@ export default function Home() {
                 // Apply daily focus view with smart rollover
                 const shouldShow = shouldShowInTodayView(task, todayStr);
                 
-                // Debug logging for tasks created today (development only)
-                if (process.env.NODE_ENV === 'development' && !shouldShow && !task.completed) {
-                  const createdDate = getDateString(task.createdAt);
-                  if (createdDate === todayStr) {
-                    console.warn('[Home] Task created today but not showing:', {
-                      taskId: task.id.substring(0, 8),
-                      text: task.text.substring(0, 20),
-                      createdDate,
-                      todayStr,
-                      deleted: task.deleted,
-                      deferredTo: task.deferredTo,
-                      skipRollover: task.skipRollover
-                    });
-                  }
-                }
+                // Debug logging removed - was causing console noise
                 
                 return shouldShow;
               }).sort((a, b) => {
@@ -412,9 +398,7 @@ export default function Home() {
                 }
               });
               
-              if (process.env.NODE_ENV === 'development') {
-                console.log('[Home] After filtering, myTasks count:', myTasks.length);
-              }
+              // Debug logging removed
 
               // Separate incomplete and completed tasks
               const incompleteTasks = myTasks.filter(t => !t.completed);

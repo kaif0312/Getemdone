@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { 
   collection, 
   query, 
@@ -22,6 +22,12 @@ export function useTasks() {
   const { user, userData } = useAuth();
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Create stable key for friends list to avoid infinite loops
+  const friendsKey = useMemo(() => {
+    if (!userData?.friends || userData.friends.length === 0) return '';
+    return userData.friends.slice().sort().join(',');
+  }, [userData?.friends]);
 
   // Debug function to check specific task in Firestore
   useEffect(() => {
@@ -406,7 +412,7 @@ export function useTasks() {
       }
       console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
     };
-  }, [user?.uid, userData?.id, userData?.friends?.join(',')]); // Include friends list to recreate query when friends change
+  }, [user?.uid, userData?.id, friendsKey]); // Use stable friendsKey instead of join() to avoid infinite loops
 
   const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
     if (!user) return;

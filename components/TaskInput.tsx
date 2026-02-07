@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes } from 'react-icons/fa';
 import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
 
 interface TaskInputProps {
-  onAddTask: (text: string, isPrivate: boolean) => void;
+  onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null) => void;
   disabled?: boolean;
   recentTasks?: string[];
 }
@@ -15,7 +15,10 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   const [text, setText] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [dueDate, setDueDate] = useState<number | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Auto-focus on mount
@@ -26,9 +29,30 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     e.preventDefault();
     
     if (text.trim() && !disabled) {
-      onAddTask(text.trim(), isPrivate);
+      onAddTask(text.trim(), isPrivate, dueDate);
       setText('');
+      setDueDate(null);
+      setShowDatePicker(false);
       inputRef.current?.focus();
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value) {
+      // Convert date string to timestamp
+      const date = new Date(value);
+      setDueDate(date.getTime());
+      // Don't auto-close - let user see the selected date and manually close
+    } else {
+      setDueDate(null);
+    }
+  };
+
+  const clearDueDate = () => {
+    setDueDate(null);
+    if (dateInputRef.current) {
+      dateInputRef.current.value = '';
     }
   };
 
@@ -36,6 +60,23 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     setText(templateText);
     inputRef.current?.focus();
   };
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showDatePicker && dateInputRef.current && !dateInputRef.current.contains(e.target as Node)) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.date-picker-container')) {
+          setShowDatePicker(false);
+        }
+      }
+    };
+
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDatePicker]);
 
   return (
     <>
@@ -72,6 +113,73 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
             className="flex-1 px-4 py-3 text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
           />
         
+        {/* Due Date Button - Minimal, only shows when set */}
+        <div className="relative date-picker-container">
+          <button
+            type="button"
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            disabled={disabled}
+            className={`p-3 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center ${
+              dueDate
+                ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/70'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            title={dueDate ? 'Change deadline' : 'Set deadline'}
+          >
+            <FaCalendar size={18} />
+          </button>
+          
+          {/* Minimal Date Picker Popup */}
+          {showDatePicker && (
+            <>
+              <div 
+                className="fixed inset-0 z-[99998]" 
+                onClick={() => setShowDatePicker(false)}
+              />
+              <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 z-[99999] min-w-[200px]">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Deadline</span>
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={clearDueDate}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                      title="Remove deadline"
+                    >
+                      <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={dateInputRef}
+                  type="datetime-local"
+                  onChange={handleDateChange}
+                  min={new Date().toISOString().slice(0, 16)}
+                  defaultValue={dueDate ? new Date(dueDate).toISOString().slice(0, 16) : ''}
+                  className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 mb-2"
+                />
+                {dueDate && (
+                  <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(dueDate).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(false)}
+                  className="w-full px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={() => setIsPrivate(!isPrivate)}

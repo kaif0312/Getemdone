@@ -13,6 +13,9 @@ interface StreakCalendarProps {
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
+  onUpdateTask?: (taskId: string, text: string) => Promise<void>;
+  onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
+  onUpdateNotes?: (taskId: string, notes: string) => Promise<void>;
   onAddReaction: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
   onDeferTask: (taskId: string, deferToDate: string) => void;
@@ -26,6 +29,8 @@ export default function StreakCalendar({
   onToggleComplete,
   onTogglePrivacy,
   onDelete,
+  onUpdateTask,
+  onUpdateDueDate,
   onAddReaction,
   onOpenComments,
   onDeferTask
@@ -164,6 +169,9 @@ export default function StreakCalendar({
                     isOwnTask={true}
                     onToggleComplete={onToggleComplete}
                     onTogglePrivacy={onTogglePrivacy}
+                    onUpdateTask={onUpdateTask}
+                    onUpdateDueDate={onUpdateDueDate}
+                    onUpdateNotes={onUpdateNotes}
                     onDelete={onDelete}
                     onAddReaction={onAddReaction}
                     onOpenComments={onOpenComments}

@@ -23,13 +23,23 @@ service cloud.firestore {
       // Any authenticated user can read any user profile (needed for friend search)
       allow read: if isAuthenticated();
       
-      // Users can only create their own profile
-      allow create: if isAuthenticated() && isOwner(userId);
+      // Users can only create their own profile with valid structure
+      allow create: if isAuthenticated() && 
+        isOwner(userId) &&
+        request.resource.data.keys().hasAll(['id', 'displayName', 'email', 'friendCode', 'friends', 'createdAt']) &&
+        request.resource.data.id is string &&
+        request.resource.data.displayName is string &&
+        request.resource.data.email is string &&
+        request.resource.data.friendCode is string &&
+        request.resource.data.friends is list &&
+        request.resource.data.createdAt is int &&
+        (!request.resource.data.keys().hasAny(['streakData']) || request.resource.data.streakData is map);
       
       // Users can update their own profile OR update another user's friends array (for friend requests)
       allow update: if isAuthenticated() && (
         isOwner(userId) || 
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']))
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
+         request.resource.data.friends is list)
       );
       
       // Users cannot delete their profile
@@ -59,20 +69,34 @@ service cloud.firestore {
         request.resource.data.createdAt is int &&
         (request.resource.data.completedAt == null || request.resource.data.completedAt is int) &&
         (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string) &&
+        (!request.resource.data.keys().hasAny(['dueDate']) || request.resource.data.dueDate is int || request.resource.data.dueDate == null) &&
         (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number) &&
         (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
+        (!request.resource.data.keys().hasAny(['skipRollover']) || request.resource.data.skipRollover is bool) &&
+        (!request.resource.data.keys().hasAny(['notes']) || request.resource.data.notes is string) &&
         (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool);
       
       // Users can update their own tasks OR add reactions/comments to friends' tasks
       allow update: if isAuthenticated() && (
         // Task owner can update their own tasks
         (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId &&
+          // Validate text if being updated
+          (!request.resource.data.keys().hasAny(['text']) || 
+           (request.resource.data.text is string &&
+            request.resource.data.text.size() > 0 &&
+            request.resource.data.text.size() <= 500)) &&
           // Validate deferredTo if being updated
           (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
+          // Validate dueDate if being updated
+          (!request.resource.data.keys().hasAny(['dueDate']) || request.resource.data.dueDate is int || request.resource.data.dueDate == null) &&
           // Validate order if being updated
           (!request.resource.data.keys().hasAny(['order']) || request.resource.data.order is number || request.resource.data.order == null) &&
           // Validate committed if being updated
           (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
+          // Validate skipRollover if being updated
+          (!request.resource.data.keys().hasAny(['skipRollover']) || request.resource.data.skipRollover is bool) &&
+          // Validate notes if being updated
+          (!request.resource.data.keys().hasAny(['notes']) || request.resource.data.notes is string || request.resource.data.notes == null) &&
           // Validate deleted if being updated
           (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
           // Validate deletedAt if being updated

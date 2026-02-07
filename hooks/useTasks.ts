@@ -93,6 +93,23 @@ export function useTasks() {
         }
       };
       
+      // Function to test emulator connection
+      (window as any).testEmulator = async () => {
+        try {
+          console.log('[testEmulator] Testing Firestore connection...');
+          const testRef = collection(db, '_test');
+          const testDoc = await addDoc(testRef, { test: true, timestamp: Date.now() });
+          console.log('[testEmulator] ✅ Successfully wrote to Firestore! Doc ID:', testDoc.id);
+          await deleteDoc(testDoc);
+          console.log('[testEmulator] ✅ Successfully deleted test doc');
+          return true;
+        } catch (error: any) {
+          console.error('[testEmulator] ❌ Failed:', error.message);
+          console.error('[testEmulator] Error code:', error.code);
+          return false;
+        }
+      };
+      
       // Function to check what user is currently logged in
       (window as any).whoAmI = async () => {
         if (!user) {
@@ -152,21 +169,18 @@ export function useTasks() {
   }, [user]);
 
   useEffect(() => {
-    console.log('[useTasks] useEffect triggered, user:', user?.uid.substring(0, 8), 'userData:', userData?.displayName);
-    
     if (!user || !userData) {
-      console.log('[useTasks] No user/userData, clearing tasks');
       setTasks([]);
       setLoading(false);
       return;
     }
-
-    console.log('[useTasks] Setting up listeners for user:', user.uid.substring(0, 8));
+    
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
     const allTasks = new Map<string, TaskWithUser>();
     const friendNameCache = new Map<string, string>();
     let updateTimer: NodeJS.Timeout | null = null;
+    let isInitialLoad = true; // Track if this is the first snapshot
     
     // Debounced update function to prevent flickering and reduce reads
     const scheduleUpdate = () => {
@@ -175,18 +189,16 @@ export function useTasks() {
       }
       updateTimer = setTimeout(() => {
         const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-        console.log('[useTasks] Updating tasks state, total tasks:', sortedTasks.length);
-        sortedTasks.forEach(t => {
-          console.log('  - Task:', t.id.substring(0, 8), 'User:', t.userName, 'Comments:', t.comments?.length || 0);
-        });
+        console.log('[useTasks] 📤 Updating state with', sortedTasks.length, 'tasks');
         setTasks(sortedTasks);
         setLoading(false);
-      }, 300); // 300ms debounce to reduce Firestore reads
+        isInitialLoad = false; // Mark initial load as complete
+      }, 100); // Reduced debounce for faster updates
     };
     
     // Pre-fetch friend names to avoid async delays during snapshot
     const prefetchFriendNames = async () => {
-      console.log('[useTasks] Prefetching friend names, friends count:', userData.friends?.length || 0);
+      // Prefetch friend names
       if (userData.friends && userData.friends.length > 0) {
         const promises = userData.friends.map(async (friendId) => {
           if (!friendNameCache.has(friendId)) {
@@ -195,7 +207,7 @@ export function useTasks() {
               if (userDoc.exists()) {
                 const name = (userDoc.data() as User).displayName;
                 friendNameCache.set(friendId, name);
-                console.log('[useTasks] Cached friend name:', friendId.substring(0, 8), '->', name);
+                // Cache friend name
               }
             } catch (error) {
               console.error('Error fetching friend name:', error);
@@ -203,70 +215,65 @@ export function useTasks() {
           }
         });
         await Promise.all(promises);
-        console.log('[useTasks] Friend names cached, total:', friendNameCache.size);
+        // Friend names cached
       }
     };
     
-    // Pre-fetch friend names before setting up listeners
-    prefetchFriendNames().then(() => {
-      console.log('[useTasks] Setting up own tasks query for userId:', user.uid.substring(0, 8));
-      
-      // Query 1: Get user's own tasks (private + public)
-      const ownTasksQuery = query(
-        tasksRef,
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-      
-      console.log('[useTasks] Own tasks query created, starting listener...');
+    // CRITICAL FIX: Set up own tasks listener IMMEDIATELY (don't wait for friend names)
+    // Query 1: Get user's own tasks (private + public)
+    const ownTasksQuery = query(
+      tasksRef,
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
 
-      const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
-        console.log('[useTasks] Own tasks snapshot received, total docs:', snapshot.docs.length, 'changes:', snapshot.docChanges().length);
-        console.log('[useTasks] All own tasks in snapshot:', snapshot.docs.map(d => ({
-          id: d.id.substring(0, 8),
-          text: d.data().text.substring(0, 20),
-          deleted: d.data().deleted
-        })));
-        
-        // Only process actual changes to reduce reads
+    const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
+      if (isInitialLoad) {
+        // First load - process all documents
+        snapshot.docs.forEach((doc) => {
+          const task = { id: doc.id, ...doc.data() } as Task;
+          if (task.deleted !== true) {
+            allTasks.set(task.id, { ...task, userName: 'You' });
+          }
+        });
+        console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
+      } else {
+        // Subsequent updates - only process changes
         snapshot.docChanges().forEach((change) => {
           const task = { id: change.doc.id, ...change.doc.data() } as Task;
-          console.log('[useTasks] Own task change:', change.type, task.id, 'userId:', task.userId, 'Expected:', user.uid, 'Match:', task.userId === user.uid, 'Deleted:', task.deleted);
           
           if (change.type === 'removed') {
-            console.log('[useTasks] Task removed from Firestore:', change.doc.id);
             allTasks.delete(change.doc.id);
           } else {
-            // Filter out deleted tasks client-side (only if explicitly deleted: true)
             if (task.deleted === true) {
-              console.log('[useTasks] Task is soft-deleted, removing from map:', task.id);
               allTasks.delete(change.doc.id);
             } else {
-              console.log('[useTasks] Adding/updating task in map:', task.id, 'with userName: You');
               allTasks.set(task.id, { ...task, userName: 'You' });
             }
           }
         });
-        
-        console.log('[useTasks] Total tasks in map after own tasks update:', allTasks.size);
-        scheduleUpdate();
-      }, (error) => {
-        console.error('Error fetching own tasks:', error);
-        if (error.code === 'resource-exhausted') {
-          alert('Firestore quota exceeded. Please wait a moment and refresh the page.');
-        }
-        setLoading(false);
-      });
+      }
       
-      unsubscribers.push(unsubOwnTasks);
+      scheduleUpdate();
+    }, (error) => {
+      console.error('[useTasks] ❌ Error in own tasks listener:', error);
+      if (error.code === 'resource-exhausted') {
+        alert('Firestore quota exceeded. Please wait a moment and refresh the page.');
+      }
+      setLoading(false);
+    });
+    
+    unsubscribers.push(unsubOwnTasks);
+    console.log('[useTasks] ✅ Own tasks listener set up');
+
+    // Pre-fetch friend names and set up friend tasks listener (can happen async)
+    prefetchFriendNames().then(() => {
 
       // Query 2: Get friends' public tasks (only if there are friends)
       if (userData.friends && userData.friends.length > 0) {
         // Limit to first 10 friends to reduce quota usage
         const maxFriends = Math.min(userData.friends.length, 10);
         const friendsToQuery = userData.friends.slice(0, maxFriends);
-        
-        console.log('[useTasks] Setting up friend tasks query for friends:', friendsToQuery.map(f => f.substring(0, 8)));
         
         const friendTasksQuery = query(
           tasksRef,
@@ -276,37 +283,29 @@ export function useTasks() {
         );
 
         const unsubFriendTasks = onSnapshot(friendTasksQuery, (snapshot) => {
-          console.log('[useTasks] Friend tasks snapshot received, changes:', snapshot.docChanges().length);
-          
           // Only process actual changes to reduce reads
           snapshot.docChanges().forEach((change) => {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
-            console.log('[useTasks] Friend task change:', change.type, task.id, 'User:', task.userId, 'Deleted:', task.deleted, 'Comments:', task.comments?.length || 0);
             
             // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
             if (task.userId === user.uid) {
-              console.log('[useTasks] Skipping friend task - it is actually OUR task:', task.id);
               return; // Don't process our own tasks as friend tasks
             }
             
             if (change.type === 'removed') {
-              console.log('[useTasks] Friend task removed from Firestore:', change.doc.id);
               allTasks.delete(change.doc.id);
             } else {
               // Filter out deleted tasks client-side (only if explicitly deleted: true)
               if (task.deleted === true) {
-                console.log('[useTasks] Friend task is soft-deleted, removing from map:', task.id);
                 allTasks.delete(change.doc.id);
               } else {
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
-                console.log('[useTasks] Adding/updating friend task in map:', task.id, 'userName:', userName);
                 allTasks.set(task.id, { ...task, userName });
               }
             }
           });
           
-          console.log('[useTasks] Total tasks in map after friend tasks update:', allTasks.size);
           scheduleUpdate();
         }, (error) => {
           console.error('Error fetching friend tasks:', error);
@@ -320,16 +319,16 @@ export function useTasks() {
     });
 
     return () => {
-      console.log('[useTasks] Cleaning up listeners');
+      // Cleanup listeners
       if (updateTimer) {
         clearTimeout(updateTimer);
       }
       unsubscribers.forEach(unsub => unsub());
-      console.log('[useTasks] Cleanup complete, unsubscribed from', unsubscribers.length, 'listeners');
+      console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
     };
-  }, [user, userData]);
+  }, [user?.uid, userData?.id]); // Use stable IDs instead of whole objects to prevent infinite loops
 
-  const addTask = async (text: string, isPrivate: boolean) => {
+  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
     if (!user) return;
 
     // Get current max order for user's tasks
@@ -347,18 +346,15 @@ export function useTasks() {
       completedAt: null,
       order: maxOrder + 1,
       deleted: false, // Explicitly set deleted to false
+      ...(dueDate && { dueDate }), // Only include if set
     };
     
-    console.log('[addTask] Creating new task:', newTask);
-    const docRef = await addDoc(collection(db, 'tasks'), newTask);
-    console.log('[addTask] Task created successfully with ID:', docRef.id);
-    
-    // Verify task was created by reading it back
-    const verifyDoc = await getDoc(docRef);
-    if (verifyDoc.exists()) {
-      console.log('[addTask] Verified task exists in Firestore:', verifyDoc.data());
-    } else {
-      console.error('[addTask] ERROR: Task not found after creation!');
+    try {
+      const docRef = await addDoc(collection(db, 'tasks'), newTask);
+      console.log('[addTask] ✅ Task created:', docRef.id);
+    } catch (error: any) {
+      console.error('[addTask] ❌ Failed to create task:', error.message);
+      throw error;
     }
   };
 
@@ -382,6 +378,61 @@ export function useTasks() {
     await updateDoc(taskRef, {
       committed,
     });
+  };
+
+  const updateTask = async (taskId: string, text: string) => {
+    if (!user) return;
+    
+    // Validate text
+    const trimmedText = text.trim();
+    if (!trimmedText || trimmedText.length === 0) {
+      throw new Error('Task text cannot be empty');
+    }
+    if (trimmedText.length > 500) {
+      throw new Error('Task text must be 500 characters or less');
+    }
+
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      text: trimmedText,
+    });
+  };
+
+  const updateTaskDueDate = async (taskId: string, dueDate: number | null) => {
+    if (!user) return;
+
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      dueDate: dueDate || null,
+    });
+  };
+
+  const toggleSkipRollover = async (taskId: string, skipRollover: boolean) => {
+    if (!user) return;
+
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      skipRollover: skipRollover,
+    });
+  };
+
+  const updateTaskNotes = async (taskId: string, notes: string) => {
+    if (!user) return;
+
+    const startTime = Date.now();
+    const taskRef = doc(db, 'tasks', taskId);
+    try {
+      await updateDoc(taskRef, {
+        notes: notes || null,
+      });
+      const duration = Date.now() - startTime;
+      if (duration > 1000) {
+        console.warn(`[updateTaskNotes] Slow update: ${duration}ms for task ${taskId}`);
+      }
+    } catch (error) {
+      console.error('[updateTaskNotes] Error updating notes:', error);
+      throw error;
+    }
   };
 
   const deleteTask = async (taskId: string) => {
@@ -540,9 +591,13 @@ export function useTasks() {
     tasks,
     loading,
     addTask,
+    updateTask,
+    updateTaskDueDate,
+    updateTaskNotes,
     toggleComplete,
     togglePrivacy,
     toggleCommitment,
+    toggleSkipRollover,
     deleteTask,
     restoreTask,
     permanentlyDeleteTask,

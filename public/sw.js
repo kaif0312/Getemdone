@@ -18,34 +18,40 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - Network-first strategy (better for development)
 self.addEventListener('fetch', (event) => {
+  // Skip caching for API requests and Firebase
+  if (event.request.url.includes('/api/') || 
+      event.request.url.includes('firebase') ||
+      event.request.url.includes('googleapis.com')) {
+    return; // Let browser handle these normally
+  }
+
   event.respondWith(
-    caches.match(event.request)
+    // Try network first
+    fetch(event.request)
       .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+        // If network succeeds, cache and return
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-
-        return fetch(event.request).then(
-          (response) => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
+        return response;
+      })
+      .catch(() => {
+        // Network failed - try cache (offline fallback)
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
           }
-        );
+          // No cache either - return offline page or error
+          return new Response('Offline - content not available', {
+            status: 503,
+            statusText: 'Service Unavailable',
+          });
+        });
       })
   );
 });

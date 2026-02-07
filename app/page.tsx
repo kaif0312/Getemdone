@@ -16,16 +16,28 @@ import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, F
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { shouldShowInTodayView, countRolledOverTasks, getTodayString } from '@/utils/taskFilter';
 
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { tasks, loading: tasksLoading, addTask, toggleComplete, togglePrivacy, toggleCommitment, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<string | null>(null);
+  const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
+  const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
+
+  // Reset rollover notice dismissal on new day
+  useEffect(() => {
+    const todayStr = getTodayString();
+    if (lastNoticeDate !== todayStr) {
+      setDismissedRolloverNotice(false);
+      setLastNoticeDate(todayStr);
+    }
+  }, [lastNoticeDate]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -203,63 +215,61 @@ export default function Home() {
 
       {/* Task Feed */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {tasksLoading ? (
+        {!userData ? (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center">
+            <div className="text-4xl mb-3">⚠️</div>
+            <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+              Firestore Quota Exceeded
+            </h3>
+            <p className="text-yellow-800 dark:text-yellow-300 text-sm mb-3">
+              You've hit the daily Firebase quota limit. Your tasks are safe in the database.
+            </p>
+            <p className="text-yellow-700 dark:text-yellow-400 text-xs">
+              Quota resets at midnight PT. Try again in a few hours, or upgrade your Firebase plan.
+            </p>
+          </div>
+        ) : tasksLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-            <p className="text-gray-600">Loading tasks...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading tasks...</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 mb-2">No tasks yet!</p>
-            <p className="text-gray-500 text-sm">Add your first task below to get started.</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-2">No tasks yet!</p>
+            <p className="text-gray-500 dark:text-gray-500 text-sm">Add your first task below to get started.</p>
           </div>
         ) : (
           <>
             {/* Your Tasks */}
             {(() => {
-              const today = new Date();
-              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              const todayStr = getTodayString();
               
-              console.log('[Home] Filtering tasks for display, total tasks:', tasks.length, 'todayStr:', todayStr);
-              console.log('[Home] Current user.uid:', user.uid);
-              
+              // Filter tasks using smart rollover logic
               const myTasks = tasks.filter(task => {
-                if (task.userId !== user.uid) {
-                  console.log('[Home] Task filtered out (not my task):', task.id.substring(0, 8), 'Task userId:', task.userId, 'My uid:', user.uid, 'Match:', task.userId === user.uid);
-                  return false;
+                // Only show user's own tasks
+                if (task.userId !== user.uid) return false;
+                
+                // Apply daily focus view with smart rollover
+                return shouldShowInTodayView(task, todayStr);
+              }).sort((a, b) => {
+                // Sort by due date: tasks with due dates first, then by due date (earliest first)
+                // Overdue tasks come first, then tasks due soon, then no due date
+                if (a.dueDate && b.dueDate) {
+                  return a.dueDate - b.dueDate; // Earliest first
+                } else if (a.dueDate && !b.dueDate) {
+                  return -1; // Tasks with due date come first
+                } else if (!a.dueDate && b.dueDate) {
+                  return 1; // Tasks without due date come after
+                } else {
+                  // Both have no due date, sort by order (for drag-and-drop)
+                  return (a.order || 0) - (b.order || 0);
                 }
-                
-                console.log('[Home] My task:', task.id.substring(0, 8), 'deferredTo:', task.deferredTo, 'completed:', task.completed);
-                
-                // Hide deferred tasks that are deferred to a future date
-                if (task.deferredTo && task.deferredTo > todayStr) {
-                  console.log('[Home] Task filtered out (deferred to future):', task.id.substring(0, 8), 'deferredTo:', task.deferredTo, '> todayStr:', todayStr);
-                  return false;
-                }
-                
-                // Show incomplete tasks (including deferred to today or past)
-                if (!task.completed) {
-                  console.log('[Home] Task INCLUDED (incomplete):', task.id.substring(0, 8));
-                  return true;
-                }
-                
-                // For completed tasks, only show if completed today
-                if (task.completedAt) {
-                  const completedDate = new Date(task.completedAt);
-                  const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
-                  const shouldShow = completedStr === todayStr;
-                  console.log('[Home] Task completed:', task.id.substring(0, 8), 'completedStr:', completedStr, 'shouldShow:', shouldShow);
-                  return shouldShow;
-                }
-                
-                console.log('[Home] Task filtered out (no condition matched):', task.id.substring(0, 8));
-                return false;
               });
               
               console.log('[Home] After filtering, myTasks count:', myTasks.length);
 
               // Separate incomplete and completed tasks
-              const incompleteTasks = myTasks.filter(t => !t.completed).sort((a, b) => (a.order || 0) - (b.order || 0));
+              const incompleteTasks = myTasks.filter(t => !t.completed);
               const completedTasks = myTasks.filter(t => t.completed);
               
               if (myTasks.length === 0) return null;
@@ -294,7 +304,11 @@ export default function Home() {
                             isOwnTask={true}
                             onToggleComplete={handleToggleComplete}
                             onTogglePrivacy={togglePrivacy}
+                            onUpdateTask={updateTask}
+                            onUpdateDueDate={updateTaskDueDate}
+                            onUpdateNotes={updateTaskNotes}
                             onToggleCommitment={toggleCommitment}
+                            onToggleSkipRollover={toggleSkipRollover}
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
                             onOpenComments={setSelectedTaskForComments}
@@ -313,7 +327,11 @@ export default function Home() {
                         isOwnTask={true}
                         onToggleComplete={handleToggleComplete}
                         onTogglePrivacy={togglePrivacy}
+                        onUpdateTask={updateTask}
+                        onUpdateDueDate={updateTaskDueDate}
+                        onUpdateNotes={updateTaskNotes}
                         onToggleCommitment={toggleCommitment}
+                        onToggleSkipRollover={toggleSkipRollover}
                         onDelete={deleteTask}
                         onAddReaction={addReaction}
                         onOpenComments={setSelectedTaskForComments}
@@ -358,7 +376,7 @@ export default function Home() {
               }, {} as Record<string, typeof tasks>);
 
               return Object.entries(tasksByUser).map(([userId, userTasks]) => {
-                const friendName = userTasks[0].userName;
+                const friendName = userTasks[0]?.userName || 'Unknown';
                 const colors = [
                   { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
                   { from: 'from-purple-500', to: 'to-purple-600', text: 'text-purple-600' },
@@ -366,8 +384,11 @@ export default function Home() {
                   { from: 'from-indigo-500', to: 'to-indigo-600', text: 'text-indigo-600' },
                   { from: 'from-orange-500', to: 'to-orange-600', text: 'text-orange-600' },
                 ];
-                const colorIndex = parseInt(userId.slice(-1), 16) % colors.length;
-                const color = colors[colorIndex];
+                // Use userId hash to get consistent color, with fallback to 0
+                const colorIndex = userId 
+                  ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
+                  : 0;
+                const color = colors[colorIndex] || colors[0]; // Fallback to first color if undefined
 
                 return (
                   <div key={userId} className="mb-6">
@@ -434,6 +455,9 @@ export default function Home() {
           onClose={() => setShowStreakCalendar(false)}
           onToggleComplete={handleToggleComplete}
           onTogglePrivacy={togglePrivacy}
+          onUpdateTask={updateTask}
+          onUpdateDueDate={updateTaskDueDate}
+          onUpdateNotes={updateTaskNotes}
           onDelete={deleteTask}
           onAddReaction={addReaction}
           onOpenComments={setSelectedTaskForComments}

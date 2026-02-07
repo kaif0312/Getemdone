@@ -42,10 +42,13 @@ export interface Task {
   reactions?: Reaction[];
   comments?: Comment[];
   deferredTo?: string; // YYYY-MM-DD format - date this task is deferred to
+  dueDate?: number | null; // Timestamp for deadline
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted
   committed?: boolean; // Commitment Mode - must complete today!
+  skipRollover?: boolean; // If true, don't auto-rollover to next day
+  notes?: string; // Personal notes/description for the task
 }
 
 export interface TaskWithUser extends Task {

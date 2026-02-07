@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import { playSound } from '@/utils/sounds';
+import { isRolledOver, getTodayString } from '@/utils/taskFilter';
 
 interface DragHandleProps {
   ref: (element: HTMLElement | null) => void;
@@ -20,7 +21,11 @@ interface TaskItemProps {
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
+  onUpdateTask?: (taskId: string, text: string) => Promise<void>;
+  onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
+  onUpdateNotes?: (taskId: string, notes: string) => Promise<void>;
   onToggleCommitment?: (taskId: string, committed: boolean) => void;
+  onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
@@ -34,7 +39,11 @@ export default function TaskItem({
   onToggleComplete, 
   onTogglePrivacy,
   onDelete,
+  onUpdateTask,
+  onUpdateDueDate,
+  onUpdateNotes,
   onToggleCommitment,
+  onToggleSkipRollover,
   onAddReaction,
   onOpenComments,
   onDeferTask,
@@ -47,9 +56,110 @@ export default function TaskItem({
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(task.text);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesText, setNotesText] = useState(task.notes || '');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const dueDateInputRef = useRef<HTMLInputElement>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  // Sync editText with task.text when task changes
+  useEffect(() => {
+    if (!isEditing) {
+      setEditText(task.text);
+    }
+  }, [task.text, isEditing]);
+
+  // Sync notesText with task.notes when task changes
+  useEffect(() => {
+    if (!isEditingNotes) {
+      setNotesText(task.notes || '');
+    }
+  }, [task.notes, isEditingNotes]);
+
+  // Handle notes save
+  const handleSaveNotes = async () => {
+    if (!onUpdateNotes || isSavingNotes) return;
+    
+    // Prevent saving if nothing changed
+    const trimmedNotes = notesText.trim();
+    if (trimmedNotes === (task.notes || '')) {
+      setIsEditingNotes(false);
+      setShowNotes(false);
+      return;
+    }
+    
+    setIsSavingNotes(true);
+    try {
+      await onUpdateNotes(task.id, trimmedNotes);
+      // Close immediately after save completes - no need to wait
+      setIsEditingNotes(false);
+      setShowNotes(false);
+      if ('vibrate' in navigator) navigator.vibrate(30);
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      alert('Failed to save notes. Please try again.');
+      // Don't close on error - let user retry
+    } finally {
+      setIsSavingNotes(false); // Always clear saving state
+    }
+  };
+
+  const handleCancelNotes = () => {
+    setNotesText(task.notes || '');
+    setIsEditingNotes(false);
+  };
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [isEditing]);
+
+  // Focus textarea when entering notes edit mode
+  useEffect(() => {
+    if (isEditingNotes && notesTextareaRef.current) {
+      notesTextareaRef.current.focus();
+    }
+  }, [isEditingNotes]);
+
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Close due date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showDueDatePicker && dueDateInputRef.current && !dueDateInputRef.current.contains(e.target as Node)) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.due-date-picker-container')) {
+          setShowDueDatePicker(false);
+        }
+      }
+    };
+
+    if (showDueDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDueDatePicker]);
 
   const handleToggleComplete = async () => {
-    if (!isOwnTask) return;
+    if (!isOwnTask || isEditing) return;
     
     const newCompletedState = !task.completed;
     
@@ -65,6 +175,109 @@ export default function TaskItem({
       // If uncompleting, just update immediately
       onToggleComplete(task.id, newCompletedState);
     }
+  };
+
+  // Long-press detection for mobile (only on task text, not entire card)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isOwnTask || task.completed || isEditing || !onUpdateTask) return;
+    
+    // Only trigger on the text element itself, not on buttons or other elements
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.closest('button')) {
+      return;
+    }
+    
+    const touch = e.touches[0];
+    if (touch) {
+      longPressStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now()
+      };
+      
+      longPressTimerRef.current = setTimeout(() => {
+        // Long press detected (500ms)
+        setIsEditing(true);
+        if ('vibrate' in navigator) {
+          navigator.vibrate(30); // Haptic feedback
+        }
+        longPressStartRef.current = null;
+      }, 500);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Cancel long press if user moves finger significantly
+    if (longPressTimerRef.current && longPressStartRef.current) {
+      const touch = e.touches[0];
+      if (touch) {
+        const moveDistance = Math.sqrt(
+          Math.pow(touch.clientX - longPressStartRef.current.x, 2) + 
+          Math.pow(touch.clientY - longPressStartRef.current.y, 2)
+        );
+        if (moveDistance > 10) { // 10px movement threshold
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+          longPressStartRef.current = null;
+        }
+      }
+    }
+  };
+
+  // Desktop: Right-click or double-click to edit
+  const handleDoubleClick = () => {
+    if (!isOwnTask || task.completed || isEditing || !onUpdateTask) return;
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!onUpdateTask || isSaving) return;
+    
+    const trimmedText = editText.trim();
+    if (!trimmedText || trimmedText === task.text) {
+      setIsEditing(false);
+      setEditText(task.text);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onUpdateTask(task.id, trimmedText);
+      setIsEditing(false);
+      playSound('pop');
+      if ('vibrate' in navigator) {
+        navigator.vibrate(20);
+      }
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      alert('Failed to update task. Please try again.');
+      setEditText(task.text);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditText(task.text);
+  };
+
+  // Auto-save on blur (mobile-friendly)
+  const handleBlur = () => {
+    // Small delay to allow save button click to register
+    setTimeout(() => {
+      if (isEditing) {
+        handleSaveEdit();
+      }
+    }, 150);
   };
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -85,6 +298,51 @@ export default function TaskItem({
         minute: '2-digit',
         hour12: true
       });
+    }
+  };
+
+  const formatDueDate = (dueDate: number) => {
+    const now = Date.now();
+    const diff = dueDate - now;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    const minutes = Math.floor(diff / (1000 * 60));
+
+    if (diff < 0) {
+      // Overdue
+      if (Math.abs(days) > 0) {
+        return `Overdue by ${Math.abs(days)} day${Math.abs(days) > 1 ? 's' : ''}`;
+      } else if (Math.abs(hours) > 0) {
+        return `Overdue by ${Math.abs(hours)} hour${Math.abs(hours) > 1 ? 's' : ''}`;
+      } else {
+        return 'Overdue';
+      }
+    } else if (minutes < 60) {
+      return `Due in ${minutes} min${minutes !== 1 ? 's' : ''}`;
+    } else if (hours < 24) {
+      return `Due in ${hours} hour${hours !== 1 ? 's' : ''}`;
+    } else if (days === 1) {
+      return 'Due tomorrow';
+    } else if (days < 7) {
+      return `Due in ${days} days`;
+    } else {
+      return new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getDueDateColor = (dueDate: number) => {
+    const now = Date.now();
+    const diff = dueDate - now;
+    const hours = diff / (1000 * 60 * 60);
+
+    if (diff < 0) {
+      return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+    } else if (hours < 2) {
+      return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800';
+    } else if (hours < 24) {
+      return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
+    } else {
+      return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
     }
   };
 
@@ -212,7 +470,7 @@ export default function TaskItem({
 
         {/* Task Item with Swipe */}
         <div 
-          {...(isOwnTask ? swipeHandlers : {})}
+          {...(isOwnTask && !isEditing ? swipeHandlers : {})}
           style={{
             transform: `translateX(${swipeOffset}px)`,
             transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
@@ -225,7 +483,7 @@ export default function TaskItem({
             swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-100 dark:bg-green-900/40' : ''
           } ${
             swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
-          }`}
+          } ${isEditing ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''}`}
         >
         <div className="flex items-start gap-3">
           {/* Drag Handle - Mobile-friendly, always visible */}
@@ -234,7 +492,7 @@ export default function TaskItem({
               ref={dragHandleProps.ref}
               {...dragHandleProps.attributes}
               {...dragHandleProps.listeners}
-              className="flex-shrink-0 p-2 -ml-2 touch-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors mt-0.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="flex-shrink-0 p-2 -ml-2 touch-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
               title="Drag to reorder"
               style={{ touchAction: 'none' }}
             >
@@ -242,29 +500,32 @@ export default function TaskItem({
             </button>
           )}
 
+          {/* Checkbox - Minimal, sleek, perfectly aligned */}
           <button
             onClick={handleToggleComplete}
             disabled={!isOwnTask}
-            className={`min-w-[24px] min-h-[24px] w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-300 mt-1 relative flex-shrink-0 ${
+            className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all duration-200 ${
               task.completed 
-                ? 'bg-green-500 border-green-500 scale-110 shadow-lg shadow-green-500/50' 
-                : 'border-gray-300 hover:border-green-400 hover:scale-105 hover:shadow-md active:scale-95'
-            } ${!isOwnTask ? 'cursor-default' : 'cursor-pointer'}`}
+                ? 'bg-green-500 border-green-500 shadow-sm' 
+                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-green-400 dark:hover:border-green-500'
+            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
+            style={{ marginTop: '2px' }}
           >
             {task.completed && (
               <svg 
-                className="w-4 h-4 text-white animate-checkmark-draw" 
+                className="w-3 h-3 text-white" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
+                strokeWidth={3}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             )}
           </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1.5">
             <span className={`font-semibold text-sm ${
               isOwnTask ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
             }`} suppressHydrationWarning>
@@ -277,21 +538,216 @@ export default function TaskItem({
             )}
           </div>
           
-          <div className="flex items-start gap-2">
+          <div 
+            className="flex items-start gap-2"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            onDoubleClick={handleDoubleClick}
+          >
             {task.committed && (
               <FaStar className="text-yellow-500 mt-1 flex-shrink-0" size={16} title="Committed Task - Must Complete Today!" />
             )}
-            <p className={`text-base ${
-              task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-            }`} suppressHydrationWarning>
-              {task.text}
-            </p>
+            {isEditing ? (
+              <div className="flex-1 flex items-center gap-2">
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onBlur={handleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveEdit();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      handleCancelEdit();
+                    }
+                  }}
+                  maxLength={500}
+                  disabled={isSaving}
+                  className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-2 border-blue-500 dark:border-blue-400 rounded-lg text-base text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={isSaving || !editText.trim() || editText.trim() === task.text}
+                    className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+                    title="Save"
+                  >
+                    {isSaving ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <FaCheckIcon size={14} />
+                    )}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                    className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+                    title="Cancel"
+                  >
+                    <FaTimes size={14} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p 
+                className={`text-base flex-1 ${
+                  task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`} 
+                suppressHydrationWarning
+                title={isOwnTask && !task.completed && onUpdateTask ? 'Long-press or double-click to edit' : undefined}
+              >
+                {task.text}
+              </p>
+            )}
           </div>
           
           {task.deferredTo && (
-            <div className="mt-1 inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+            <div className="mt-1 inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-full">
               <FaCalendarPlus size={10} />
               <span>Deferred to {new Date(task.deferredTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </div>
+          )}
+          
+          {/* Due Date Indicator - Minimal, sleek, clickable to edit */}
+          {task.dueDate && !task.completed && isOwnTask && onUpdateDueDate ? (
+            <div className="relative due-date-picker-container">
+              <button
+                type="button"
+                onClick={() => setShowDueDatePicker(!showDueDatePicker)}
+                className={`mt-1 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80 ${getDueDateColor(task.dueDate)}`}
+                title="Tap to change deadline"
+              >
+                <FaClock size={10} />
+                <span className="font-medium">{formatDueDate(task.dueDate)}</span>
+              </button>
+              
+            </div>
+          ) : task.dueDate && !task.completed ? (
+            <div className={`mt-1 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${getDueDateColor(task.dueDate)}`}>
+              <FaClock size={10} />
+              <span className="font-medium">{formatDueDate(task.dueDate)}</span>
+            </div>
+          ) : null}
+
+          {/* Expandable Notes - Minimal, sleek, mobile-first */}
+          {isOwnTask && onUpdateNotes && (
+            <div className="mt-2">
+              {/* Notes Toggle Button - Only show if notes exist or user wants to add */}
+              {(task.notes || showNotes) && (
+                <button
+                  onClick={() => {
+                    setShowNotes(!showNotes);
+                    if (!showNotes && !task.notes) {
+                      setIsEditingNotes(true);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                >
+                  <FaStickyNote size={12} className={task.notes ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} />
+                  <span className="font-medium">
+                    {task.notes ? 'Notes' : 'Add notes'}
+                  </span>
+                  {showNotes ? (
+                    <FaChevronUp size={10} className="text-gray-400" />
+                  ) : (
+                    <FaChevronDown size={10} className="text-gray-400" />
+                  )}
+                </button>
+              )}
+
+              {/* Expanded Notes Content */}
+              {showNotes && (
+                <div className="mt-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                  {isEditingNotes ? (
+                    <div className="space-y-2">
+                      <textarea
+                        ref={notesTextareaRef}
+                        value={notesText}
+                        onChange={(e) => setNotesText(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Save on Ctrl+Enter or Cmd+Enter
+                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveNotes();
+                          }
+                          // Close on Escape
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            handleCancelNotes();
+                          }
+                        }}
+                        placeholder="Add notes, reminders, or details..."
+                        rows={4}
+                        maxLength={1000}
+                        className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none"
+                        autoFocus
+                        disabled={isSavingNotes}
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {notesText.length}/1000
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleCancelNotes}
+                            disabled={isSavingNotes}
+                            className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveNotes}
+                            disabled={isSavingNotes || notesText.trim() === (task.notes || '')}
+                            className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                          >
+                            {isSavingNotes ? (
+                              <span className="flex items-center gap-1">
+                                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Saving...
+                              </span>
+                            ) : (
+                              'Save'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                        {task.notes || (
+                          <span className="text-gray-400 dark:text-gray-500 italic">No notes yet</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setIsEditingNotes(true)}
+                        className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                      >
+                        <FaEdit size={10} />
+                        <span>{task.notes ? 'Edit' : 'Add notes'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Add Notes Button - Show if no notes and not expanded */}
+              {!task.notes && !showNotes && (
+                <button
+                  onClick={() => {
+                    setShowNotes(true);
+                    setIsEditingNotes(true);
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mt-1"
+                >
+                  <FaStickyNote size={12} />
+                  <span>Add notes</span>
+                </button>
+              )}
             </div>
           )}
           
@@ -375,6 +831,24 @@ export default function TaskItem({
 
         {isOwnTask && (
           <div className="flex items-center gap-1">
+            {/* Deadline Button - Only for incomplete tasks */}
+            {!task.completed && onUpdateDueDate && (
+              <div className="relative due-date-picker-container">
+                <button
+                  onClick={() => setShowDueDatePicker(!showDueDatePicker)}
+                  className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
+                    task.dueDate
+                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  }`}
+                  title={task.dueDate ? 'Change deadline' : 'Set deadline'}
+                >
+                  <FaClock size={16} />
+                </button>
+                
+              </div>
+            )}
+            
             {/* Defer Button - Only for incomplete tasks */}
             {!task.completed && onDeferTask && (
               <>
@@ -431,6 +905,21 @@ export default function TaskItem({
               </>
             )}
 
+            {/* Skip Rollover Toggle - Only show for rolled-over tasks */}
+            {!task.completed && onToggleSkipRollover && isRolledOver(task, getTodayString()) && (
+              <button
+                onClick={() => onToggleSkipRollover(task.id, !task.skipRollover)}
+                className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
+                  task.skipRollover
+                    ? 'bg-gray-200 dark:bg-gray-700'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={task.skipRollover ? 'Enable rollover' : 'Skip rollover (hide tomorrow)'}
+              >
+                <span className="text-xs text-gray-600 dark:text-gray-400">⏭</span>
+              </button>
+            )}
+
             {/* Commitment Toggle - Only for incomplete tasks */}
             {!task.completed && onToggleCommitment && (
               <button
@@ -473,6 +962,72 @@ export default function TaskItem({
         </div>
       </div>
       </div>
+
+      {/* Due Date Picker Modal - Centered, works for both badge and button */}
+      {showDueDatePicker && isOwnTask && !task.completed && onUpdateDueDate && (
+        <>
+          <div 
+            className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-sm" 
+            onClick={() => setShowDueDatePicker(false)}
+          />
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 min-w-[280px] max-w-[90vw] pointer-events-auto animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
+                  {task.dueDate ? 'Change Deadline' : 'Set Deadline'}
+                </span>
+                {task.dueDate && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (onUpdateDueDate) {
+                        await onUpdateDueDate(task.id, null);
+                        setShowDueDatePicker(false);
+                      }
+                    }}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Remove deadline"
+                  >
+                    <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
+                  </button>
+                )}
+              </div>
+              <input
+                ref={dueDateInputRef}
+                type="datetime-local"
+                onChange={async (e) => {
+                  const value = e.target.value;
+                  if (value && onUpdateDueDate) {
+                    const date = new Date(value);
+                    await onUpdateDueDate(task.id, date.getTime());
+                    // Don't auto-close - let user see the selected date and click Done
+                  }
+                }}
+                min={new Date().toISOString().slice(0, 16)}
+                defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
+                className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 mb-3"
+              />
+              {task.dueDate && (
+                <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowDueDatePicker(false)}
+                className="w-full px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <style jsx>{`
         @keyframes task-complete {

@@ -30,21 +30,25 @@ export function useTasks() {
   const lastFriendsContentRef = useRef<string>('');
   
   // Calculate friends key only when contents actually change
-  // Use useMemo with stringified dependency to avoid array reference issues
-  const stableFriendsKey = useMemo(() => {
-    const currentFriends = userData?.friends || [];
-    const currentContent = currentFriends.length === 0 
+  // Create a stable string representation of friends for dependency comparison
+  // Must use useMemo to ensure hooks are called in the same order every render
+  const friendsContentKey = useMemo(() => {
+    const friendsArray = userData?.friends || [];
+    return friendsArray.length === 0 
       ? '' 
-      : [...currentFriends].sort().join(',');
-    
+      : [...friendsArray].sort().join(',');
+  }, [userData?.friends?.length, userData?.friends ? userData.friends.slice().sort().join(',') : '']);
+  
+  // Update refs only when content actually changes (inside useMemo to maintain hook order)
+  const stableFriendsKey = useMemo(() => {
     // Only update if content actually changed
-    if (lastFriendsContentRef.current !== currentContent) {
-      lastFriendsContentRef.current = currentContent;
-      lastFriendsKeyRef.current = currentContent;
+    if (lastFriendsContentRef.current !== friendsContentKey) {
+      lastFriendsContentRef.current = friendsContentKey;
+      lastFriendsKeyRef.current = friendsContentKey;
     }
     
     return lastFriendsKeyRef.current;
-  }, [userData?.friends ? [...userData.friends].sort().join(',') : '']); // Depend on sorted string, not array reference
+  }, [friendsContentKey]); // Depend on the stable content key
   
   // Create stable setup key to prevent re-running effect unnecessarily
   // Use stable IDs instead of object references

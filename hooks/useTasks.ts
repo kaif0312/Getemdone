@@ -321,7 +321,8 @@ export function useTasks() {
       } else {
         // Subsequent updates - only process changes
         snapshot.docChanges().forEach((change) => {
-          const task = { id: change.doc.id, ...change.doc.data() } as Task;
+          const taskData = change.doc.data();
+          const task = { id: change.doc.id, ...taskData } as Task;
           
           if (change.type === 'removed') {
             allTasks.delete(change.doc.id);
@@ -329,6 +330,11 @@ export function useTasks() {
             if (task.deleted === true) {
               allTasks.delete(change.doc.id);
             } else {
+              // When a field is deleted using deleteField(), it won't exist in taskData
+              // Ensure dueDate is explicitly undefined if not present (not just missing)
+              if (!taskData.hasOwnProperty('dueDate')) {
+                task.dueDate = undefined;
+              }
               allTasks.set(task.id, { ...task, userName: 'You' });
             }
           }

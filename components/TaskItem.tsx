@@ -1100,15 +1100,20 @@ export default function TaskItem({
                 <button
                   type="button"
                   onClick={async () => {
-                    // Save the selected date when Done is clicked
-                    if (pendingDueDate && onUpdateDueDate) {
-                      const date = new Date(pendingDueDate);
-                      await onUpdateDueDate(task.id, date.getTime());
-                    } else if (!pendingDueDate && onUpdateDueDate) {
-                      // If cleared, remove deadline
-                      await onUpdateDueDate(task.id, null);
+                    try {
+                      // Save the selected date when Done is clicked
+                      if (pendingDueDate && pendingDueDate.trim() !== '' && onUpdateDueDate) {
+                        const date = new Date(pendingDueDate);
+                        await onUpdateDueDate(task.id, date.getTime());
+                      } else if ((!pendingDueDate || pendingDueDate.trim() === '') && onUpdateDueDate) {
+                        // If cleared (empty string), remove deadline
+                        await onUpdateDueDate(task.id, null);
+                      }
+                      setShowDueDatePicker(false);
+                    } catch (error) {
+                      console.error('[TaskItem] Error updating due date:', error);
+                      // Don't close on error so user can retry
                     }
-                    setShowDueDatePicker(false);
                   }}
                   className={`flex-1 px-4 py-2.5 text-base text-white rounded-lg transition-colors font-medium ${
                     !pendingDueDate && task.dueDate

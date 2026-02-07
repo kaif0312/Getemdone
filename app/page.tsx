@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
 import AuthModal from '@/components/AuthModal';
+import PendingApproval from '@/components/PendingApproval';
 import TaskInput from '@/components/TaskInput';
 import TaskItem from '@/components/TaskItem';
 import SortableTaskItem from '@/components/SortableTaskItem';
@@ -20,7 +21,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
 
 export default function Home() {
-  const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
+  const { user, userData, isWhitelisted, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
@@ -128,6 +129,11 @@ export default function Home() {
 
   if (!user || !userData) {
     return <AuthModal />;
+  }
+
+  // Show pending approval screen if user is not whitelisted
+  if (isWhitelisted === false) {
+    return <PendingApproval />;
   }
 
   return (

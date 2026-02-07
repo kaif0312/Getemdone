@@ -17,6 +17,7 @@ import { User, StreakData } from '@/lib/types';
 interface AuthContextType {
   user: FirebaseUser | null;
   userData: User | null;
+  isWhitelisted: boolean | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
+  const [isWhitelisted, setIsWhitelisted] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -103,6 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error('[AuthContext] Error creating user document:', error);
             }
           }
+          
+          // Re-check whitelist status when user data changes
+          if (firebaseUser.email) {
+            const whitelisted = await checkBetaWhitelist(firebaseUser.email);
+            setIsWhitelisted(whitelisted);
+          }
+          
           setLoading(false);
         }, (error) => {
           console.error("[AuthContext] Error in user data listener:", error);
@@ -116,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         console.log('[AuthContext] No user logged in, clearing userData');
         setUserData(null);
+        setIsWhitelisted(null);
         setLoading(false);
       }
     });
@@ -182,6 +192,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
 
+    // Create user document (always create it, even if not whitelisted)
+    const newUser: User = {
+      id: userId,
+      displayName,
+      email,
+      friendCode: generateFriendCode(),
+      friends: [],
+      createdAt: Date.now(),
+    };
+
+    await setDoc(doc(db, 'users', userId), newUser);
+    setUserData(newUser);
+    setIsWhitelisted(isWhitelisted);
+
     if (!isWhitelisted) {
       // User is not whitelisted - create pending signup request
       try {
@@ -196,26 +220,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[AuthContext] Error creating pending signup:', error);
         // Continue anyway - user account is created
       }
-      
-      // Sign out the user immediately since they're not approved yet
-      await firebaseSignOut(auth);
-      
-      // Throw a special error that indicates pending approval
-      throw new Error('PENDING_APPROVAL: Your account has been created and is pending admin approval. You will be notified once approved.');
+      // Don't throw error - let user stay logged in and see pending approval screen
     }
-
-    // User is whitelisted - proceed normally
-    const newUser: User = {
-      id: userId,
-      displayName,
-      email,
-      friendCode: generateFriendCode(),
-      friends: [],
-      createdAt: Date.now(),
-    };
-
-    await setDoc(doc(db, 'users', userId), newUser);
-    setUserData(newUser);
   };
 
   const signInWithGoogle = async () => {
@@ -230,13 +236,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     const isWhitelisted = await checkBetaWhitelist(email);
-    if (!isWhitelisted) {
-      // Sign out the user immediately if not whitelisted
-      await firebaseSignOut(auth);
-      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
-    }
-    
     const userId = result.user.uid;
+    setIsWhitelisted(isWhitelisted);
 
     // Check if user document exists
     const userDocRef = doc(db, 'users', userId);
@@ -262,6 +263,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await setDoc(userDocRef, newUser);
       setUserData(newUser);
+    }
+
+    if (!isWhitelisted) {
+      // User is not whitelisted - create pending signup request
+      try {
+        await addDoc(collection(db, 'pendingSignups'), {
+          userId,
+          email: email.toLowerCase(),
+          displayName: result.user.displayName || 'User',
+          requestedAt: Date.now(),
+          status: 'pending',
+        });
+      } catch (error) {
+        console.error('[AuthContext] Error creating pending signup:', error);
+      }
+      // Don't throw error - let user stay logged in and see pending approval screen
     }
   };
 
@@ -463,7 +480,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, userData]);
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, signIn, signUp, signInWithGoogle, signOut, updateStreakData }}>
+    <AuthContext.Provider value={{ user, userData, isWhitelisted, loading, signIn, signUp, signInWithGoogle, signOut, updateStreakData }}>
       {children}
     </AuthContext.Provider>
   );

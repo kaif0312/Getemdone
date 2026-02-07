@@ -11,7 +11,6 @@ export default function AuthModal() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [pendingApproval, setPendingApproval] = useState(false);
 
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
@@ -27,16 +26,8 @@ export default function AuthModal() {
           setLoading(false);
           return;
         }
-        try {
-          await signUp(email, password, displayName);
-        } catch (err: any) {
-          if (err.message && err.message.includes('PENDING_APPROVAL')) {
-            setPendingApproval(true);
-            setError('');
-            return;
-          }
-          throw err;
-        }
+        await signUp(email, password, displayName);
+        // If signup succeeds, user will see pending approval screen (handled in page.tsx)
       } else {
         await signIn(email, password);
       }
@@ -52,59 +43,14 @@ export default function AuthModal() {
     setLoading(true);
 
     try {
-      try {
-        await signInWithGoogle();
-      } catch (err: any) {
-        if (err.message && err.message.includes('PENDING_APPROVAL')) {
-          setPendingApproval(true);
-          setError('');
-          return;
-        }
-        throw err;
-      }
+      await signInWithGoogle();
+      // If signup succeeds, user will see pending approval screen (handled in page.tsx)
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
-
-  if (pendingApproval) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md text-center">
-          <div className="text-6xl mb-4">⏳</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Pending Approval
-          </h1>
-          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-6">
-            <p className="text-sm mb-2">
-              <strong>Your account has been created!</strong>
-            </p>
-            <p className="text-sm">
-              This app is currently in <strong>beta testing</strong>. Your sign-up request has been submitted and is pending admin approval.
-            </p>
-          </div>
-          <div className="space-y-3 text-sm text-gray-600">
-            <p>📧 We'll notify you at <strong>{email}</strong> once your request is approved.</p>
-            <p>You can try signing in again later - you'll be able to access the app once approved.</p>
-          </div>
-          <button
-            onClick={() => {
-              setPendingApproval(false);
-              setIsSignUp(false);
-              setEmail('');
-              setPassword('');
-              setDisplayName('');
-            }}
-            className="mt-6 w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Back to Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">

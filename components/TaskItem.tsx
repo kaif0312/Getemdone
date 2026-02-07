@@ -149,6 +149,20 @@ export default function TaskItem({
     };
   }, []);
 
+  // Reset swipe state if it gets stuck (safety mechanism)
+  useEffect(() => {
+    if (isSwiping && swipeOffset !== 0) {
+      // If swiping state is active but no recent updates, reset after 1 second
+      const timeout = setTimeout(() => {
+        setIsSwiping(false);
+        setSwipeOffset(0);
+        setSwipeAction(null);
+      }, 1000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isSwiping, swipeOffset]);
+
   // Close due date picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -503,14 +517,20 @@ export default function TaskItem({
       }
     },
     onSwiped: (eventData) => {
-      if (!isOwnTask) return;
+      if (!isOwnTask) {
+        // Always reset if not own task
+        setIsSwiping(false);
+        setSwipeOffset(0);
+        setSwipeAction(null);
+        return;
+      }
       
       const absX = Math.abs(eventData.deltaX);
       const absY = Math.abs(eventData.deltaY);
       
       // Only trigger action if it was clearly a horizontal swipe
       if (absY > absX * 0.5) {
-        // Was more vertical than horizontal - cancel swipe
+        // Was more vertical than horizontal - cancel swipe and reset
         setIsSwiping(false);
         setSwipeOffset(0);
         setSwipeAction(null);
@@ -525,27 +545,22 @@ export default function TaskItem({
           if ('vibrate' in navigator) {
             navigator.vibrate(50);
           }
-          // Reset immediately after action
-          setIsSwiping(false);
-          setSwipeOffset(0);
-          setSwipeAction(null);
         } else if (eventData.deltaX < 0) {
           // Delete task
           onDelete(task.id);
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50]);
           }
-          // Reset immediately after action
-          setIsSwiping(false);
-          setSwipeOffset(0);
-          setSwipeAction(null);
         }
-      } else {
-        // Swipe didn't reach threshold - spring back smoothly
+      }
+      
+      // ALWAYS reset swipe state after any swipe ends (whether action triggered or not)
+      // Use setTimeout to ensure state updates happen after any action handlers
+      setTimeout(() => {
         setIsSwiping(false);
         setSwipeOffset(0);
         setSwipeAction(null);
-      }
+      }, 0);
     },
     onSwipedDown: () => {
       // Cancel swipe on vertical scroll
@@ -616,7 +631,7 @@ export default function TaskItem({
           }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
-            transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth spring-back animation
+            transition: isSwiping ? 'none' : 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth spring-back animation
             touchAction: 'pan-y pinch-zoom', // Allow vertical scrolling and pinch zoom
             willChange: isSwiping ? 'transform' : 'auto', // Optimize for smooth animations
           } as React.CSSProperties}

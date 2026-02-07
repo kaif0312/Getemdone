@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner } from 'react-icons/fa';
 
@@ -21,10 +21,20 @@ interface UserInfo {
   isAdmin?: boolean;
 }
 
+interface PendingSignup {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  requestedAt: number;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 export default function AdminDashboard() {
   const { user, userData } = useAuth();
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
+  const [pendingSignups, setPendingSignups] = useState<PendingSignup[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -82,9 +92,29 @@ export default function AdminDashboard() {
       }
     );
 
+    // Listen to pending signups
+    const pendingSignupsRef = collection(db, 'pendingSignups');
+    const unsubscribePending = onSnapshot(
+      query(pendingSignupsRef, where('status', '==', 'pending'), orderBy('requestedAt', 'desc')),
+      (snapshot) => {
+        const signups: PendingSignup[] = [];
+        snapshot.forEach((doc) => {
+          signups.push({
+            id: doc.id,
+            ...doc.data(),
+          } as PendingSignup);
+        });
+        setPendingSignups(signups);
+      },
+      (err) => {
+        console.error('Error fetching pending signups:', err);
+      }
+    );
+
     return () => {
       unsubscribeWhitelist();
       unsubscribeUsers();
+      unsubscribePending();
     };
   }, [isAdmin]);
 
@@ -141,6 +171,68 @@ export default function AdminDashboard() {
     if (!timestamp) return 'Unknown';
     const date = new Date(timestamp);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleApproveSignup = async (signup: PendingSignup) => {
+    try {
+      // Add to whitelist
+      await addDoc(collection(db, 'betaWhitelist'), {
+        email: signup.email,
+        addedAt: Date.now(),
+        addedBy: user?.uid || 'unknown',
+      });
+
+      // Update pending signup status
+      await updateDoc(doc(db, 'pendingSignups', signup.id), {
+        status: 'approved',
+        approvedAt: Date.now(),
+        approvedBy: user?.uid || 'unknown',
+      });
+
+      // Create user document if it doesn't exist
+      const userDocRef = doc(db, 'users', signup.userId);
+      const userDoc = await getDoc(userDocRef);
+      if (!userDoc.exists()) {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let friendCode = '';
+        for (let i = 0; i < 6; i++) {
+          friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        
+        await setDoc(userDocRef, {
+          id: signup.userId,
+          displayName: signup.displayName,
+          email: signup.email,
+          friendCode: friendCode,
+          friends: [],
+          createdAt: signup.requestedAt,
+        });
+      }
+
+      setSuccess(`Approved ${signup.email}. They can now sign in!`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error('Error approving signup:', err);
+      setError(err.message || 'Failed to approve signup');
+    }
+  };
+
+  const handleRejectSignup = async (signup: PendingSignup) => {
+    if (!confirm(`Reject signup request from ${signup.email}?`)) return;
+
+    try {
+      await updateDoc(doc(db, 'pendingSignups', signup.id), {
+        status: 'rejected',
+        rejectedAt: Date.now(),
+        rejectedBy: user?.uid || 'unknown',
+      });
+
+      setSuccess(`Rejected ${signup.email}`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error('Error rejecting signup:', err);
+      setError(err.message || 'Failed to reject signup');
+    }
   };
 
   if (!isAdmin) {
@@ -208,7 +300,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
             <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
               {whitelist.length}
@@ -227,7 +319,60 @@ export default function AdminDashboard() {
             </div>
             <div className="text-gray-600 dark:text-gray-400">Active Users</div>
           </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
+              {pendingSignups.length}
+            </div>
+            <div className="text-gray-600 dark:text-gray-400">Pending Requests</div>
+          </div>
         </div>
+
+        {/* Pending Signups */}
+        {pendingSignups.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Pending Signup Requests ({pendingSignups.length})
+            </h2>
+            <div className="space-y-3">
+              {pendingSignups.map((signup) => (
+                <div
+                  key={signup.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaUser className="text-gray-400" />
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {signup.displayName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <FaEnvelope className="text-gray-400" />
+                      <span>{signup.email}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Requested: {formatDate(signup.requestedAt)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApproveSignup(signup)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
+                    >
+                      <FaCheck /> Approve
+                    </button>
+                    <button
+                      onClick={() => handleRejectSignup(signup)}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center gap-2"
+                    >
+                      <FaTimes /> Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Whitelist Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">

@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, StreakData } from '@/lib/types';
 
@@ -175,16 +175,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    // Check beta whitelist before signing up
+    // Check if already whitelisted
     const isWhitelisted = await checkBetaWhitelist(email);
-    if (!isWhitelisted) {
-      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
-    }
     
+    // Create Firebase Auth account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
 
-    // Create user document in Firestore
+    if (!isWhitelisted) {
+      // User is not whitelisted - create pending signup request
+      try {
+        await addDoc(collection(db, 'pendingSignups'), {
+          userId,
+          email: email.toLowerCase(),
+          displayName,
+          requestedAt: Date.now(),
+          status: 'pending',
+        });
+      } catch (error) {
+        console.error('[AuthContext] Error creating pending signup:', error);
+        // Continue anyway - user account is created
+      }
+      
+      // Sign out the user immediately since they're not approved yet
+      await firebaseSignOut(auth);
+      
+      // Throw a special error that indicates pending approval
+      throw new Error('PENDING_APPROVAL: Your account has been created and is pending admin approval. You will be notified once approved.');
+    }
+
+    // User is whitelisted - proceed normally
     const newUser: User = {
       id: userId,
       displayName,

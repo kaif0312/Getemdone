@@ -34,6 +34,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // Pending Signups collection
+    match /pendingSignups/{signupId} {
+      // Anyone can create (for sign-up requests)
+      allow create: if isAuthenticated() && 
+        request.resource.data.keys().hasAll(['userId', 'email', 'displayName', 'requestedAt', 'status']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.email is string &&
+        request.resource.data.displayName is string &&
+        request.resource.data.requestedAt is int &&
+        request.resource.data.status == 'pending';
+      // Only admins can read and update
+      allow read, update: if isAdmin();
+      // No one can delete (keep for audit trail)
+      allow delete: if false;
+    }
+    
     // Users collection
     match /users/{userId} {
       // Any authenticated user can read any user profile (needed for friend search)

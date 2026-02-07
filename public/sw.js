@@ -20,10 +20,20 @@ self.addEventListener('install', (event) => {
 
 // Fetch event - Network-first strategy (better for development)
 self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+  
+  // Skip caching for unsupported schemes (chrome-extension, moz-extension, etc.)
+  if (!requestUrl.protocol.startsWith('http')) {
+    return; // Let browser handle these normally
+  }
+  
   // Skip caching for API requests and Firebase
   if (event.request.url.includes('/api/') || 
       event.request.url.includes('firebase') ||
-      event.request.url.includes('googleapis.com')) {
+      event.request.url.includes('googleapis.com') ||
+      event.request.url.includes('chrome-extension://') ||
+      event.request.url.includes('moz-extension://') ||
+      event.request.url.includes('safari-extension://')) {
     return; // Let browser handle these normally
   }
 
@@ -32,10 +42,20 @@ self.addEventListener('fetch', (event) => {
     fetch(event.request)
       .then((response) => {
         // If network succeeds, cache and return
-        if (response && response.status === 200 && response.type === 'basic') {
+        // Only cache GET requests with http/https protocol
+        if (response && 
+            response.status === 200 && 
+            response.type === 'basic' &&
+            event.request.method === 'GET' &&
+            requestUrl.protocol.startsWith('http')) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            try {
+              cache.put(event.request, responseToCache);
+            } catch (error) {
+              // Silently fail if caching is not supported for this request
+              console.warn('[SW] Failed to cache:', event.request.url, error);
+            }
           });
         }
         return response;

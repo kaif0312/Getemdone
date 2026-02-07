@@ -54,14 +54,23 @@ export default function Home() {
   const friendsButtonRef = useRef<HTMLButtonElement>(null);
   const streakButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Reset rollover notice dismissal on new day
+  // Reset rollover notice dismissal on new day (check periodically)
   useEffect(() => {
-    const todayStr = getTodayString();
-    if (lastNoticeDate !== todayStr) {
-      setDismissedRolloverNotice(false);
-      setLastNoticeDate(todayStr);
-    }
-  }, [lastNoticeDate]);
+    const checkDateChange = () => {
+      const todayStr = getTodayString();
+      if (lastNoticeDate !== todayStr) {
+        setDismissedRolloverNotice(false);
+        setLastNoticeDate(todayStr);
+      }
+    };
+    
+    // Check immediately
+    checkDateChange();
+    
+    // Check every minute to catch date changes
+    const interval = setInterval(checkDateChange, 60000);
+    return () => clearInterval(interval);
+  }, []); // Only run once on mount
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -110,19 +119,21 @@ export default function Home() {
     await Promise.all(updates);
   };
 
-  // Update streak data when component mounts
+  // Update streak data when component mounts or user changes
   useEffect(() => {
-    if (user && userData) {
+    if (user?.uid && userData?.id) {
       updateStreakData();
     }
-  }, [user, userData, updateStreakData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, userData?.id]); // Only depend on IDs, not entire objects or functions
 
   // Update deleted tasks count
   useEffect(() => {
-    if (user) {
+    if (user?.uid) {
       getDeletedTasks().then(tasks => setDeletedCount(tasks.length));
     }
-  }, [user, tasks]); // Re-check when tasks change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, tasks.length]); // Only depend on user ID and task count, not entire tasks array
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
     await toggleComplete(taskId, completed);

@@ -1051,25 +1051,42 @@ export default function TaskItem({
                 </button>
               </div>
               <div className="w-full mb-3">
-                <input
-                  ref={dueDateInputRef}
-                  type="datetime-local"
-                  value={pendingDueDate}
-                  onChange={(e) => {
-                    // Only update local state, don't save yet
-                    setPendingDueDate(e.target.value);
-                  }}
-                  min={new Date().toISOString().slice(0, 16)}
-                  className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  style={{
-                    WebkitAppearance: 'none',
-                    appearance: 'none',
-                    boxSizing: 'border-box',
-                    minHeight: '44px', // iOS touch target minimum
-                  }}
-                />
+                <div className="relative">
+                  <input
+                    ref={dueDateInputRef}
+                    type="datetime-local"
+                    value={pendingDueDate}
+                    onChange={(e) => {
+                      // Only update local state, don't save yet
+                      setPendingDueDate(e.target.value);
+                    }}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="w-full px-3 py-2.5 pr-10 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    style={{
+                      WebkitAppearance: 'none',
+                      appearance: 'none',
+                      boxSizing: 'border-box',
+                      minHeight: '44px', // iOS touch target minimum
+                    }}
+                  />
+                  {pendingDueDate && (
+                    <button
+                      type="button"
+                      onClick={() => setPendingDueDate('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
+                      title="Clear date"
+                    >
+                      <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
+                    </button>
+                  )}
+                </div>
+                {pendingDueDate && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+                    Clear the date above to remove deadline
+                  </p>
+                )}
               </div>
-              {task.dueDate && (
+              {task.dueDate && !pendingDueDate && (
                 <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
                   Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 
                     month: 'short', 

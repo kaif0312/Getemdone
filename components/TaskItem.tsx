@@ -210,7 +210,7 @@ export default function TaskItem({
       const element = e.currentTarget as HTMLElement;
       element.style.userSelect = 'none';
       element.style.webkitUserSelect = 'none';
-      element.style.webkitTouchCallout = 'none';
+      element.style.setProperty('-webkit-touch-callout', 'none');
       
       // Start long-press animation
       setIsLongPressing(true);
@@ -247,7 +247,7 @@ export default function TaskItem({
       const element = e.currentTarget as HTMLElement;
       element.style.userSelect = '';
       element.style.webkitUserSelect = '';
-      element.style.webkitTouchCallout = '';
+      element.style.removeProperty('-webkit-touch-callout');
     }
     longPressStartRef.current = null;
   };
@@ -272,7 +272,7 @@ export default function TaskItem({
           const element = e.currentTarget as HTMLElement;
           element.style.userSelect = '';
           element.style.webkitUserSelect = '';
-          element.style.webkitTouchCallout = '';
+          element.style.removeProperty('-webkit-touch-callout');
         }
       }
     }

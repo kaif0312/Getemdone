@@ -10,8 +10,15 @@ A cross-platform (iOS/Android/Web) progressive web app (PWA) for sharing daily t
 - 📱 **Mobile-First Design** - PWA capabilities, installable on all devices
 - 👥 **Friend System** - Add friends by email to see their public tasks
 - 🎨 **Modern UI** - Beautiful, touch-optimized interface
+- 🎤 **Voice Input** - Add tasks using voice in 10+ languages
+- 🔥 **Streak Tracking** - Track your daily completion streaks
+- 📊 **Friend Accountability** - See friends' task progress
+
+For a complete feature list, see **[docs/FEATURES.md](./docs/FEATURES.md)**.
 
 ## Getting Started
+
+> **Quick Start?** See **[docs/QUICKSTART.md](./docs/QUICKSTART.md)** for a 5-minute setup guide.
 
 ### Prerequisites
 
@@ -207,17 +214,10 @@ The app includes comprehensive Firestore security rules that ensure:
 
 ## Development Tips
 
-### Testing Locally
-
-- Open multiple browser windows with different user accounts
-- Add each other as friends
-- Test task visibility and real-time sync
-
-### Debugging
-
-- Check browser console for errors
-- Use Firebase Console to view Firestore data
-- Check Network tab for failed requests
+For more development guides, see:
+- **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Development best practices
+- **[docs/FIREBASE_OPTIMIZATION.md](./docs/FIREBASE_OPTIMIZATION.md)** - Firebase quota management
+- **[docs/QUICKSTART.md](./docs/QUICKSTART.md)** - Quick setup guide
 
 ### Common Issues
 

@@ -44,30 +44,47 @@ export default function ContextualTooltip({
       if (!target || !tooltip) return;
 
       const rect = target.getBoundingClientRect();
+      const padding = 16;
+      const tooltipWidth = tooltip.offsetWidth || 280; // Fallback width
+      const tooltipHeight = tooltip.offsetHeight || 60; // Fallback height
 
       let top = 0;
       let left = 0;
 
       if (position === 'above') {
-        top = rect.top - tooltip.offsetHeight - 8;
-        left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+        top = rect.top - tooltipHeight - 8;
+        left = rect.left + rect.width / 2 - tooltipWidth / 2;
       } else if (position === 'below') {
         top = rect.bottom + 8;
-        left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+        left = rect.left + rect.width / 2 - tooltipWidth / 2;
       } else if (position === 'tooltip') {
-        top = rect.top + rect.height / 2 - tooltip.offsetHeight / 2;
-        left = rect.right + 12;
+        // On desktop, show below the target instead of to the right
+        if (!isMobile) {
+          top = rect.bottom + 8;
+          left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        } else {
+          // On mobile, show to the right
+          top = rect.top + rect.height / 2 - tooltipHeight / 2;
+          left = rect.right + 12;
+        }
       }
 
-      // Keep tooltip in viewport
-      const padding = 16;
-      if (left < padding) left = padding;
-      if (left + tooltip.offsetWidth > window.innerWidth - padding) {
-        left = window.innerWidth - tooltip.offsetWidth - padding;
+      // Keep tooltip in viewport with better constraints
+      if (left < padding) {
+        left = padding;
+      } else if (left + tooltipWidth > window.innerWidth - padding) {
+        left = window.innerWidth - tooltipWidth - padding;
       }
-      if (top < padding) top = padding;
-      if (top + tooltip.offsetHeight > window.innerHeight - padding) {
-        top = window.innerHeight - tooltip.offsetHeight - padding;
+      
+      if (top < padding) {
+        top = padding;
+      } else if (top + tooltipHeight > window.innerHeight - padding) {
+        // If it doesn't fit below, try above
+        if (position === 'tooltip' && !isMobile) {
+          top = rect.top - tooltipHeight - 8;
+        } else {
+          top = window.innerHeight - tooltipHeight - padding;
+        }
       }
 
       setTooltipPosition(prev => {
@@ -79,8 +96,17 @@ export default function ContextualTooltip({
 
     // Use requestAnimationFrame to avoid layout thrashing
     const rafId = requestAnimationFrame(updatePosition);
-    return () => cancelAnimationFrame(rafId);
-  }, [show, position, targetRef]);
+    
+    // Also update on scroll/resize
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [show, position, targetRef, isMobile]);
 
   if (!show) return null;
 

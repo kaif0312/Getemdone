@@ -160,8 +160,8 @@ export default function VoiceButton({
             onClick={() => setShowLanguageMenu(false)}
           />
           
-          {/* Menu */}
-          <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] z-50 max-h-[300px] overflow-y-auto">
+          {/* Menu - Positioned to stay within viewport on mobile */}
+          <div className="absolute bottom-full mb-2 left-0 md:left-auto md:right-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 min-w-[180px] max-w-[calc(100vw-2rem)] z-50 max-h-[300px] overflow-y-auto">
             <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
               Select Language
             </div>

@@ -57,6 +57,9 @@ export default function TaskItem({
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const swipeThreshold = 80; // Threshold for triggering action
+  const maxSwipeDistance = 120; // Maximum swipe distance
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isSaving, setIsSaving] = useState(false);
@@ -442,10 +445,10 @@ export default function TaskItem({
     setShowDeferPicker(false);
   };
 
-  // Swipe handlers
+  // Swipe handlers with smooth animations and undo support
   const swipeHandlers = useSwipeable({
     onSwiping: (eventData) => {
-      if (!isOwnTask) return;
+      if (!isOwnTask || isEditing) return;
       
       const deltaX = eventData.deltaX;
       const deltaY = eventData.deltaY;
@@ -454,27 +457,49 @@ export default function TaskItem({
       
       // Only activate swipe if horizontal movement is significantly more than vertical
       // This prevents interference with vertical scrolling
-      if (absY > absX * 0.3) {
+      if (absY > absX * 0.5) {
         // More vertical than horizontal - allow scrolling, don't swipe
-        setSwipeOffset(0);
-        setSwipeAction(null);
+        if (isSwiping) {
+          setIsSwiping(false);
+          setSwipeOffset(0);
+          setSwipeAction(null);
+        }
         return;
       }
       
-      // Prevent default to stop screen from moving
+      // Mark as swiping
+      if (!isSwiping) {
+        setIsSwiping(true);
+      }
+      
+      // Prevent default to stop screen from moving during horizontal swipe
       if (eventData.event && absX > absY) {
         eventData.event.preventDefault();
+      }
+      
+      // Calculate swipe distance with resistance (easing) after threshold
+      let swipeDistance = deltaX;
+      if (absX > maxSwipeDistance) {
+        // Add resistance - make it harder to swipe beyond max
+        const excess = absX - maxSwipeDistance;
+        swipeDistance = deltaX > 0 
+          ? maxSwipeDistance + excess * 0.3 
+          : -maxSwipeDistance - excess * 0.3;
       }
       
       // Only allow swipe if not already completed (for complete action) or if completed (for delete)
       if (deltaX > 0 && !task.completed) {
         // Swipe right - Complete
-        setSwipeOffset(Math.min(deltaX, 100));
-        setSwipeAction(absX > 50 ? 'complete' : null);
+        setSwipeOffset(swipeDistance);
+        setSwipeAction(absX > swipeThreshold ? 'complete' : null);
       } else if (deltaX < 0) {
         // Swipe left - Delete
-        setSwipeOffset(Math.max(deltaX, -100));
-        setSwipeAction(absX > 50 ? 'delete' : null);
+        setSwipeOffset(swipeDistance);
+        setSwipeAction(absX > swipeThreshold ? 'delete' : null);
+      } else {
+        // Swipe back towards center - allow undo
+        setSwipeOffset(swipeDistance);
+        setSwipeAction(null);
       }
     },
     onSwiped: (eventData) => {
@@ -484,38 +509,57 @@ export default function TaskItem({
       const absY = Math.abs(eventData.deltaY);
       
       // Only trigger action if it was clearly a horizontal swipe
-      if (absY > absX * 0.3) {
+      if (absY > absX * 0.5) {
         // Was more vertical than horizontal - cancel swipe
+        setIsSwiping(false);
         setSwipeOffset(0);
         setSwipeAction(null);
         return;
       }
       
-      if (absX > 120) { // Increased threshold for action (was 100)
+      // Check if swipe exceeded threshold
+      if (absX > swipeThreshold) {
         if (eventData.deltaX > 0 && !task.completed) {
           // Complete task
           handleToggleComplete();
           if ('vibrate' in navigator) {
             navigator.vibrate(50);
           }
+          // Reset immediately after action
+          setIsSwiping(false);
+          setSwipeOffset(0);
+          setSwipeAction(null);
         } else if (eventData.deltaX < 0) {
           // Delete task
           onDelete(task.id);
           if ('vibrate' in navigator) {
             navigator.vibrate([30, 50]);
           }
+          // Reset immediately after action
+          setIsSwiping(false);
+          setSwipeOffset(0);
+          setSwipeAction(null);
         }
+      } else {
+        // Swipe didn't reach threshold - spring back smoothly
+        setIsSwiping(false);
+        setSwipeOffset(0);
+        setSwipeAction(null);
       }
-      
-      // Reset swipe state
-      setSwipeOffset(0);
-      setSwipeAction(null);
+    },
+    onSwipedDown: () => {
+      // Cancel swipe on vertical scroll
+      if (isSwiping) {
+        setIsSwiping(false);
+        setSwipeOffset(0);
+        setSwipeAction(null);
+      }
     },
     trackMouse: false, // Disable mouse swiping on desktop to avoid conflicts with drag-to-reorder
     trackTouch: true,
     preventScrollOnSwipe: false, // Allow vertical scroll to work
-    delta: 20, // Require 20px movement before recognizing swipe (prevents accidental triggers)
-    swipeDuration: 500, // Maximum swipe duration in ms
+    delta: 10, // Reduced threshold for more responsive swiping
+    swipeDuration: 600, // Increased duration for smoother feel
     touchEventOptions: { passive: false }, // Allow preventDefault to work
   });
 
@@ -572,8 +616,9 @@ export default function TaskItem({
           }}
           style={{
             transform: `translateX(${swipeOffset}px)`,
-            transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+            transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth spring-back animation
             touchAction: 'pan-y pinch-zoom', // Allow vertical scrolling and pinch zoom
+            willChange: isSwiping ? 'transform' : 'auto', // Optimize for smooth animations
           } as React.CSSProperties}
           className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
             task.completed 

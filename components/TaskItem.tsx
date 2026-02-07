@@ -515,10 +515,14 @@ export default function TaskItem({
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
           onContextMenu={handleContextMenu}
-          onSelectStart={(e) => {
-            // Prevent text selection on long-press
-            if (isOwnTask && !isEditing) {
-              e.preventDefault();
+          onMouseDown={(e) => {
+            // Prevent text selection on mouse down (for desktop)
+            if (isOwnTask && !isEditing && e.button === 0) {
+              // Only prevent for left click, allow right click for context menu
+              const target = e.target as HTMLElement;
+              if (!target.closest('button') && !target.closest('input') && !target.closest('textarea')) {
+                e.preventDefault();
+              }
             }
           }}
           style={{

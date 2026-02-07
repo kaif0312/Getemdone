@@ -382,6 +382,10 @@ export function useTasks() {
       console.log('[addTask] ✅ Task created:', docRef.id);
     } catch (error: any) {
       console.error('[addTask] ❌ Failed to create task:', error.message);
+      if (error.code === 'resource-exhausted') {
+        // If Blaze plan was just activated, it may take a few minutes
+        throw new Error('Firebase rate limit reached. If you just upgraded to Blaze plan, please wait 2-3 minutes for activation. Otherwise, please wait a moment and try again.');
+      }
       throw error;
     }
   };

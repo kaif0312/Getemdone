@@ -568,16 +568,48 @@ export function useTasks() {
 
     const taskRef = doc(db, 'tasks', taskId);
     
-    if (dueDate === null) {
+    if (dueDate === null || dueDate === undefined) {
       // Remove the dueDate field entirely using deleteField()
-      await updateDoc(taskRef, {
-        dueDate: deleteField(),
-      });
+      // Optimistically update local state immediately for better UX
+      const existingTask = allTasks.get(taskId);
+      if (existingTask) {
+        const updatedTask = { ...existingTask, dueDate: undefined };
+        allTasks.set(taskId, updatedTask);
+        // Trigger immediate state update
+        const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+        setTasks(sortedTasks);
+      }
+      
+      try {
+        await updateDoc(taskRef, {
+          dueDate: deleteField(),
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[updateTaskDueDate] ✅ Removed dueDate from task:', taskId);
+        }
+      } catch (error) {
+        console.error('[updateTaskDueDate] ❌ Error removing dueDate:', error);
+        // Revert optimistic update on error
+        if (existingTask) {
+          allTasks.set(taskId, existingTask);
+          const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+          setTasks(sortedTasks);
+        }
+        throw error;
+      }
     } else {
       // Set the dueDate
-      await updateDoc(taskRef, {
-        dueDate: dueDate,
-      });
+      try {
+        await updateDoc(taskRef, {
+          dueDate: dueDate,
+        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[updateTaskDueDate] ✅ Set dueDate for task:', taskId, 'to:', new Date(dueDate));
+        }
+      } catch (error) {
+        console.error('[updateTaskDueDate] ❌ Error setting dueDate:', error);
+        throw error;
+      }
     }
   };
 

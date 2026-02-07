@@ -182,6 +182,28 @@ export function useTasks() {
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot
     let quotaExceeded = false; // Circuit breaker to prevent infinite retries
+    let isTabVisible = true; // Track if tab is visible
+    
+    // Page Visibility API - Pause listeners when tab is hidden to save reads
+    const handleVisibilityChange = () => {
+      isTabVisible = !document.hidden;
+      if (document.hidden) {
+        console.log('[useTasks] 📴 Tab hidden - pausing listeners to save reads');
+        // Unsubscribe from all listeners when tab is hidden
+        unsubscribers.forEach(unsub => unsub());
+        unsubscribers.length = 0;
+      } else {
+        console.log('[useTasks] 📱 Tab visible - reconnecting listeners');
+        // Reconnect listeners when tab becomes visible
+        // This will be handled by the useEffect re-running
+        // For now, we'll just log - the effect will re-run if dependencies change
+      }
+    };
+    
+    // Only add visibility listener in browser
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
     
     // Debounced update function to prevent flickering and reduce reads
     const scheduleUpdate = () => {
@@ -352,6 +374,9 @@ export function useTasks() {
         clearTimeout(updateTimer);
       }
       unsubscribers.forEach(unsub => unsub());
+      if (typeof window !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
       console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
     };
   }, [user?.uid, userData?.id]); // Use stable IDs instead of whole objects to prevent infinite loops

@@ -8,6 +8,7 @@ interface FriendSummary {
   pendingCount: number;
   completedToday: number;
   privateTotal: number;
+  privateCompleted: number;
   color: { from: string; to: string; text: string };
 }
 
@@ -79,6 +80,9 @@ export default function FriendsSummaryBar({
                   `}>
                     <FaLock size={8} />
                     <span>{friend.privateTotal}</span>
+                    {friend.privateCompleted > 0 && (
+                      <span className="opacity-75">({friend.privateCompleted}✓)</span>
+                    )}
                   </div>
                 )}
               </button>

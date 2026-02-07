@@ -559,6 +559,7 @@ export default function Home() {
                 const pendingCount = publicTasks.filter(t => !t.completed).length;
                 const completedToday = userTasks.filter(t => t.completed).length;
                 const privateTotal = privateTasks.length;
+                const privateCompleted = privateTasks.filter(t => t.completed).length;
                 
                 const colorIndex = userId 
                   ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
@@ -571,6 +572,7 @@ export default function Home() {
                   pendingCount,
                   completedToday,
                   privateTotal,
+                  privateCompleted,
                   color,
                 };
               });

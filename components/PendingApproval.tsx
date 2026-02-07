@@ -1,10 +1,10 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { FaClock, FaEnvelope, FaCheckCircle } from 'react-icons/fa';
+import { FaClock, FaEnvelope, FaCheckCircle, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
 
 export default function PendingApproval() {
-  const { user, userData } = useAuth();
+  const { user, userData, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
@@ -52,10 +52,31 @@ export default function PendingApproval() {
           </div>
         </div>
 
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
           <p className="text-xs text-amber-800 dark:text-amber-200">
             💡 <strong>Tip:</strong> The page will automatically update when your request is approved. No need to sign out and back in!
           </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => {
+              // Clear auth and reload to show sign up page
+              signOut();
+            }}
+            className="flex-1 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-3 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            <FaSignOutAlt /> Sign Out
+          </button>
+          <button
+            onClick={() => {
+              // Sign out and the app will show AuthModal
+              signOut();
+            }}
+            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+          >
+            <FaArrowLeft /> Back to Sign In
+          </button>
         </div>
       </div>
     </div>

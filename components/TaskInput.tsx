@@ -6,7 +6,7 @@ import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
 
 interface TaskInputProps {
-  onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null) => void;
+  onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null) => Promise<void>;
   disabled?: boolean;
   recentTasks?: string[];
 }

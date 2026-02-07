@@ -316,6 +316,8 @@ export function useTasks() {
           if (task.deleted !== true) {
             allTasks.set(task.id, { ...task, userName: 'You' });
           }
+          // Keep ref in sync
+          allTasksRef.current = allTasks;
         });
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
@@ -602,6 +604,17 @@ export function useTasks() {
       }
     } else {
       // Set the dueDate
+      // Optimistically update local state immediately for better UX
+      const allTasks = allTasksRef.current;
+      const existingTask = allTasks.get(taskId);
+      if (existingTask) {
+        const updatedTask = { ...existingTask, dueDate: dueDate };
+        allTasks.set(taskId, updatedTask);
+        // Trigger immediate state update
+        const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+        setTasks(sortedTasks);
+      }
+      
       try {
         await updateDoc(taskRef, {
           dueDate: dueDate,
@@ -611,6 +624,12 @@ export function useTasks() {
         }
       } catch (error) {
         console.error('[updateTaskDueDate] ❌ Error setting dueDate:', error);
+        // Revert optimistic update on error
+        if (existingTask) {
+          allTasks.set(taskId, existingTask);
+          const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+          setTasks(sortedTasks);
+        }
         throw error;
       }
     }

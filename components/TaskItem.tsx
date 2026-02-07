@@ -67,6 +67,7 @@ export default function TaskItem({
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [isLongPressing, setIsLongPressing] = useState(false); // Track long-press state for animation
   const editInputRef = useRef<HTMLInputElement>(null);
   const dueDateInputRef = useRef<HTMLInputElement>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -200,13 +201,19 @@ export default function TaskItem({
       return;
     }
     
+    // Prevent text selection immediately
+    e.preventDefault();
+    
     const touch = e.touches[0];
     if (touch) {
       // Prevent text selection immediately to avoid interference
-      // We'll allow swipe gestures to work, but prevent text selection
       const element = e.currentTarget as HTMLElement;
       element.style.userSelect = 'none';
       element.style.webkitUserSelect = 'none';
+      element.style.webkitTouchCallout = 'none';
+      
+      // Start long-press animation
+      setIsLongPressing(true);
       
       longPressStartRef.current = {
         x: touch.clientX,
@@ -216,14 +223,14 @@ export default function TaskItem({
       
       longPressTimerRef.current = setTimeout(() => {
         // Long press detected - show context menu
-        // Prevent default to avoid any remaining text selection
-        e.preventDefault();
-        
+        // Haptic feedback
         if ('vibrate' in navigator) {
           navigator.vibrate([10, 50, 10]); // iOS-style haptic pattern
         }
+        
         setContextMenuPosition({ x: touch.clientX, y: touch.clientY });
         setShowContextMenu(true);
+        setIsLongPressing(false); // Stop animation
         longPressStartRef.current = null;
       }, 400); // 400ms for better UX
     }
@@ -234,10 +241,13 @@ export default function TaskItem({
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+      // Stop long-press animation
+      setIsLongPressing(false);
       // Restore text selection since long-press was cancelled
       const element = e.currentTarget as HTMLElement;
       element.style.userSelect = '';
       element.style.webkitUserSelect = '';
+      element.style.webkitTouchCallout = '';
     }
     longPressStartRef.current = null;
   };
@@ -256,10 +266,13 @@ export default function TaskItem({
           clearTimeout(longPressTimerRef.current);
           longPressTimerRef.current = null;
           longPressStartRef.current = null;
+          // Stop long-press animation
+          setIsLongPressing(false);
           // Restore text selection since long-press was cancelled
           const element = e.currentTarget as HTMLElement;
           element.style.userSelect = '';
           element.style.webkitUserSelect = '';
+          element.style.webkitTouchCallout = '';
         }
       }
     }
@@ -529,6 +542,9 @@ export default function TaskItem({
             transform: `translateX(${swipeOffset}px)`,
             transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
             touchAction: 'pan-y', // Allow vertical scrolling, prevent text selection
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
           }}
           className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
             task.completed 
@@ -538,7 +554,11 @@ export default function TaskItem({
             swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-100 dark:bg-green-900/40' : ''
           } ${
             swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
-          } ${isEditing ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''}`}
+          } ${
+            isEditing ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''
+          } ${
+            isLongPressing ? 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-2 bg-blue-50 dark:bg-blue-900/30 scale-[0.98]' : ''
+          }`}
         >
         <div className="flex items-start gap-3">
           {/* Drag Handle - Mobile-friendly, always visible */}

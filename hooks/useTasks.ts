@@ -258,7 +258,22 @@ export function useTasks() {
     }, (error) => {
       console.error('[useTasks] ❌ Error in own tasks listener:', error);
       if (error.code === 'resource-exhausted') {
-        alert('Firestore quota exceeded. Please wait a moment and refresh the page.');
+        console.warn('[useTasks] ⚠️ Quota exceeded - using cached tasks');
+        // Don't clear tasks - keep showing cached data
+        // Schedule update with existing cached tasks
+        scheduleUpdate();
+        // Show user-friendly message
+        if (typeof window !== 'undefined') {
+          const quotaMessage = document.createElement('div');
+          quotaMessage.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 max-w-md text-center';
+          quotaMessage.innerHTML = `
+            <p class="font-semibold">⚠️ Firebase Quota Exceeded</p>
+            <p class="text-sm mt-1">Showing cached tasks. Some features may be limited.</p>
+            <p class="text-xs mt-2 opacity-90">Quota resets daily. Consider upgrading your plan.</p>
+          `;
+          document.body.appendChild(quotaMessage);
+          setTimeout(() => quotaMessage.remove(), 8000);
+        }
       }
       setLoading(false);
     });

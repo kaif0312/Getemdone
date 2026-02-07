@@ -25,15 +25,22 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     inputRef.current?.focus();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (text.trim() && !disabled) {
-      onAddTask(text.trim(), isPrivate, dueDate);
-      setText('');
-      setDueDate(null);
-      setShowDatePicker(false);
-      inputRef.current?.focus();
+      try {
+        await onAddTask(text.trim(), isPrivate, dueDate);
+        setText('');
+        setDueDate(null);
+        setShowDatePicker(false);
+        inputRef.current?.focus();
+      } catch (error: any) {
+        console.error('Error adding task:', error);
+        const errorMessage = error.message || 'Failed to add task. Please try again.';
+        alert(errorMessage);
+        // Don't clear input on error so user can retry
+      }
     }
   };
 

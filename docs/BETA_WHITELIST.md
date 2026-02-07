@@ -6,7 +6,7 @@ This app is currently in **beta testing mode**. Only whitelisted users can sign 
 
 **If you're locked out, you need to whitelist yourself first!**
 
-See **[FIRST_TIME_SETUP.md](./FIRST_TIME_SETUP.md)** for step-by-step instructions to:
+See **[FIRST_TIME_SETUP.md](./FIRST_TIME_SETUP.md)** in this docs folder for step-by-step instructions to:
 1. Add your email to the whitelist in Firebase Console
 2. Sign in to the app
 3. Make yourself an admin

@@ -185,23 +185,7 @@ TaskManagerConnect/
 
 ## Deployment
 
-### Deploy to Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Go to [Vercel](https://vercel.com)
-3. Import your repository
-4. Add environment variables from `.env.local`
-5. Deploy!
-
-### Deploy to Netlify
-
-1. Push your code to GitHub
-2. Go to [Netlify](https://netlify.com)
-3. Import your repository
-4. Build command: `npm run build`
-5. Publish directory: `out`
-6. Add environment variables
-7. Deploy!
+For detailed deployment instructions, see **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)**.
 
 ## Firebase Security
 

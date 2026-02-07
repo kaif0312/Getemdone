@@ -9,8 +9,7 @@
     "lint": "eslint",
     "firebase:deploy": "firebase deploy --only firestore:rules,firestore:indexes",
     "firebase:rules": "firebase deploy --only firestore:rules",
-    "firebase:indexes": "firebase deploy --only firestore:indexes",
-    "icons:help": "node scripts/generate-icons.js"
+    "firebase:indexes": "firebase deploy --only firestore:indexes"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('[AuthContext] Auth state changed, user:', firebaseUser?.uid);
       setUser(firebaseUser);
       
       // Clean up previous snapshot listener
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (firebaseUser) {
+        console.log('[AuthContext] Setting up user data listener for:', firebaseUser.uid);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
         // Set up real-time listener for user data
@@ -65,16 +67,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               setUserData(userData);
             }
+          } else {
+            console.error('[AuthContext] ❌ User document does NOT exist in Firestore!');
+            console.error('[AuthContext] Creating user document now...');
+            
+            // Create user document if it doesn't exist
+            const newUserData: User = {
+              id: firebaseUser.uid,
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              email: firebaseUser.email || '',
+              friendCode: (() => {
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                let code = '';
+                for (let i = 0; i < 6; i++) {
+                  code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return code;
+              })(),
+              friends: [],
+              createdAt: Date.now(),
+              streakData: {
+                currentStreak: 0,
+                longestStreak: 0,
+                lastCompletionDate: '',
+                completionHistory: {},
+                missedCommitments: {},
+              },
+            };
+            
+            try {
+              await setDoc(userDocRef, newUserData);
+              setUserData(newUserData);
+              console.log('[AuthContext] ✅ User document created successfully:', newUserData);
+            } catch (error) {
+              console.error('[AuthContext] Error creating user document:', error);
+            }
           }
           setLoading(false);
         }, (error) => {
-          console.error("Error in user data listener:", error);
+          console.error("[AuthContext] Error in user data listener:", error);
           if (error.code === 'resource-exhausted') {
-            alert('Firestore quota exceeded. Please wait and refresh.');
+            console.error('[AuthContext] 🚨 QUOTA EXCEEDED - App will not work until quota resets');
+            // Don't alert, just show in console to avoid annoying the user
+            setUserData(null); // Clear userData to show loading state
           }
           setLoading(false);
         });
       } else {
+        console.log('[AuthContext] No user logged in, clearing userData');
         setUserData(null);
         setLoading(false);
       }

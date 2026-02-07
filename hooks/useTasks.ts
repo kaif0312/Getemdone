@@ -12,7 +12,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs
+  getDocs,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Task, TaskWithUser, User, Reaction, Comment } from '@/lib/types';
@@ -553,10 +554,9 @@ export function useTasks() {
     if (!user) return;
 
     const taskRef = doc(db, 'tasks', taskId);
-    const { deleteField } = await import('firebase/firestore');
     
     if (dueDate === null) {
-      // Remove the dueDate field entirely
+      // Remove the dueDate field entirely using deleteField()
       await updateDoc(taskRef, {
         dueDate: deleteField(),
       });

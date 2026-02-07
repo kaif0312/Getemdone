@@ -64,6 +64,7 @@ export default function TaskItem({
   const [editText, setEditText] = useState(task.text);
   const [isSaving, setIsSaving] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [pendingDueDate, setPendingDueDate] = useState<string>(''); // Temporary date value before saving
   const [showNotes, setShowNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState(task.notes || '');
@@ -91,6 +92,13 @@ export default function TaskItem({
       setNotesText(task.notes || '');
     }
   }, [task.notes, isEditingNotes]);
+
+  // Initialize pendingDueDate when picker opens
+  useEffect(() => {
+    if (showDueDatePicker) {
+      setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
+    }
+  }, [showDueDatePicker, task.dueDate]);
 
   // Handle notes save
   const handleSaveNotes = async () => {
@@ -1029,36 +1037,29 @@ export default function TaskItem({
                 <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
                   {task.dueDate ? 'Change Deadline' : 'Set Deadline'}
                 </span>
-                {task.dueDate && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (onUpdateDueDate) {
-                        await onUpdateDueDate(task.id, null);
-                        setShowDueDatePicker(false);
-                      }
-                    }}
-                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                    title="Remove deadline"
-                  >
-                    <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Close without saving - reset to original value
+                    setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
+                    setShowDueDatePicker(false);
+                  }}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  title="Close"
+                >
+                  <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
+                </button>
               </div>
               <div className="w-full mb-3">
                 <input
                   ref={dueDateInputRef}
                   type="datetime-local"
-                  onChange={async (e) => {
-                    const value = e.target.value;
-                    if (value && onUpdateDueDate) {
-                      const date = new Date(value);
-                      await onUpdateDueDate(task.id, date.getTime());
-                      // Don't auto-close - let user see the selected date and click Done
-                    }
+                  value={pendingDueDate}
+                  onChange={(e) => {
+                    // Only update local state, don't save yet
+                    setPendingDueDate(e.target.value);
                   }}
                   min={new Date().toISOString().slice(0, 16)}
-                  defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
                   className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                   style={{
                     WebkitAppearance: 'none',
@@ -1078,13 +1079,36 @@ export default function TaskItem({
                   })}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => setShowDueDatePicker(false)}
-                className="w-full px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
-              >
-                Done
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    // Save the selected date when Done is clicked
+                    if (pendingDueDate && onUpdateDueDate) {
+                      const date = new Date(pendingDueDate);
+                      await onUpdateDueDate(task.id, date.getTime());
+                    } else if (!pendingDueDate && onUpdateDueDate) {
+                      // If cleared, remove deadline
+                      await onUpdateDueDate(task.id, null);
+                    }
+                    setShowDueDatePicker(false);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                >
+                  Done
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Cancel - reset to original value and close
+                    setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
+                    setShowDueDatePicker(false);
+                  }}
+                  className="px-4 py-2.5 text-base bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </>

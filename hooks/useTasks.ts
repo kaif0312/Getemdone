@@ -553,9 +553,19 @@ export function useTasks() {
     if (!user) return;
 
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      dueDate: dueDate || null,
-    });
+    const { deleteField } = await import('firebase/firestore');
+    
+    if (dueDate === null) {
+      // Remove the dueDate field entirely
+      await updateDoc(taskRef, {
+        dueDate: deleteField(),
+      });
+    } else {
+      // Set the dueDate
+      await updateDoc(taskRef, {
+        dueDate: dueDate,
+      });
+    }
   };
 
   const toggleSkipRollover = async (taskId: string, skipRollover: boolean) => {

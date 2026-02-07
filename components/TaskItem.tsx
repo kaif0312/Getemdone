@@ -1050,7 +1050,42 @@ export default function TaskItem({
                   <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
+              
+              {/* Remove Deadline Button - Always visible when deadline exists */}
+              {task.dueDate && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      if (onUpdateDueDate) {
+                        await onUpdateDueDate(task.id, null);
+                        setShowDueDatePicker(false);
+                      }
+                    } catch (error) {
+                      console.error('[TaskItem] Error removing deadline:', error);
+                    }
+                  }}
+                  className="w-full mb-4 px-4 py-3 text-base text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <FaTimes size={14} />
+                  Remove Deadline
+                </button>
+              )}
+
+              {/* Divider when both remove and set options are available */}
+              {task.dueDate && (
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">OR</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                </div>
+              )}
+
+              {/* Date Picker Section */}
               <div className="w-full mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {task.dueDate ? 'Set New Deadline' : 'Select Deadline'}
+                </label>
                 <div className="relative">
                   <input
                     ref={dueDateInputRef}
@@ -1080,22 +1115,9 @@ export default function TaskItem({
                     </button>
                   )}
                 </div>
-                {pendingDueDate && (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
-                    Clear the date above to remove deadline
-                  </p>
-                )}
               </div>
-              {task.dueDate && !pendingDueDate && (
-                <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
-                  Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                </div>
-              )}
+
+              {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -1105,23 +1127,20 @@ export default function TaskItem({
                       if (pendingDueDate && pendingDueDate.trim() !== '' && onUpdateDueDate) {
                         const date = new Date(pendingDueDate);
                         await onUpdateDueDate(task.id, date.getTime());
-                      } else if ((!pendingDueDate || pendingDueDate.trim() === '') && onUpdateDueDate) {
-                        // If cleared (empty string), remove deadline
-                        await onUpdateDueDate(task.id, null);
+                        setShowDueDatePicker(false);
+                      } else {
+                        // No date selected - just close
+                        setShowDueDatePicker(false);
                       }
-                      setShowDueDatePicker(false);
                     } catch (error) {
                       console.error('[TaskItem] Error updating due date:', error);
                       // Don't close on error so user can retry
                     }
                   }}
-                  className={`flex-1 px-4 py-2.5 text-base text-white rounded-lg transition-colors font-medium ${
-                    !pendingDueDate && task.dueDate
-                      ? 'bg-red-500 hover:bg-red-600'
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  }`}
+                  disabled={!pendingDueDate || pendingDueDate.trim() === ''}
+                  className="flex-1 px-4 py-2.5 text-base text-white bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed rounded-lg transition-colors font-medium"
                 >
-                  {!pendingDueDate && task.dueDate ? 'Remove Deadline' : 'Done'}
+                  Done
                 </button>
                 <button
                   type="button"

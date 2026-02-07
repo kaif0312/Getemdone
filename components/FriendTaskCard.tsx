@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import TaskItem from './TaskItem';
+import Avatar from './Avatar';
 import { TaskWithUser } from '@/lib/types';
 import { FaChevronDown, FaChevronUp, FaLock } from 'react-icons/fa';
 
 interface FriendTaskCardProps {
   friendId: string;
   friendName: string;
+  photoURL?: string;
   tasks: TaskWithUser[];
   privateTotal: number;
   privateCompleted: number;
@@ -31,6 +32,7 @@ interface FriendTaskCardProps {
 export default function FriendTaskCard({
   friendId,
   friendName,
+  photoURL,
   tasks,
   privateTotal,
   privateCompleted,
@@ -62,9 +64,18 @@ export default function FriendTaskCard({
         className={`w-full bg-gradient-to-r ${color.from} ${color.to} rounded-t-xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all hover:opacity-90 active:scale-[0.98]`}
       >
         <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-          <div className={`w-9 h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center ${color.text} font-bold text-base md:text-lg flex-shrink-0`}>
-            {friendName.charAt(0).toUpperCase()}
-          </div>
+          {photoURL ? (
+            <Avatar
+              photoURL={photoURL}
+              displayName={friendName}
+              size="md"
+              className="border-2 border-white flex-shrink-0"
+            />
+          ) : (
+            <div className={`w-9 h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center ${color.text} font-bold text-base md:text-lg flex-shrink-0`}>
+              {friendName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <h2 className="text-white font-semibold text-base md:text-lg text-left truncate">{friendName}</h2>
             <div className="flex items-center gap-2 text-white text-opacity-90 text-xs md:text-sm">

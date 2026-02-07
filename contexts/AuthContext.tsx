@@ -82,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: firebaseUser.uid,
               displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
               email: firebaseUser.email || '',
+              photoURL: firebaseUser.photoURL || undefined,
               friendCode: (() => {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
                 let code = '';
@@ -209,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: userId,
       displayName,
       email,
+      photoURL: undefined, // No photo for email/password sign-up initially
       friendCode: generateFriendCode(),
       friends: [],
       createdAt: Date.now(),
@@ -268,6 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         displayName: result.user.displayName || 'User',
         email: email,
+        photoURL: result.user.photoURL || undefined, // Store Google profile picture
         friendCode: friendCode,
         friends: [],
         createdAt: Date.now(),
@@ -275,6 +278,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await setDoc(userDocRef, newUser);
       setUserData(newUser);
+    } else {
+      // Update existing user's photo URL if they signed in with Google
+      // This ensures we get the latest profile picture
+      if (result.user.photoURL) {
+        await setDoc(userDocRef, {
+          photoURL: result.user.photoURL
+        }, { merge: true });
+      }
     }
 
     if (!isWhitelisted) {

@@ -15,6 +15,7 @@ export interface User {
   createdAt: number;
   streakData?: StreakData;
   isAdmin?: boolean; // Admin users can manage whitelist and view all users
+  photoURL?: string; // Profile picture URL (Google profile or custom upload)
 }
 
 export interface Reaction {

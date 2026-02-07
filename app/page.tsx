@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
+import { useFriends } from '@/hooks/useFriends';
 import AuthModal from '@/components/AuthModal';
 import PendingApproval from '@/components/PendingApproval';
 import TaskInput from '@/components/TaskInput';
@@ -15,6 +16,8 @@ import FriendsSummaryBar from '@/components/FriendsSummaryBar';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
+import ProfileSettings from '@/components/ProfileSettings';
+import Avatar from '@/components/Avatar';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp, FaShieldAlt, FaQuestionCircle } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -33,9 +36,11 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
+  const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<string | null>(null);
   const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
@@ -579,6 +584,12 @@ export default function Home() {
                 { from: 'from-amber-500', to: 'to-amber-600', text: 'text-amber-600' },
               ];
 
+              // Create a map of friend photoURLs for easy lookup
+              const friendPhotoURLMap = new Map<string, string | undefined>();
+              friendUsers.forEach(friend => {
+                friendPhotoURLMap.set(friend.id, friend.photoURL);
+              });
+
               // Prepare friend summaries for the bar
               const friendSummaries = friendEntries.map(([userId, userTasks]) => {
                 const friendName = userTasks[0]?.userName || 'Unknown';
@@ -639,6 +650,7 @@ export default function Home() {
                           <FriendTaskCard
                             friendId={userId}
                             friendName={friendName}
+                            photoURL={friendPhotoURLMap.get(userId)}
                             tasks={userTasks}
                             privateTotal={privateTotal}
                             privateCompleted={privateCompleted}

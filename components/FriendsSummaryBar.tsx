@@ -1,10 +1,12 @@
 'use client';
 
 import { FaLock } from 'react-icons/fa';
+import Avatar from './Avatar';
 
 interface FriendSummary {
   id: string;
   name: string;
+  photoURL?: string;
   pendingCount: number;
   completedToday: number;
   privateTotal: number;
@@ -45,15 +47,24 @@ export default function FriendsSummaryBar({
                   }
                 `}
               >
-                <div className={`
-                  w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-                  ${isActive 
-                    ? 'bg-white text-gray-700' 
-                    : `bg-gradient-to-r ${friend.color.from} ${friend.color.to} text-white`
-                  }
-                `}>
-                  {friend.name.charAt(0).toUpperCase()}
-                </div>
+                {friend.photoURL ? (
+                  <Avatar
+                    photoURL={friend.photoURL}
+                    displayName={friend.name}
+                    size="md"
+                    className={isActive ? 'border-2 border-white' : ''}
+                  />
+                ) : (
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
+                    ${isActive 
+                      ? 'bg-white text-gray-700' 
+                      : `bg-gradient-to-r ${friend.color.from} ${friend.color.to} text-white`
+                    }
+                  `}>
+                    {friend.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="text-xs font-medium truncate max-w-[60px]">
                   {friend.name}
                 </div>

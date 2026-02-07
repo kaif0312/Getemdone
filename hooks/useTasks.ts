@@ -181,6 +181,7 @@ export function useTasks() {
     const friendNameCache = new Map<string, string>();
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot
+    let quotaExceeded = false; // Circuit breaker to prevent infinite retries
     
     // Debounced update function to prevent flickering and reduce reads
     const scheduleUpdate = () => {
@@ -258,22 +259,30 @@ export function useTasks() {
     }, (error) => {
       console.error('[useTasks] ❌ Error in own tasks listener:', error);
       if (error.code === 'resource-exhausted') {
-        console.warn('[useTasks] ⚠️ Quota exceeded - using cached tasks');
+        quotaExceeded = true; // Set circuit breaker
+        console.warn('[useTasks] ⚠️ Quota exceeded - using cached tasks, stopping retries');
         // Don't clear tasks - keep showing cached data
         // Schedule update with existing cached tasks
         scheduleUpdate();
-        // Show user-friendly message
-        if (typeof window !== 'undefined') {
+        // Show user-friendly message (only once)
+        if (typeof window !== 'undefined' && !(window as any).__quotaMessageShown) {
+          (window as any).__quotaMessageShown = true;
           const quotaMessage = document.createElement('div');
           quotaMessage.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 max-w-md text-center';
           quotaMessage.innerHTML = `
-            <p class="font-semibold">⚠️ Firebase Quota Exceeded</p>
-            <p class="text-sm mt-1">Showing cached tasks. Some features may be limited.</p>
-            <p class="text-xs mt-2 opacity-90">Quota resets daily. Consider upgrading your plan.</p>
+            <p class="font-semibold">⚠️ Firebase Rate Limit</p>
+            <p class="text-sm mt-1">Showing cached tasks. Retrying in background...</p>
+            <p class="text-xs mt-2 opacity-90">If you just upgraded, it may take a few minutes to activate.</p>
           `;
           document.body.appendChild(quotaMessage);
-          setTimeout(() => quotaMessage.remove(), 8000);
+          setTimeout(() => {
+            quotaMessage.remove();
+            (window as any).__quotaMessageShown = false;
+          }, 10000);
         }
+        // Stop retrying - don't let Firebase SDK retry infinitely
+        setLoading(false);
+        return; // Exit early to prevent retries
       }
       setLoading(false);
     });
@@ -325,7 +334,10 @@ export function useTasks() {
         }, (error) => {
           console.error('Error fetching friend tasks:', error);
           if (error.code === 'resource-exhausted') {
-            console.warn('Firestore quota exceeded for friend tasks');
+            quotaExceeded = true;
+            console.warn('Firestore quota exceeded for friend tasks - stopping retries');
+            // Don't retry - just use cached data
+            return;
           }
         });
         

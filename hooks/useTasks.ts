@@ -27,27 +27,32 @@ export function useTasks() {
   // Use ref to track last value and only update if contents actually changed
   const lastFriendsKeyRef = useRef<string>('');
   const lastSetupKeyRef = useRef<string>('');
+  const lastFriendsContentRef = useRef<string>('');
   
-  const friendsKey = useMemo(() => {
-    if (!userData?.friends || userData.friends.length === 0) {
-      const emptyKey = '';
-      if (lastFriendsKeyRef.current !== emptyKey) {
-        lastFriendsKeyRef.current = emptyKey;
-      }
-      return emptyKey;
+  // Calculate friends key only when contents actually change
+  // Use useMemo with stringified dependency to avoid array reference issues
+  const stableFriendsKey = useMemo(() => {
+    const currentFriends = userData?.friends || [];
+    const currentContent = currentFriends.length === 0 
+      ? '' 
+      : [...currentFriends].sort().join(',');
+    
+    // Only update if content actually changed
+    if (lastFriendsContentRef.current !== currentContent) {
+      lastFriendsContentRef.current = currentContent;
+      lastFriendsKeyRef.current = currentContent;
     }
-    const newKey = userData.friends.slice().sort().join(',');
-    // Only update ref if key actually changed
-    if (lastFriendsKeyRef.current !== newKey) {
-      lastFriendsKeyRef.current = newKey;
-    }
+    
     return lastFriendsKeyRef.current;
-  }, [userData?.friends]);
+  }, [userData?.friends ? [...userData.friends].sort().join(',') : '']); // Depend on sorted string, not array reference
   
   // Create stable setup key to prevent re-running effect unnecessarily
+  // Use stable IDs instead of object references
+  const userId = user?.uid || null;
+  const userDataId = userData?.id || null;
   const setupKey = useMemo(() => {
-    return `${user?.uid || ''}_${userData?.id || ''}_${friendsKey}`;
-  }, [user?.uid, userData?.id, friendsKey]);
+    return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}`;
+  }, [userId, userDataId, stableFriendsKey]);
 
   // Debug function to check specific task in Firestore
   useEffect(() => {
@@ -194,10 +199,6 @@ export function useTasks() {
     }
   }, [user]);
 
-  // Create stable user ID to avoid infinite loops
-  const userId = user?.uid || null;
-  const userDataId = userData?.id || null;
-  
   useEffect(() => {
     if (!userId || !userDataId) {
       setTasks([]);
@@ -217,7 +218,7 @@ export function useTasks() {
     const currentUserId = userId;
     const currentUserDataId = userDataId;
     const currentFriends = userData?.friends || [];
-    const currentFriendsKey = friendsKey;
+    const currentFriendsKey = stableFriendsKey;
     
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
@@ -452,7 +453,7 @@ export function useTasks() {
       // Reset setup key on cleanup so effect can run again if needed
       lastSetupKeyRef.current = '';
     };
-  }, [userId, userDataId, friendsKey, setupKey]); // Use stable IDs and friendsKey to avoid infinite loops
+  }, [userId, userDataId, stableFriendsKey, setupKey]); // Use stable IDs and friendsKey to avoid infinite loops
 
   const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
     if (!user) return;

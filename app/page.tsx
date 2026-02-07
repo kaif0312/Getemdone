@@ -843,6 +843,21 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Profile Settings Modal */}
+      {userData && (
+        <ProfileSettings
+          isOpen={showProfileSettings}
+          onClose={() => setShowProfileSettings(false)}
+          currentUser={userData}
+          onUpdateUser={(updatedData) => {
+            // The userData will be updated automatically via Firestore listener
+            if (updatedData.photoURL !== undefined) {
+              setShowProfileSettings(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

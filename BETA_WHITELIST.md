@@ -2,7 +2,45 @@
 
 This app is currently in **beta testing mode**. Only whitelisted users can sign up or sign in.
 
-## How to Add Users to the Whitelist
+## 🎯 Admin Dashboard (Recommended)
+
+**The easiest way to manage the whitelist is through the Admin Dashboard!**
+
+1. **Make yourself an admin first** (see "Making Yourself an Admin" below)
+2. **Access the dashboard**: Click the purple shield icon (🔒) in the header, or navigate to `/admin`
+3. **Add/remove emails**: Use the dashboard to manage whitelist entries
+4. **View all users**: See who's signed up and their status
+
+The admin dashboard provides:
+- ✅ Visual interface to add/remove emails
+- ✅ See all whitelisted emails and their status (Active/Pending)
+- ✅ View all users who have signed up
+- ✅ Real-time updates
+- ✅ Statistics (whitelisted count, total users, active users)
+
+## Making Yourself an Admin
+
+To access the admin dashboard, you need to set `isAdmin: true` in your user document:
+
+### Method 1: Firebase Console
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your project
+3. Navigate to **Firestore Database**
+4. Find your user document in the `users` collection (document ID is your user UID)
+5. Click on the document
+6. Click "Add field"
+7. Field name: `isAdmin`
+8. Field type: `boolean`
+9. Value: `true`
+10. Click "Update"
+
+### Method 2: Firebase CLI
+```bash
+# Replace YOUR_USER_ID with your actual Firebase Auth UID
+firebase firestore:set users/YOUR_USER_ID '{"isAdmin": true}' --merge
+```
+
+## How to Add Users to the Whitelist (Manual Method)
 
 ### Method 1: Firebase Console (Recommended)
 
@@ -58,6 +96,15 @@ To disable beta mode and allow anyone to sign up:
      return true; // Allow everyone
    };
    ```
+
+## Admin Dashboard Features
+
+- **Add Email**: Quickly add new emails to the whitelist
+- **Remove Email**: Remove emails from whitelist (with confirmation)
+- **View Status**: See which whitelisted emails have active accounts
+- **User List**: View all users who have signed up
+- **Statistics**: See counts of whitelisted emails, total users, and active users
+- **Real-time Updates**: Changes sync automatically across all admin sessions
 
 ## Security Notes
 

@@ -14,6 +14,7 @@ export interface User {
   friends: string[];
   createdAt: number;
   streakData?: StreakData;
+  isAdmin?: boolean; // Admin users can manage whitelist and view all users
 }
 
 export interface Reaction {

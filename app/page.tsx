@@ -12,7 +12,8 @@ import FriendsModal from '@/components/FriendsModal';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp, FaShieldAlt } from 'react-icons/fa';
+import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
@@ -21,6 +22,7 @@ import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateStr
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const router = useRouter();
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -184,6 +186,16 @@ export default function Home() {
                   </span>
                 )}
               </button>
+
+              {userData?.isAdmin && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="bg-purple-600 dark:bg-purple-500 text-white p-3 rounded-full hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors"
+                  title="Admin Dashboard"
+                >
+                  <FaShieldAlt size={18} />
+                </button>
+              )}
               
               <button
                 onClick={signOut}

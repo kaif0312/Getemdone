@@ -18,11 +18,19 @@ service cloud.firestore {
       return userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
     }
     
-    // Beta Whitelist collection - only authenticated users can read (for checking their own email)
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // Beta Whitelist collection
     match /betaWhitelist/{email} {
+      // Authenticated users can read (for checking their own email)
       allow read: if isAuthenticated();
-      // Only admins can write (you'll need to manually add emails in Firebase Console)
-      allow write: if false;
+      // Only admins can write (add/remove emails)
+      allow write: if isAdmin();
     }
     
     // Users collection

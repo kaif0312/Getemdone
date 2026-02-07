@@ -10,6 +10,8 @@ import TaskInput from '@/components/TaskInput';
 import TaskItem from '@/components/TaskItem';
 import SortableTaskItem from '@/components/SortableTaskItem';
 import FriendsModal from '@/components/FriendsModal';
+import FriendTaskCard from '@/components/FriendTaskCard';
+import FriendsSummaryBar from '@/components/FriendsSummaryBar';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
@@ -32,6 +34,9 @@ export default function Home() {
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<string | null>(null);
   const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
   const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
+  const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
+  const [showAllFriends, setShowAllFriends] = useState(false);
+  const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
 
   // Reset rollover notice dismissal on new day
   useEffect(() => {
@@ -114,6 +119,35 @@ export default function Home() {
   const handleShare = async () => {
     if (!userData) return;
     await shareMyTasks({ userData, tasks });
+  };
+
+  // Helper function to toggle friend expansion
+  const toggleFriend = (friendId: string) => {
+    setExpandedFriends(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(friendId)) {
+        newSet.delete(friendId);
+      } else {
+        newSet.add(friendId);
+      }
+      return newSet;
+    });
+  };
+
+  // Scroll to friend when clicked in summary bar
+  const handleFriendClick = (friendId: string) => {
+    setActiveFriendId(friendId);
+    // Expand if not already expanded
+    if (!expandedFriends.has(friendId)) {
+      toggleFriend(friendId);
+    }
+    // Scroll to friend card
+    setTimeout(() => {
+      const element = document.getElementById(`friend-${friendId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   if (authLoading) {
@@ -391,7 +425,7 @@ export default function Home() {
               );
             })()}
 
-            {/* Friends' Tasks - Grouped by Friend */}
+            {/* Friends' Tasks - Hybrid Approach */}
             {(() => {
               const today = new Date();
               const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -424,95 +458,139 @@ export default function Home() {
                 return acc;
               }, {} as Record<string, typeof tasks>);
 
-              return Object.entries(tasksByUser).map(([userId, userTasks]) => {
+              const friendEntries = Object.entries(tasksByUser);
+              
+              const colors = [
+                { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
+                { from: 'from-purple-500', to: 'to-purple-600', text: 'text-purple-600' },
+                { from: 'from-pink-500', to: 'to-pink-600', text: 'text-pink-600' },
+                { from: 'from-indigo-500', to: 'to-indigo-600', text: 'text-indigo-600' },
+                { from: 'from-orange-500', to: 'to-orange-600', text: 'text-orange-600' },
+                { from: 'from-teal-500', to: 'to-teal-600', text: 'text-teal-600' },
+                { from: 'from-cyan-500', to: 'to-cyan-600', text: 'text-cyan-600' },
+                { from: 'from-amber-500', to: 'to-amber-600', text: 'text-amber-600' },
+              ];
+
+              // Prepare friend summaries for the bar
+              const friendSummaries = friendEntries.map(([userId, userTasks]) => {
                 const friendName = userTasks[0]?.userName || 'Unknown';
-                
-                // Separate private and public tasks
-                const privateTasks = userTasks.filter(t => t.isPrivate);
                 const publicTasks = userTasks.filter(t => !t.isPrivate);
-                
-                // Count private tasks
+                const privateTasks = userTasks.filter(t => t.isPrivate);
+                const pendingCount = publicTasks.filter(t => !t.completed).length;
+                const completedToday = userTasks.filter(t => t.completed).length;
                 const privateTotal = privateTasks.length;
-                const privateCompleted = privateTasks.filter(t => t.completed).length;
                 
-                const colors = [
-                  { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
-                  { from: 'from-purple-500', to: 'to-purple-600', text: 'text-purple-600' },
-                  { from: 'from-pink-500', to: 'to-pink-600', text: 'text-pink-600' },
-                  { from: 'from-indigo-500', to: 'to-indigo-600', text: 'text-indigo-600' },
-                  { from: 'from-orange-500', to: 'to-orange-600', text: 'text-orange-600' },
-                ];
-                // Use userId hash to get consistent color, with fallback to 0
                 const colorIndex = userId 
                   ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
                   : 0;
-                const color = colors[colorIndex] || colors[0]; // Fallback to first color if undefined
+                const color = colors[colorIndex] || colors[0];
 
-                return (
-                  <div key={userId} className="mb-6">
-                    <div className={`bg-gradient-to-r ${color.from} ${color.to} rounded-t-xl px-4 py-3 flex items-center justify-between`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 bg-white rounded-full flex items-center justify-center ${color.text} font-bold text-lg`}>
-                          {friendName.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <h2 className="text-white font-semibold text-base md:text-lg">{friendName}</h2>
-                          <p className="text-white text-opacity-90 text-xs md:text-sm">
-                            {publicTasks.length > 0 && (
-                              <span>{publicTasks.length} {publicTasks.length === 1 ? 'task' : 'tasks'}</span>
-                            )}
-                            {privateTotal > 0 && (
-                              <span className={publicTasks.length > 0 ? 'ml-1.5' : ''}>
-                                🔒 {privateTotal} {privateCompleted > 0 && `(${privateCompleted}✓)`}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-3 md:p-4 space-y-2 md:space-y-3">
-                      {/* Show private task count if any - sleek minimal design */}
-                      {privateTotal > 0 && (
-                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 flex items-center gap-2 text-xs md:text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
-                          <span className="text-sm">🔒</span>
-                          <span className="font-medium">
-                            {privateTotal} private {privateTotal === 1 ? 'task' : 'tasks'}
-                            {privateCompleted > 0 && (
-                              <span className="text-green-600 dark:text-green-400 ml-1">
-                                • {privateCompleted} done
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Show public tasks */}
-                      {publicTasks.length > 0 ? (
-                        publicTasks.map((task) => (
-                        <TaskItem
-                          key={task.id}
-                          task={task}
-                          isOwnTask={false}
-                          onToggleComplete={handleToggleComplete}
-                          onTogglePrivacy={togglePrivacy}
-                          onDelete={deleteTask}
-                          onAddReaction={addReaction}
-                          onOpenComments={setSelectedTaskForComments}
-                          onDeferTask={deferTask}
-                          currentUserId={user.uid}
-                        />
-                      ))
-                      ) : (
-                        privateTotal > 0 && (
-                          <div className="text-center py-4 text-sm text-gray-500 dark:text-gray-400">
-                            Only private tasks
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                );
+                return {
+                  id: userId,
+                  name: friendName,
+                  pendingCount,
+                  completedToday,
+                  privateTotal,
+                  color,
+                };
               });
+
+              // Smart defaults: Expand first 2-3 friends by default (only on first load)
+              useEffect(() => {
+                if (expandedFriends.size === 0 && friendEntries.length > 0) {
+                  const defaultExpanded = new Set<string>();
+                  const maxDefault = Math.min(3, friendEntries.length);
+                  for (let i = 0; i < maxDefault; i++) {
+                    defaultExpanded.add(friendEntries[i][0]);
+                  }
+                  setExpandedFriends(defaultExpanded);
+                }
+              }, [friendEntries.length]);
+
+              return (
+                <>
+                  {/* Friends Summary Bar */}
+                  <FriendsSummaryBar
+                    friends={friendSummaries}
+                    activeFriendId={activeFriendId}
+                    onFriendClick={handleFriendClick}
+                  />
+
+                  {/* Friends' Task Cards */}
+                  <div className="mb-6">
+                    {friendEntries.map(([userId, userTasks]) => {
+                      const friendName = userTasks[0]?.userName || 'Unknown';
+                      const privateTasks = userTasks.filter(t => t.isPrivate);
+                      const publicTasks = userTasks.filter(t => !t.isPrivate);
+                      const privateTotal = privateTasks.length;
+                      const privateCompleted = privateTasks.filter(t => t.completed).length;
+                      
+                      const colorIndex = userId 
+                        ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
+                        : 0;
+                      const color = colors[colorIndex] || colors[0];
+
+                      const isExpanded = showAllFriends || expandedFriends.has(userId);
+
+                      return (
+                        <div key={userId} id={`friend-${userId}`}>
+                          <FriendTaskCard
+                            friendId={userId}
+                            friendName={friendName}
+                            tasks={userTasks}
+                            privateTotal={privateTotal}
+                            privateCompleted={privateCompleted}
+                            isExpanded={isExpanded}
+                            onToggleExpand={() => toggleFriend(userId)}
+                            color={color}
+                            onToggleComplete={handleToggleComplete}
+                            onTogglePrivacy={togglePrivacy}
+                            onUpdateTask={updateTask}
+                            onUpdateDueDate={updateTaskDueDate}
+                            onUpdateNotes={updateTaskNotes}
+                            onToggleCommitment={toggleCommitment}
+                            onToggleSkipRollover={toggleSkipRollover}
+                            onDelete={deleteTask}
+                            onAddReaction={addReaction}
+                            onOpenComments={setSelectedTaskForComments}
+                            onDeferTask={deferTask}
+                            currentUserId={user.uid}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Show All / Collapse All Button */}
+                    {friendEntries.length > 3 && (
+                      <div className="flex justify-center mt-4">
+                        <button
+                          onClick={() => {
+                            if (showAllFriends) {
+                              setShowAllFriends(false);
+                              // Restore default expanded state
+                              const defaultExpanded = new Set<string>();
+                              const maxDefault = Math.min(3, friendEntries.length);
+                              for (let i = 0; i < maxDefault; i++) {
+                                defaultExpanded.add(friendEntries[i][0]);
+                              }
+                              setExpandedFriends(defaultExpanded);
+                            } else {
+                              setShowAllFriends(true);
+                              // Expand all
+                              const allExpanded = new Set(friendEntries.map(([userId]) => userId));
+                              setExpandedFriends(allExpanded);
+                            }
+                            setActiveFriendId(null);
+                          }}
+                          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm"
+                        >
+                          {showAllFriends ? 'Collapse All' : `Show All (${friendEntries.length} friends)`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
             })()}
 
           </>

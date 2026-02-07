@@ -70,11 +70,13 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
         return true;
       }
       
-      // Tasks with due dates - rollover until due date passes
+      // Tasks with due dates - show if due date is today, in the past (overdue), or in the future (upcoming)
+      // This allows users to see upcoming deadlines and plan ahead
       if (task.dueDate) {
         const dueDateStr = getDateString(task.dueDate);
-        // Show if due date is today or in the past (overdue)
-        return dueDateStr <= todayStr;
+        // Show if due date is today, past (overdue), or future (upcoming deadline)
+        // This ensures tasks with deadlines are always visible so users can plan
+        return true;
       }
       
       // Default: rollover incomplete tasks from previous days

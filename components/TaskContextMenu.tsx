@@ -170,8 +170,8 @@ export default function TaskContextMenu({
             </button>
           )}
 
-          {/* Toggle Privacy */}
-          {onTogglePrivacy && (
+          {/* Toggle Privacy - Only for incomplete tasks (privacy doesn't matter for completed) */}
+          {onTogglePrivacy && !task.completed && (
             <button
               onClick={() => {
                 onTogglePrivacy();

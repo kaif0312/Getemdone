@@ -183,7 +183,7 @@ export default function TaskItem({
 
   // Long-press detection for mobile - show context menu
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isOwnTask || task.completed || isEditing) return;
+    if (!isOwnTask || isEditing) return; // Allow for completed tasks too
     
     // Don't trigger on buttons, inputs, or interactive elements
     const target = e.target as HTMLElement;
@@ -267,7 +267,7 @@ export default function TaskItem({
 
   // Desktop: Right-click for context menu, double-click to edit
   const handleContextMenu = (e: React.MouseEvent) => {
-    if (!isOwnTask || task.completed) return;
+    if (!isOwnTask) return; // Allow for completed tasks too
     e.preventDefault();
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
@@ -517,7 +517,7 @@ export default function TaskItem({
           onContextMenu={handleContextMenu}
           onSelectStart={(e) => {
             // Prevent text selection on long-press
-            if (isOwnTask && !task.completed && !isEditing) {
+            if (isOwnTask && !isEditing) {
               e.preventDefault();
             }
           }}
@@ -877,8 +877,8 @@ export default function TaskItem({
           </div>
         </div>
 
-        {/* Context Menu Button - Only for own tasks, minimal and clean */}
-        {isOwnTask && !task.completed && (
+        {/* Context Menu Button - For own tasks (both completed and incomplete) */}
+        {isOwnTask && (
           <button
             onClick={(e) => {
               e.stopPropagation();

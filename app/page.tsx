@@ -766,6 +766,12 @@ export default function Home() {
         );
       })()}
 
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+      />
+
       {/* Contextual Tooltips */}
       {onboarding.isLoaded && onboarding.shouldShowTip('friends', !onboarding.state.hasSeenFriends && (userData?.friends?.length || 0) === 0) && friendsButtonRef.current && (
         <ContextualTooltip

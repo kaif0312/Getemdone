@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
@@ -134,6 +134,56 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, tasks.length]); // Only depend on user ID and task count, not entire tasks array
+
+  // Calculate friend entries for friends' tasks section
+  const friendEntries = useMemo(() => {
+    if (!user?.uid) return [];
+    
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    // Get all friend tasks (both private and public)
+    const allFriendTasks = tasks.filter(task => {
+      if (task.userId === user.uid) return false;
+      if (task.deleted === true) return false;
+      
+      // For friends' tasks, only show completed tasks from today
+      // (we want to see what they accomplished today!)
+      if (task.completed && task.completedAt) {
+        const completedDate = new Date(task.completedAt);
+        const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
+        return completedStr === todayStr;
+      }
+      
+      // Show incomplete tasks (they're working on them)
+      return !task.completed;
+    });
+    
+    if (allFriendTasks.length === 0) return [];
+
+    // Group tasks by userId
+    const tasksByUser = allFriendTasks.reduce((acc, task) => {
+      if (!acc[task.userId]) {
+        acc[task.userId] = [];
+      }
+      acc[task.userId].push(task);
+      return acc;
+    }, {} as Record<string, typeof tasks>);
+
+    return Object.entries(tasksByUser);
+  }, [user?.uid, tasks]);
+
+  // Smart defaults: Expand first 2-3 friends by default (only on first load)
+  useEffect(() => {
+    if (expandedFriends.size === 0 && friendEntries.length > 0) {
+      const defaultExpanded = new Set<string>();
+      const maxDefault = Math.min(3, friendEntries.length);
+      for (let i = 0; i < maxDefault; i++) {
+        defaultExpanded.add(friendEntries[i][0]);
+      }
+      setExpandedFriends(defaultExpanded);
+    }
+  }, [friendEntries.length, expandedFriends.size]);
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
     await toggleComplete(taskId, completed);

@@ -33,13 +33,25 @@ export default function FeatureBadge({
       <div className="relative">
         <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1.5">
           <span>{label}</span>
-          <button
-            onClick={onDismiss}
-            className="w-4 h-4 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onDismiss();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            className="w-4 h-4 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors cursor-pointer"
             aria-label="Dismiss"
           >
             <FaTimes size={8} />
-          </button>
+          </div>
         </div>
         {/* Pulse animation */}
         <div className="absolute inset-0 bg-amber-500 rounded-full animate-ping opacity-20" />

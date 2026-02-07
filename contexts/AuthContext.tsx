@@ -128,7 +128,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Check if user email is in beta whitelist
+  const checkBetaWhitelist = async (email: string): Promise<boolean> => {
+    try {
+      const whitelistRef = collection(db, 'betaWhitelist');
+      const q = query(whitelistRef, where('email', '==', email.toLowerCase()));
+      const querySnapshot = await getDocs(q);
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error('[AuthContext] Error checking beta whitelist:', error);
+      // If whitelist check fails, deny access for safety
+      return false;
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
+    // Check beta whitelist before signing in
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
+    }
+    
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -143,6 +163,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
+    // Check beta whitelist before signing up
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
+    }
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
 
@@ -163,6 +189,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
+    
+    // Check beta whitelist after Google auth (we need email from result)
+    const email = result.user.email;
+    if (!email) {
+      await firebaseSignOut(auth);
+      throw new Error('Unable to get email from Google account. Please try again.');
+    }
+    
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      // Sign out the user immediately if not whitelisted
+      await firebaseSignOut(auth);
+      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
+    }
+    
     const userId = result.user.uid;
 
     // Check if user document exists
@@ -181,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const newUser: User = {
         id: userId,
         displayName: result.user.displayName || 'User',
-        email: result.user.email || '',
+        email: email,
         friendCode: friendCode,
         friends: [],
         createdAt: Date.now(),

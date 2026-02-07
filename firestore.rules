@@ -18,6 +18,13 @@ service cloud.firestore {
       return userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
     }
     
+    // Beta Whitelist collection - only authenticated users can read (for checking their own email)
+    match /betaWhitelist/{email} {
+      allow read: if isAuthenticated();
+      // Only admins can write (you'll need to manually add emails in Firebase Console)
+      allow write: if false;
+    }
+    
     // Users collection
     match /users/{userId} {
       // Any authenticated user can read any user profile (needed for friend search)

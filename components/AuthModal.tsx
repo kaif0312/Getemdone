@@ -55,11 +55,15 @@ export default function AuthModal() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Task Accountability
+            GetDone
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-2">
             Share your daily tasks with friends
           </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
+            <span>🔒</span>
+            <span>Beta Testing</span>
+          </div>
         </div>
 
         {error && (

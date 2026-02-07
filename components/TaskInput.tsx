@@ -9,15 +9,17 @@ interface TaskInputProps {
   onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null) => Promise<void>;
   disabled?: boolean;
   recentTasks?: string[];
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export default function TaskInput({ onAddTask, disabled = false, recentTasks = [] }: TaskInputProps) {
+export default function TaskInput({ onAddTask, disabled = false, recentTasks = [], inputRef: externalInputRef }: TaskInputProps) {
   const [text, setText] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [dueDate, setDueDate] = useState<number | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalInputRef || internalInputRef;
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
@@ -15,7 +15,13 @@ import FriendsSummaryBar from '@/components/FriendsSummaryBar';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp, FaShieldAlt } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp, FaShieldAlt, FaQuestionCircle } from 'react-icons/fa';
+import EmptyState from '@/components/EmptyState';
+import HelpModal from '@/components/HelpModal';
+import ContextualTooltip from '@/components/ContextualTooltip';
+import FeatureBadge from '@/components/FeatureBadge';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { TIPS, FEATURE_BADGES } from '@/lib/tips';
 import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -37,6 +43,16 @@ export default function Home() {
   const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [tooltipTarget, setTooltipTarget] = useState<React.RefObject<HTMLElement> | null>(null);
+  
+  const onboarding = useOnboarding();
+  
+  // Refs for tooltip targets
+  const taskInputRef = useRef<HTMLInputElement>(null);
+  const friendsButtonRef = useRef<HTMLButtonElement>(null);
+  const streakButtonRef = useRef<HTMLButtonElement>(null);
 
   // Reset rollover notice dismissal on new day
   useEffect(() => {
@@ -113,6 +129,18 @@ export default function Home() {
     // Update streak data after completing a task
     if (completed) {
       await updateStreakData();
+    }
+    // Mark first task completion as seen
+    if (completed && !onboarding.state.hasSeenFirstTask) {
+      onboarding.markFeatureSeen('hasSeenFirstTask');
+    }
+  };
+
+  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
+    await addTask(text, isPrivate, dueDate);
+    // Mark first task as seen
+    if (!onboarding.state.hasSeenFirstTask) {
+      onboarding.markFeatureSeen('hasSeenFirstTask');
     }
   };
 
@@ -191,6 +219,14 @@ export default function Home() {
             
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowHelpModal(true)}
+                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors relative"
+                title="Help & Tips"
+              >
+                <FaQuestionCircle size={18} />
+              </button>
+
+              <button
                 onClick={toggleTheme}
                 className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
@@ -207,11 +243,25 @@ export default function Home() {
               </button>
 
               <button
-                onClick={() => setShowFriendsModal(true)}
+                ref={friendsButtonRef}
+                onClick={() => {
+                  setShowFriendsModal(true);
+                  if (!onboarding.state.hasSeenFriends) {
+                    onboarding.markFeatureSeen('hasSeenFriends');
+                  }
+                }}
                 className="relative bg-blue-600 dark:bg-blue-500 text-white p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                 title="Manage Friends"
               >
                 <FaUsers size={18} />
+                {onboarding.shouldShowBadge('friends-badge', !onboarding.state.hasSeenFriends && (userData?.friends?.length || 0) === 0) && (
+                  <FeatureBadge
+                    id="friends-badge"
+                    label={FEATURE_BADGES.FRIENDS.label}
+                    show={true}
+                    onDismiss={() => onboarding.dismissFeatureBadge('friends-badge')}
+                  />
+                )}
               </button>
 
               <button
@@ -251,8 +301,14 @@ export default function Home() {
           {userData.streakData && (
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setShowStreakCalendar(true)}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl px-4 py-3 flex items-center justify-between hover:from-orange-600 hover:to-orange-700 transition-all shadow-md"
+                ref={streakButtonRef}
+                onClick={() => {
+                  setShowStreakCalendar(true);
+                  if (!onboarding.state.hasSeenStreak) {
+                    onboarding.markFeatureSeen('hasSeenStreak');
+                  }
+                }}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl px-4 py-3 flex items-center justify-between hover:from-orange-600 hover:to-orange-700 transition-all shadow-md relative"
               >
                 <div className="flex items-center gap-2">
                   <FaFire size={20} />
@@ -262,6 +318,14 @@ export default function Home() {
                   </div>
                 </div>
                 <FaCalendarAlt size={16} className="opacity-75" />
+                {onboarding.shouldShowBadge('streak-badge', !onboarding.state.hasSeenStreak && userData.streakData.currentStreak === 0) && (
+                  <FeatureBadge
+                    id="streak-badge"
+                    label={FEATURE_BADGES.STREAK.label}
+                    show={true}
+                    onDismiss={() => onboarding.dismissFeatureBadge('streak-badge')}
+                  />
+                )}
               </button>
               
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl px-4 py-3 shadow-md">
@@ -294,10 +358,11 @@ export default function Home() {
             <p className="text-gray-600 dark:text-gray-400">Loading tasks...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 dark:text-gray-400 mb-2">No tasks yet!</p>
-            <p className="text-gray-500 dark:text-gray-500 text-sm">Add your first task below to get started.</p>
-          </div>
+          <EmptyState
+            type="no-tasks"
+            onAction={() => taskInputRef.current?.focus()}
+            showTips={true}
+          />
         ) : (
           <>
             {/* Your Tasks */}
@@ -315,8 +380,8 @@ export default function Home() {
                 // Apply daily focus view with smart rollover
                 const shouldShow = shouldShowInTodayView(task, todayStr);
                 
-                // Debug logging for tasks created today
-                if (!shouldShow && !task.completed) {
+                // Debug logging for tasks created today (development only)
+                if (process.env.NODE_ENV === 'development' && !shouldShow && !task.completed) {
                   const createdDate = getDateString(task.createdAt);
                   if (createdDate === todayStr) {
                     console.warn('[Home] Task created today but not showing:', {
@@ -347,7 +412,9 @@ export default function Home() {
                 }
               });
               
-              console.log('[Home] After filtering, myTasks count:', myTasks.length);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Home] After filtering, myTasks count:', myTasks.length);
+              }
 
               // Separate incomplete and completed tasks
               const incompleteTasks = myTasks.filter(t => !t.completed);
@@ -598,17 +665,36 @@ export default function Home() {
       </main>
 
       {/* Task Input (Fixed at Bottom) */}
-      <TaskInput 
-        onAddTask={addTask} 
-        disabled={tasksLoading}
-        recentTasks={
-          tasks
-            .filter(t => t.userId === user?.uid && t.completed)
-            .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
-            .slice(0, 10)
-            .map(t => t.text)
-        }
-      />
+      <div className="relative">
+        <TaskInput 
+          onAddTask={handleAddTask} 
+          disabled={tasksLoading}
+          inputRef={taskInputRef}
+          recentTasks={
+            tasks
+              .filter(t => t.userId === user?.uid && t.completed)
+              .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+              .slice(0, 10)
+              .map(t => t.text)
+          }
+        />
+        {/* First task tip below input */}
+        {onboarding.isLoaded && onboarding.shouldShowTip('first-task', !onboarding.state.hasSeenFirstTask && tasks.length === 0) && (
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-50">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-2 px-3 text-xs max-w-[200px] text-center relative">
+              {TIPS.FIRST_TASK.message}
+              <button
+                onClick={() => onboarding.dismissTip('first-task')}
+                className="ml-2 text-white/70 hover:text-white"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-900 dark:border-t-gray-800" />
+          </div>
+        )}
+      </div>
 
       {/* Friends Modal */}
       {showFriendsModal && (
@@ -657,11 +743,15 @@ export default function Home() {
       {selectedTaskForComments && (() => {
         const selectedTask = tasks.find(t => t.id === selectedTaskForComments);
         if (!selectedTask) {
+        if (process.env.NODE_ENV === 'development') {
           console.log('[Home] Task not found for comments:', selectedTaskForComments);
-          return null;
         }
-        
+        return null;
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
         console.log('[Home] Rendering CommentsModal for task:', selectedTask.id, 'Comments:', selectedTask.comments?.length || 0);
+      }
         
         return (
           <CommentsModal
@@ -675,6 +765,35 @@ export default function Home() {
           />
         );
       })()}
+
+      {/* Contextual Tooltips */}
+      {onboarding.isLoaded && onboarding.shouldShowTip('friends', !onboarding.state.hasSeenFriends && (userData?.friends?.length || 0) === 0) && friendsButtonRef.current && (
+        <ContextualTooltip
+          id="friends"
+          message={TIPS.FRIENDS.message}
+          position={TIPS.FRIENDS.position as any}
+          targetRef={friendsButtonRef}
+          show={true}
+          onDismiss={() => {
+            onboarding.dismissTip('friends');
+            setActiveTooltip(null);
+          }}
+        />
+      )}
+
+      {onboarding.isLoaded && onboarding.shouldShowTip('streak', !onboarding.state.hasSeenStreak && (userData?.streakData?.currentStreak || 0) === 0) && streakButtonRef.current && (
+        <ContextualTooltip
+          id="streak"
+          message={TIPS.STREAK.message}
+          position={TIPS.STREAK.position as any}
+          targetRef={streakButtonRef}
+          show={true}
+          onDismiss={() => {
+            onboarding.dismissTip('streak');
+            setActiveTooltip(null);
+          }}
+        />
+      )}
     </div>
   );
 }

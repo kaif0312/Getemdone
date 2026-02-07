@@ -174,12 +174,22 @@ export function useTasks() {
     }
   }, [user]);
 
+  // Create stable user ID to avoid infinite loops
+  const userId = user?.uid || null;
+  const userDataId = userData?.id || null;
+  
   useEffect(() => {
-    if (!user || !userData) {
+    if (!userId || !userDataId) {
       setTasks([]);
       setLoading(false);
       return;
     }
+    
+    // Capture current values to avoid closure issues
+    const currentUserId = userId;
+    const currentUserDataId = userDataId;
+    const currentFriends = userData?.friends || [];
+    const currentFriendsKey = friendsKey;
     
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
@@ -228,8 +238,8 @@ export function useTasks() {
     // Pre-fetch friend names to avoid async delays during snapshot
     const prefetchFriendNames = async () => {
       // Prefetch friend names
-      if (userData.friends && userData.friends.length > 0) {
-        const promises = userData.friends.map(async (friendId) => {
+      if (currentFriends.length > 0) {
+        const promises = currentFriends.map(async (friendId) => {
           if (!friendNameCache.has(friendId)) {
             try {
               const userDoc = await getDoc(doc(db, 'users', friendId));
@@ -252,7 +262,7 @@ export function useTasks() {
     // Query 1: Get user's own tasks (private + public)
     const ownTasksQuery = query(
       tasksRef,
-      where('userId', '==', user.uid),
+      where('userId', '==', currentUserId),
       orderBy('createdAt', 'desc')
     );
 
@@ -322,10 +332,10 @@ export function useTasks() {
     prefetchFriendNames().then(() => {
 
       // Query 2: Get friends' public tasks (only if there are friends)
-      if (userData.friends && userData.friends.length > 0) {
+      if (currentFriends.length > 0) {
         // Limit to first 10 friends to reduce quota usage
-        const maxFriends = Math.min(userData.friends.length, 10);
-        const friendsToQuery = userData.friends.slice(0, maxFriends);
+        const maxFriends = Math.min(currentFriends.length, 10);
+        const friendsToQuery = currentFriends.slice(0, maxFriends);
         
         // Query for ALL friend tasks (both private and public) to show private counts
         // Note: Security rules will prevent reading private task content, but we can count them
@@ -341,12 +351,12 @@ export function useTasks() {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
             
             // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
-            if (task.userId === user.uid) {
+            if (task.userId === currentUserId) {
               return; // Don't process our own tasks as friend tasks
             }
             
             // CRITICAL FIX: Remove tasks from friends who are no longer in our friends list
-            if (userData.friends && !userData.friends.includes(task.userId)) {
+            if (!currentFriends.includes(task.userId)) {
               console.log('[useTasks] 🗑️ Removing task from removed friend:', task.id, task.userId);
               allTasks.delete(change.doc.id);
               return;
@@ -383,12 +393,12 @@ export function useTasks() {
     
     // CRITICAL FIX: When friends list changes, immediately remove tasks from removed friends
     // Filter current tasks state to remove tasks from friends no longer in the list
-    if (userData.friends) {
-      const currentFriendIds = new Set(userData.friends);
+    if (currentFriends.length >= 0) {
+      const currentFriendIds = new Set(currentFriends);
       let removedAny = false;
       allTasks.forEach((task, taskId) => {
         // Remove tasks from friends who are no longer in the list (but keep our own tasks)
-        if (task.userId !== user.uid && !currentFriendIds.has(task.userId)) {
+        if (task.userId !== currentUserId && !currentFriendIds.has(task.userId)) {
           console.log('[useTasks] 🗑️ Removing task from removed friend:', taskId, task.userId);
           allTasks.delete(taskId);
           removedAny = true;

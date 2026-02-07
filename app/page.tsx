@@ -438,32 +438,39 @@ export default function Home() {
                           {friendName.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <h2 className="text-white font-semibold">{friendName}</h2>
-                          <p className="text-white text-opacity-80 text-sm">
-                            {publicTasks.length} {publicTasks.length === 1 ? 'task' : 'tasks'}
+                          <h2 className="text-white font-semibold text-base md:text-lg">{friendName}</h2>
+                          <p className="text-white text-opacity-90 text-xs md:text-sm">
+                            {publicTasks.length > 0 && (
+                              <span>{publicTasks.length} {publicTasks.length === 1 ? 'task' : 'tasks'}</span>
+                            )}
                             {privateTotal > 0 && (
-                              <span className="ml-1">• {privateTotal} private ({privateCompleted} done)</span>
+                              <span className={publicTasks.length > 0 ? 'ml-1.5' : ''}>
+                                🔒 {privateTotal} {privateCompleted > 0 && `(${privateCompleted}✓)`}
+                              </span>
                             )}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-4 space-y-3">
-                      {/* Show private task count if any */}
+                    <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-3 md:p-4 space-y-2 md:space-y-3">
+                      {/* Show private task count if any - sleek minimal design */}
                       {privateTotal > 0 && (
-                        <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                          <span className="text-base">🔒</span>
-                          <span>
-                            <strong>{privateTotal}</strong> private {privateTotal === 1 ? 'task' : 'tasks'}
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 flex items-center gap-2 text-xs md:text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                          <span className="text-sm">🔒</span>
+                          <span className="font-medium">
+                            {privateTotal} private {privateTotal === 1 ? 'task' : 'tasks'}
                             {privateCompleted > 0 && (
-                              <span> • <strong>{privateCompleted}</strong> completed</span>
+                              <span className="text-green-600 dark:text-green-400 ml-1">
+                                • {privateCompleted} done
+                              </span>
                             )}
                           </span>
                         </div>
                       )}
                       
                       {/* Show public tasks */}
-                      {publicTasks.map((task) => (
+                      {publicTasks.length > 0 ? (
+                        publicTasks.map((task) => (
                         <TaskItem
                           key={task.id}
                           task={task}
@@ -476,7 +483,14 @@ export default function Home() {
                           onDeferTask={deferTask}
                           currentUserId={user.uid}
                         />
-                      ))}
+                      ))
+                      ) : (
+                        privateTotal > 0 && (
+                          <div className="text-center py-4 text-sm text-gray-500 dark:text-gray-400">
+                            Only private tasks
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 );

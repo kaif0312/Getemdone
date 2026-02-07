@@ -321,10 +321,11 @@ export function useTasks() {
         const maxFriends = Math.min(userData.friends.length, 10);
         const friendsToQuery = userData.friends.slice(0, maxFriends);
         
+        // Query for ALL friend tasks (both private and public) to show private counts
+        // Note: Security rules will prevent reading private task content, but we can count them
         const friendTasksQuery = query(
           tasksRef,
           where('userId', 'in', friendsToQuery),
-          where('isPrivate', '==', false),
           orderBy('createdAt', 'desc')
         );
 

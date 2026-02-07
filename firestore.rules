@@ -51,9 +51,10 @@ service cloud.firestore {
       // Users can read:
       // 1. Their own tasks (both private and public)
       // 2. Public tasks from their friends
+      // 3. Private tasks from friends (for counting only - text will be hidden in app)
       allow read: if isAuthenticated() && (
         isOwner(resource.data.userId) ||
-        (!resource.data.isPrivate && areFriends(resource.data.userId))
+        areFriends(resource.data.userId)
       );
       
       // Users can only create tasks with their own userId

@@ -339,7 +339,8 @@ export function useTasks() {
             }
             
             // CRITICAL FIX: Remove tasks from friends who are no longer in our friends list
-            if (!userData.friends.includes(task.userId)) {
+            if (userData.friends && !userData.friends.includes(task.userId)) {
+              console.log('[useTasks] 🗑️ Removing task from removed friend:', task.id, task.userId);
               allTasks.delete(change.doc.id);
               return;
             }
@@ -374,18 +375,20 @@ export function useTasks() {
     });
     
     // CRITICAL FIX: When friends list changes, immediately remove tasks from removed friends
-    // This runs on every render, but we check if friend was removed
+    // Filter current tasks state to remove tasks from friends no longer in the list
     if (userData.friends) {
       const currentFriendIds = new Set(userData.friends);
-      // Remove tasks from friends who are no longer in the list
+      let removedAny = false;
       allTasks.forEach((task, taskId) => {
+        // Remove tasks from friends who are no longer in the list (but keep our own tasks)
         if (task.userId !== user.uid && !currentFriendIds.has(task.userId)) {
           console.log('[useTasks] 🗑️ Removing task from removed friend:', taskId, task.userId);
           allTasks.delete(taskId);
+          removedAny = true;
         }
       });
       // Schedule update if we removed any tasks
-      if (allTasks.size > 0) {
+      if (removedAny) {
         scheduleUpdate();
       }
     }

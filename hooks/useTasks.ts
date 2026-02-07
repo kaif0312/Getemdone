@@ -45,7 +45,9 @@ export function useTasks() {
   }, [userData?.friends]);
   
   // Create stable setup key to prevent re-running effect unnecessarily
-  const setupKey = `${user?.uid || ''}_${userData?.id || ''}_${friendsKey}`;
+  const setupKey = useMemo(() => {
+    return `${user?.uid || ''}_${userData?.id || ''}_${friendsKey}`;
+  }, [user?.uid, userData?.id, friendsKey]);
 
   // Debug function to check specific task in Firestore
   useEffect(() => {

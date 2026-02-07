@@ -398,7 +398,14 @@ export function useTasks() {
         const unsubFriendTasks = onSnapshot(friendTasksQuery, (snapshot) => {
           // Only process actual changes to reduce reads
           snapshot.docChanges().forEach((change) => {
-            const task = { id: change.doc.id, ...change.doc.data() } as Task;
+            const taskData = change.doc.data();
+            const task = { id: change.doc.id, ...taskData } as Task;
+            
+            // When a field is deleted using deleteField(), it won't exist in taskData
+            // Ensure dueDate is explicitly undefined if not present
+            if (!taskData.hasOwnProperty('dueDate')) {
+              task.dueDate = undefined;
+            }
             
             // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
             if (task.userId === currentUserId) {

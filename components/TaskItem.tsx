@@ -1110,9 +1110,13 @@ export default function TaskItem({
                     }
                     setShowDueDatePicker(false);
                   }}
-                  className="flex-1 px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                  className={`flex-1 px-4 py-2.5 text-base text-white rounded-lg transition-colors font-medium ${
+                    !pendingDueDate && task.dueDate
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
                 >
-                  Done
+                  {!pendingDueDate && task.dueDate ? 'Remove Deadline' : 'Done'}
                 </button>
                 <button
                   type="button"

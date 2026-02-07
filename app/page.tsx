@@ -16,7 +16,7 @@ import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, F
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
-import { shouldShowInTodayView, countRolledOverTasks, getTodayString } from '@/utils/taskFilter';
+import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
 
 export default function Home() {
   const { user, userData, loading: authLoading, signOut, updateStreakData } = useAuth();
@@ -249,8 +249,29 @@ export default function Home() {
                 // Only show user's own tasks
                 if (task.userId !== user.uid) return false;
                 
+                // Skip deleted tasks
+                if (task.deleted === true) return false;
+                
                 // Apply daily focus view with smart rollover
-                return shouldShowInTodayView(task, todayStr);
+                const shouldShow = shouldShowInTodayView(task, todayStr);
+                
+                // Debug logging for tasks created today
+                if (!shouldShow && !task.completed) {
+                  const createdDate = getDateString(task.createdAt);
+                  if (createdDate === todayStr) {
+                    console.warn('[Home] Task created today but not showing:', {
+                      taskId: task.id.substring(0, 8),
+                      text: task.text.substring(0, 20),
+                      createdDate,
+                      todayStr,
+                      deleted: task.deleted,
+                      deferredTo: task.deferredTo,
+                      skipRollover: task.skipRollover
+                    });
+                  }
+                }
+                
+                return shouldShow;
               }).sort((a, b) => {
                 // Sort by due date: tasks with due dates first, then by due date (earliest first)
                 // Overdue tasks come first, then tasks due soon, then no due date

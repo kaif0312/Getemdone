@@ -10,10 +10,15 @@ export function getTodayString(): string {
 
 /**
  * Get date string from timestamp in YYYY-MM-DD format
+ * Uses local timezone to ensure consistency
  */
 export function getDateString(timestamp: number): string {
   const date = new Date(timestamp);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Use local date components to avoid timezone issues
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /**
@@ -23,6 +28,11 @@ export function getDateString(timestamp: number): string {
  * - Incomplete tasks: show if created today, deferred to today, or should rollover
  */
 export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
+  // Skip deleted tasks
+  if (task.deleted === true) {
+    return false;
+  }
+
   // Completed tasks: only show if completed today
   if (task.completed && task.completedAt) {
     const completedDate = getDateString(task.completedAt);
@@ -43,7 +53,7 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
       return false;
     }
     
-    // 3. Created today - always show
+    // 3. Created today - always show (most important check)
     if (createdDate === todayStr) {
       return true;
     }
@@ -69,6 +79,13 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
       
       // Default: rollover incomplete tasks from previous days
       return true;
+    }
+    
+    // 5. Created in the future (shouldn't happen, but handle gracefully)
+    // This might happen due to timezone issues - show it anyway to avoid losing tasks
+    if (createdDate > todayStr) {
+      console.warn('[taskFilter] Task created in future:', task.id, 'createdDate:', createdDate, 'todayStr:', todayStr, 'createdAt:', task.createdAt);
+      return true; // Show it to avoid losing tasks
     }
   }
   

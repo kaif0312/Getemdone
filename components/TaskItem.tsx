@@ -617,7 +617,12 @@ export default function TaskItem({
             onDoubleClick={handleDoubleClick}
           >
             {task.committed && (
-              <FaStar className="text-yellow-500 mt-1 flex-shrink-0" size={16} title="Committed Task - Must Complete Today!" />
+              <FaStar 
+                className="text-yellow-500 dark:text-yellow-400 mt-0.5 md:mt-1 flex-shrink-0 z-10" 
+                size={18} 
+                title="Committed Task - Must Complete Today!" 
+                style={{ minWidth: '18px', minHeight: '18px' }}
+              />
             )}
             {isEditing ? (
               <div className="flex-1 flex items-center gap-2">

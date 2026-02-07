@@ -447,8 +447,10 @@ export function useTasks() {
         document.removeEventListener('visibilitychange', visibilityHandler);
       }
       console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
+      // Reset setup key on cleanup so effect can run again if needed
+      lastSetupKeyRef.current = '';
     };
-  }, [user?.uid, userData?.id, friendsKey]); // Use stable friendsKey instead of join() to avoid infinite loops
+  }, [userId, userDataId, friendsKey, setupKey]); // Use stable IDs and friendsKey to avoid infinite loops
 
   const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
     if (!user) return;

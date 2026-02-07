@@ -378,8 +378,10 @@ export default function Home() {
               const today = new Date();
               const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
               
-              const friendTasks = tasks.filter(task => {
+              // Get all friend tasks (both private and public)
+              const allFriendTasks = tasks.filter(task => {
                 if (task.userId === user.uid) return false;
+                if (task.deleted === true) return false;
                 
                 // For friends' tasks, only show completed tasks from today
                 // (we want to see what they accomplished today!)
@@ -393,10 +395,10 @@ export default function Home() {
                 return !task.completed;
               });
               
-              if (friendTasks.length === 0) return null;
+              if (allFriendTasks.length === 0) return null;
 
               // Group tasks by userId
-              const tasksByUser = friendTasks.reduce((acc, task) => {
+              const tasksByUser = allFriendTasks.reduce((acc, task) => {
                 if (!acc[task.userId]) {
                   acc[task.userId] = [];
                 }
@@ -406,6 +408,15 @@ export default function Home() {
 
               return Object.entries(tasksByUser).map(([userId, userTasks]) => {
                 const friendName = userTasks[0]?.userName || 'Unknown';
+                
+                // Separate private and public tasks
+                const privateTasks = userTasks.filter(t => t.isPrivate);
+                const publicTasks = userTasks.filter(t => !t.isPrivate);
+                
+                // Count private tasks
+                const privateTotal = privateTasks.length;
+                const privateCompleted = privateTasks.filter(t => t.completed).length;
+                
                 const colors = [
                   { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
                   { from: 'from-purple-500', to: 'to-purple-600', text: 'text-purple-600' },
@@ -428,12 +439,31 @@ export default function Home() {
                         </div>
                         <div>
                           <h2 className="text-white font-semibold">{friendName}</h2>
-                          <p className="text-white text-opacity-80 text-sm">{userTasks.length} task{userTasks.length !== 1 ? 's' : ''}</p>
+                          <p className="text-white text-opacity-80 text-sm">
+                            {publicTasks.length} {publicTasks.length === 1 ? 'task' : 'tasks'}
+                            {privateTotal > 0 && (
+                              <span className="ml-1">• {privateTotal} private ({privateCompleted} done)</span>
+                            )}
+                          </p>
                         </div>
                       </div>
                     </div>
                     <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-4 space-y-3">
-                      {userTasks.map((task) => (
+                      {/* Show private task count if any */}
+                      {privateTotal > 0 && (
+                        <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <span className="text-base">🔒</span>
+                          <span>
+                            <strong>{privateTotal}</strong> private {privateTotal === 1 ? 'task' : 'tasks'}
+                            {privateCompleted > 0 && (
+                              <span> • <strong>{privateCompleted}</strong> completed</span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Show public tasks */}
+                      {publicTasks.map((task) => (
                         <TaskItem
                           key={task.id}
                           task={task}

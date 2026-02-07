@@ -202,19 +202,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const userDocRef = doc(db, 'users', user.uid);
     const tasksRef = collection(db, 'tasks');
-    const q = query(tasksRef, where('userId', '==', user.uid), where('completed', '==', true));
     
-    const querySnapshot = await getDocs(q);
+    // Get ALL tasks (not just completed) to calculate completion percentage
+    const allTasksQuery = query(tasksRef, where('userId', '==', user.uid));
+    const allTasksSnapshot = await getDocs(allTasksQuery);
     
-    // Build completion history
+    // Build task counts per day: total tasks and completed tasks
+    // For each day, count all tasks that were "active" (should be shown) on that day
+    const dailyTaskCounts: { [date: string]: { total: number; completed: number } } = {};
+    
+    // Helper to get date string
+    const getDateStr = (timestamp: number): string => {
+      const date = new Date(timestamp);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+    
+    const todayDate = new Date();
+    const todayStr = getDateStr(todayDate.getTime());
+    
+    allTasksSnapshot.forEach((doc) => {
+      const task = doc.data();
+      
+      // Skip deleted tasks
+      if (task.deleted === true) return;
+      
+      const createdDateStr = getDateStr(task.createdAt);
+      
+      // For completed tasks, count them on the day they were completed
+      if (task.completed && task.completedAt) {
+        const completedDateStr = getDateStr(task.completedAt);
+        
+        // Count as completed on completion date
+        if (!dailyTaskCounts[completedDateStr]) {
+          dailyTaskCounts[completedDateStr] = { total: 0, completed: 0 };
+        }
+        dailyTaskCounts[completedDateStr].completed++;
+        
+        // Also count as total task on completion date (if created before or on that day)
+        if (createdDateStr <= completedDateStr) {
+          dailyTaskCounts[completedDateStr].total++;
+        }
+      } else if (!task.completed) {
+        // For incomplete tasks, count them on days they were "active"
+        // A task is active on a day if:
+        // 1. Created on that day, OR
+        // 2. Created before and should rollover (not skipRollover, not deferred to future)
+        
+        // Check if task should be counted on its creation day
+        if (!dailyTaskCounts[createdDateStr]) {
+          dailyTaskCounts[createdDateStr] = { total: 0, completed: 0 };
+        }
+        dailyTaskCounts[createdDateStr].total++;
+        
+        // If task was created before today and should rollover, count it on today
+        if (createdDateStr < todayStr) {
+          // Check if task should rollover (similar to shouldShowInTodayView logic)
+          if (!task.skipRollover) {
+            // Check if deferred to future
+            if (task.deferredTo && task.deferredTo > todayStr) {
+              // Don't count on today
+            } else {
+              // Task should rollover - count on today
+              if (!dailyTaskCounts[todayStr]) {
+                dailyTaskCounts[todayStr] = { total: 0, completed: 0 };
+              }
+              dailyTaskCounts[todayStr].total++;
+            }
+          }
+        }
+      }
+    });
+    
+    // Build completion history - only count days with >= 70% completion
     const completionHistory: { [date: string]: number } = {};
     
-    querySnapshot.forEach((doc) => {
-      const task = doc.data();
-      if (task.completedAt) {
-        const date = new Date(task.completedAt);
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        completionHistory[dateStr] = (completionHistory[dateStr] || 0) + 1;
+    Object.entries(dailyTaskCounts).forEach(([dateStr, counts]) => {
+      if (counts.total > 0) {
+        const completionPercentage = (counts.completed / counts.total) * 100;
+        // Only count day if >= 70% of tasks are completed
+        if (completionPercentage >= 70) {
+          completionHistory[dateStr] = counts.completed;
+        }
       }
     });
 
@@ -231,9 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const committedSnapshot = await getDocs(committedQuery);
     
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
+    // todayStr already defined above
     committedSnapshot.forEach((doc) => {
       const task = doc.data();
       // Only count as missed if the task was created before today and not deferred to a future date
@@ -262,7 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sortedDates = Object.keys(completionHistory).sort((a, b) => b.localeCompare(a));
     
     // Calculate current streak (working backwards from today)
-    let checkDate = new Date(today);
+    let checkDate = new Date(todayDate);
     let foundGap = false;
     
     while (!foundGap) {

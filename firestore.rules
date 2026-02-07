@@ -27,8 +27,9 @@ service cloud.firestore {
     
     // Beta Whitelist collection
     match /betaWhitelist/{email} {
-      // Authenticated users can read (for checking their own email)
-      allow read: if isAuthenticated();
+      // Allow anyone to read (needed for pre-auth whitelist check during sign-in)
+      // This is safe because we only expose email addresses, not sensitive data
+      allow read: if true;
       // Only admins can write (add/remove emails)
       allow write: if isAdmin();
     }

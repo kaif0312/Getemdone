@@ -131,12 +131,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check if user email is in beta whitelist
   const checkBetaWhitelist = async (email: string): Promise<boolean> => {
     try {
+      const emailLower = email.toLowerCase().trim();
+      console.log('[AuthContext] Checking whitelist for email:', emailLower);
       const whitelistRef = collection(db, 'betaWhitelist');
-      const q = query(whitelistRef, where('email', '==', email.toLowerCase()));
+      const q = query(whitelistRef, where('email', '==', emailLower));
       const querySnapshot = await getDocs(q);
-      return !querySnapshot.empty;
-    } catch (error) {
+      const isWhitelisted = !querySnapshot.empty;
+      console.log('[AuthContext] Whitelist check result:', isWhitelisted, 'for email:', emailLower);
+      if (!isWhitelisted) {
+        console.log('[AuthContext] Email not found in whitelist. Make sure:');
+        console.log('  1. Collection name is exactly: betaWhitelist');
+        console.log('  2. Document has a field named: email');
+        console.log('  3. Email value matches exactly (case-insensitive):', emailLower);
+      }
+      return isWhitelisted;
+    } catch (error: any) {
       console.error('[AuthContext] Error checking beta whitelist:', error);
+      console.error('[AuthContext] Error code:', error.code);
+      console.error('[AuthContext] Error message:', error.message);
       // If whitelist check fails, deny access for safety
       return false;
     }

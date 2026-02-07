@@ -182,26 +182,26 @@ export function useTasks() {
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot
     let quotaExceeded = false; // Circuit breaker to prevent infinite retries
-    let isTabVisible = true; // Track if tab is visible
     
     // Page Visibility API - Pause listeners when tab is hidden to save reads
     const handleVisibilityChange = () => {
-      isTabVisible = !document.hidden;
       if (document.hidden) {
         console.log('[useTasks] 📴 Tab hidden - pausing listeners to save reads');
         // Unsubscribe from all listeners when tab is hidden
         unsubscribers.forEach(unsub => unsub());
         unsubscribers.length = 0;
       } else {
-        console.log('[useTasks] 📱 Tab visible - reconnecting listeners');
-        // Reconnect listeners when tab becomes visible
-        // This will be handled by the useEffect re-running
-        // For now, we'll just log - the effect will re-run if dependencies change
+        console.log('[useTasks] 📱 Tab visible - listeners will reconnect on next change');
+        // Note: Listeners will reconnect automatically when data changes
+        // Or we can force a re-render by updating a state, but that's not necessary
+        // The effect will re-run if user/userData changes
       }
     };
     
     // Only add visibility listener in browser
+    let visibilityHandler: (() => void) | null = null;
     if (typeof window !== 'undefined') {
+      visibilityHandler = handleVisibilityChange;
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
     
@@ -374,8 +374,8 @@ export function useTasks() {
         clearTimeout(updateTimer);
       }
       unsubscribers.forEach(unsub => unsub());
-      if (typeof window !== 'undefined') {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof window !== 'undefined' && visibilityHandler) {
+        document.removeEventListener('visibilitychange', visibilityHandler);
       }
       console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
     };

@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaChevronDown, FaChevronUp, FaEllipsisV } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
+import TaskContextMenu from './TaskContextMenu';
 import { playSound } from '@/utils/sounds';
 import { isRolledOver, getTodayString } from '@/utils/taskFilter';
 
@@ -64,11 +65,14 @@ export default function TaskItem({
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState(task.notes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const editInputRef = useRef<HTMLInputElement>(null);
   const dueDateInputRef = useRef<HTMLInputElement>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const taskItemRef = useRef<HTMLDivElement>(null);
 
   // Sync editText with task.text when task changes
   useEffect(() => {
@@ -232,7 +236,14 @@ export default function TaskItem({
     }
   };
 
-  // Desktop: Right-click or double-click to edit
+  // Desktop: Right-click for context menu, double-click to edit
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!isOwnTask || task.completed) return;
+    e.preventDefault();
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
   const handleDoubleClick = () => {
     if (!isOwnTask || task.completed || isEditing || !onUpdateTask) return;
     setIsEditing(true);
@@ -829,135 +840,22 @@ export default function TaskItem({
           </div>
         </div>
 
-        {isOwnTask && (
-          <div className="flex items-center gap-1">
-            {/* Deadline Button - Only for incomplete tasks */}
-            {!task.completed && onUpdateDueDate && (
-              <div className="relative due-date-picker-container">
-                <button
-                  onClick={() => setShowDueDatePicker(!showDueDatePicker)}
-                  className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
-                    task.dueDate
-                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400'
-                  }`}
-                  title={task.dueDate ? 'Change deadline' : 'Set deadline'}
-                >
-                  <FaClock size={16} />
-                </button>
-                
-              </div>
-            )}
-            
-            {/* Defer Button - Only for incomplete tasks */}
-            {!task.completed && onDeferTask && (
-              <>
-                <button
-                  onClick={() => setShowDeferPicker(!showDeferPicker)}
-                  className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
-                  title="Defer task"
-                >
-                  <FaCalendarPlus className="text-amber-600 dark:text-amber-500" size={16} />
-                </button>
-                
-                {showDeferPicker && (
-                  <>
-                    {/* Backdrop */}
-                    <div 
-                      className="fixed inset-0 z-[99998]" 
-                      onClick={() => setShowDeferPicker(false)}
-                    />
-                    
-                    {/* Defer Menu - centered dropdown, always visible */}
-                    <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none">
-                      <div 
-                        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-3 min-w-[180px] pointer-events-auto animate-in fade-in zoom-in duration-200"
-                      >
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 text-center">⏰ Defer task to:</div>
-                        <button
-                          onClick={() => handleDeferTask(1)}
-                          className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-                        >
-                          Tomorrow
-                        </button>
-                        <button
-                          onClick={() => handleDeferTask(2)}
-                          className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-                        >
-                          In 2 days
-                        </button>
-                        <button
-                          onClick={() => handleDeferTask(3)}
-                          className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-                        >
-                          In 3 days
-                        </button>
-                        <button
-                          onClick={() => handleDeferTask(7)}
-                          className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-                        >
-                          Next week
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-
-            {/* Skip Rollover Toggle - Only show for rolled-over tasks */}
-            {!task.completed && onToggleSkipRollover && isRolledOver(task, getTodayString()) && (
-              <button
-                onClick={() => onToggleSkipRollover(task.id, !task.skipRollover)}
-                className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
-                  task.skipRollover
-                    ? 'bg-gray-200 dark:bg-gray-700'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={task.skipRollover ? 'Enable rollover' : 'Skip rollover (hide tomorrow)'}
-              >
-                <span className="text-xs text-gray-600 dark:text-gray-400">⏭</span>
-              </button>
-            )}
-
-            {/* Commitment Toggle - Only for incomplete tasks */}
-            {!task.completed && onToggleCommitment && (
-              <button
-                onClick={() => onToggleCommitment(task.id, !task.committed)}
-                className={`p-2 rounded-full transition-colors min-w-[36px] min-h-[36px] ${
-                  task.committed
-                    ? 'bg-yellow-100 dark:bg-yellow-900/30 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={task.committed ? 'Remove commitment' : 'Commit to complete today!'}
-              >
-                <FaStar 
-                  className={task.committed ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'} 
-                  size={16} 
-                />
-              </button>
-            )}
-            
-            <button
-              onClick={() => onTogglePrivacy(task.id, !task.isPrivate)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors min-w-[36px] min-h-[36px]"
-              title={task.isPrivate ? 'Make shared' : 'Make private'}
-            >
-              {task.isPrivate ? (
-                <FaEyeSlash className="text-gray-500 dark:text-gray-400" size={16} />
-              ) : (
-                <FaEye className="text-blue-500 dark:text-blue-400" size={16} />
-              )}
-            </button>
-            
-            <button
-              onClick={() => onDelete(task.id)}
-              className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors min-w-[36px] min-h-[36px]"
-              title="Delete task"
-            >
-              <FaTrash className="text-red-500 dark:text-red-400" size={14} />
-            </button>
-          </div>
+        {/* Context Menu Button - Only for own tasks, minimal and clean */}
+        {isOwnTask && !task.completed && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setContextMenuPosition({ x: e.clientX, y: e.clientY });
+              setShowContextMenu(true);
+              if ('vibrate' in navigator) {
+                navigator.vibrate(10);
+              }
+            }}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-500 dark:text-gray-400"
+            title="More options (long-press or right-click)"
+          >
+            <FaEllipsisV size={14} />
+          </button>
         )}
         </div>
       </div>
@@ -1079,6 +977,93 @@ export default function TaskItem({
           animation: checkmark-draw 0.4s ease-in-out forwards;
         }
       `}</style>
+
+      {/* Context Menu - Long-press or right-click */}
+      <TaskContextMenu
+        task={task}
+        isOwnTask={isOwnTask}
+        isOpen={showContextMenu}
+        position={contextMenuPosition}
+        onClose={() => setShowContextMenu(false)}
+        onEdit={() => {
+          if (onUpdateTask && !task.completed) {
+            setIsEditing(true);
+          }
+        }}
+        onSetDeadline={() => {
+          if (onUpdateDueDate && !task.completed) {
+            setShowDueDatePicker(true);
+          }
+        }}
+        onDefer={() => {
+          if (onDeferTask && !task.completed) {
+            setShowDeferPicker(true);
+          }
+        }}
+        onToggleNotes={() => {
+          if (!showNotes) {
+            setShowNotes(true);
+            setIsEditingNotes(true);
+          } else {
+            setIsEditingNotes(true);
+          }
+        }}
+        onToggleCommitment={() => {
+          if (onToggleCommitment) {
+            onToggleCommitment(task.id, !task.committed);
+          }
+        }}
+        onTogglePrivacy={() => {
+          onTogglePrivacy(task.id, !task.isPrivate);
+        }}
+        onDelete={() => {
+          onDelete(task.id);
+        }}
+        hasNotes={!!task.notes}
+        isCommitted={!!task.committed}
+        isPrivate={task.isPrivate}
+      />
+
+      {/* Defer Picker - Keep existing defer picker logic */}
+      {showDeferPicker && onDeferTask && !task.completed && (
+        <>
+          <div 
+            className="fixed inset-0 z-[99998]" 
+            onClick={() => setShowDeferPicker(false)}
+          />
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none">
+            <div 
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-3 min-w-[180px] pointer-events-auto animate-in fade-in zoom-in duration-200"
+            >
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 text-center">⏰ Defer task to:</div>
+              <button
+                onClick={() => handleDeferTask(1)}
+                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
+              >
+                Tomorrow
+              </button>
+              <button
+                onClick={() => handleDeferTask(2)}
+                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
+              >
+                In 2 days
+              </button>
+              <button
+                onClick={() => handleDeferTask(3)}
+                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
+              >
+                In 3 days
+              </button>
+              <button
+                onClick={() => handleDeferTask(7)}
+                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
+              >
+                Next week
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

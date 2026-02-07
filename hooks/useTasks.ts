@@ -58,9 +58,9 @@ export function useTasks() {
     return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}`;
   }, [userId, userDataId, stableFriendsKey]);
 
-  // Debug function to check specific task in Firestore
+  // Debug function to check specific task in Firestore (development only)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       (window as any).checkTask = async (taskId: string) => {
         try {
           console.log('[checkTask] Checking task:', taskId);
@@ -94,7 +94,7 @@ export function useTasks() {
         }
       };
       
-      // Function to list all your tasks directly from Firestore
+      // Function to list all your tasks directly from Firestore (development only)
       (window as any).listMyTasks = async () => {
         if (!user) {
           console.log('[listMyTasks] No user logged in');
@@ -128,7 +128,7 @@ export function useTasks() {
         }
       };
       
-      // Function to test emulator connection
+      // Function to test emulator connection (development only)
       (window as any).testEmulator = async () => {
         try {
           console.log('[testEmulator] Testing Firestore connection...');
@@ -145,7 +145,7 @@ export function useTasks() {
         }
       };
       
-      // Function to check what user is currently logged in
+      // Function to check what user is currently logged in (development only)
       (window as any).whoAmI = async () => {
         if (!user) {
           console.log('[whoAmI] No user logged in');
@@ -235,12 +235,16 @@ export function useTasks() {
     // Page Visibility API - Pause listeners when tab is hidden to save reads
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        console.log('[useTasks] 📴 Tab hidden - pausing listeners to save reads');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] 📴 Tab hidden - pausing listeners to save reads');
+        }
         // Unsubscribe from all listeners when tab is hidden
         unsubscribers.forEach(unsub => unsub());
         unsubscribers.length = 0;
       } else {
-        console.log('[useTasks] 📱 Tab visible - listeners will reconnect on next change');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] 📱 Tab visible - listeners will reconnect on next change');
+        }
         // Note: Listeners will reconnect automatically when data changes
         // Or we can force a re-render by updating a state, but that's not necessary
         // The effect will re-run if user/userData changes
@@ -261,7 +265,9 @@ export function useTasks() {
       }
       updateTimer = setTimeout(() => {
         const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-        console.log('[useTasks] 📤 Updating state with', sortedTasks.length, 'tasks');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] 📤 Updating state with', sortedTasks.length, 'tasks');
+        }
         setTasks(sortedTasks);
         setLoading(false);
         isInitialLoad = false; // Mark initial load as complete
@@ -308,7 +314,9 @@ export function useTasks() {
             allTasks.set(task.id, { ...task, userName: 'You' });
           }
         });
-        console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
+        }
       } else {
         // Subsequent updates - only process changes
         snapshot.docChanges().forEach((change) => {
@@ -359,7 +367,9 @@ export function useTasks() {
     });
     
     unsubscribers.push(unsubOwnTasks);
-    console.log('[useTasks] ✅ Own tasks listener set up');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useTasks] ✅ Own tasks listener set up');
+    }
 
     // Pre-fetch friend names and set up friend tasks listener (can happen async)
     prefetchFriendNames().then(() => {
@@ -390,7 +400,9 @@ export function useTasks() {
             
             // CRITICAL FIX: Remove tasks from friends who are no longer in our friends list
             if (!currentFriends.includes(task.userId)) {
-              console.log('[useTasks] 🗑️ Removing task from removed friend:', task.id, task.userId);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[useTasks] 🗑️ Removing task from removed friend:', task.id, task.userId);
+              }
               allTasks.delete(change.doc.id);
               return;
             }
@@ -432,7 +444,9 @@ export function useTasks() {
       allTasks.forEach((task, taskId) => {
         // Remove tasks from friends who are no longer in the list (but keep our own tasks)
         if (task.userId !== currentUserId && !currentFriendIds.has(task.userId)) {
-          console.log('[useTasks] 🗑️ Removing task from removed friend:', taskId, task.userId);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useTasks] 🗑️ Removing task from removed friend:', taskId, task.userId);
+          }
           allTasks.delete(taskId);
           removedAny = true;
         }

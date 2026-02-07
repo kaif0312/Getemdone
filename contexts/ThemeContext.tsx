@@ -18,10 +18,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Load theme from localStorage or use system preference
     const savedTheme = localStorage.getItem('theme') as Theme;
-    console.log('Initial theme load - savedTheme:', savedTheme);
     
     if (savedTheme) {
-      console.log('Using saved theme:', savedTheme);
       setTheme(savedTheme);
       if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -32,7 +30,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       // Check system preference
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initialTheme = prefersDark ? 'dark' : 'light';
-      console.log('No saved theme, using system preference:', initialTheme);
       setTheme(initialTheme);
       if (initialTheme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -41,31 +38,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    console.log('Initial HTML classes after setup:', document.documentElement.classList.toString());
     setMounted(true);
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    console.log('Toggling theme from', theme, 'to', newTheme);
     setTheme(newTheme);
     
     try {
       localStorage.setItem('theme', newTheme);
     } catch (error) {
-      console.error('Failed to save theme to localStorage:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to save theme to localStorage:', error);
+      }
     }
     
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
-      console.log('Added dark class to html element');
     } else {
       document.documentElement.classList.remove('dark');
-      console.log('Removed dark class from html element');
     }
-    
-    // Log current classes
-    console.log('HTML classes:', document.documentElement.classList.toString());
   };
 
   return (

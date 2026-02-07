@@ -38,7 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AuthContext] Auth state changed, user:', firebaseUser?.uid);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthContext] Auth state changed, user:', firebaseUser?.uid);
+      }
       setUser(firebaseUser);
       
       // Clean up previous snapshot listener
@@ -48,7 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       if (firebaseUser) {
-        console.log('[AuthContext] Setting up user data listener for:', firebaseUser.uid);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AuthContext] Setting up user data listener for:', firebaseUser.uid);
+        }
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         
         // Set up real-time listener for user data
@@ -100,7 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               await setDoc(userDocRef, newUserData);
               setUserData(newUserData);
-              console.log('[AuthContext] ✅ User document created successfully:', newUserData);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[AuthContext] ✅ User document created successfully:', newUserData);
+              }
             } catch (error) {
               console.error('[AuthContext] Error creating user document:', error);
             }
@@ -123,7 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         });
       } else {
-        console.log('[AuthContext] No user logged in, clearing userData');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[AuthContext] No user logged in, clearing userData');
+        }
         setUserData(null);
         setIsWhitelisted(null);
         setLoading(false);
@@ -142,17 +150,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkBetaWhitelist = async (email: string): Promise<boolean> => {
     try {
       const emailLower = email.toLowerCase().trim();
-      console.log('[AuthContext] Checking whitelist for email:', emailLower);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthContext] Checking whitelist for email:', emailLower);
+      }
       const whitelistRef = collection(db, 'betaWhitelist');
       const q = query(whitelistRef, where('email', '==', emailLower));
       const querySnapshot = await getDocs(q);
       const isWhitelisted = !querySnapshot.empty;
-      console.log('[AuthContext] Whitelist check result:', isWhitelisted, 'for email:', emailLower);
-      if (!isWhitelisted) {
-        console.log('[AuthContext] Email not found in whitelist. Make sure:');
-        console.log('  1. Collection name is exactly: betaWhitelist');
-        console.log('  2. Document has a field named: email');
-        console.log('  3. Email value matches exactly (case-insensitive):', emailLower);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthContext] Whitelist check result:', isWhitelisted, 'for email:', emailLower);
+        if (!isWhitelisted) {
+          console.log('[AuthContext] Email not found in whitelist. Make sure:');
+          console.log('  1. Collection name is exactly: betaWhitelist');
+          console.log('  2. Document has a field named: email');
+          console.log('  3. Email value matches exactly (case-insensitive):', emailLower);
+        }
       }
       return isWhitelisted;
     } catch (error: any) {

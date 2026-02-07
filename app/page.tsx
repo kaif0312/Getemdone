@@ -779,15 +779,8 @@ export default function Home() {
       {selectedTaskForComments && (() => {
         const selectedTask = tasks.find(t => t.id === selectedTaskForComments);
         if (!selectedTask) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Home] Task not found for comments:', selectedTaskForComments);
+          return null;
         }
-        return null;
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Home] Rendering CommentsModal for task:', selectedTask.id, 'Comments:', selectedTask.comments?.length || 0);
-      }
         
         return (
           <CommentsModal

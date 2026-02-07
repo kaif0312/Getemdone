@@ -23,6 +23,8 @@ export function useTasks() {
   const { user, userData } = useAuth();
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
+  // Ref to access allTasks map from outside the useEffect
+  const allTasksRef = useRef<Map<string, TaskWithUser>>(new Map());
   
   // Create stable key for friends list to avoid infinite loops
   // Use ref to track last value and only update if contents actually changed
@@ -571,6 +573,7 @@ export function useTasks() {
     if (dueDate === null || dueDate === undefined) {
       // Remove the dueDate field entirely using deleteField()
       // Optimistically update local state immediately for better UX
+      const allTasks = allTasksRef.current;
       const existingTask = allTasks.get(taskId);
       if (existingTask) {
         const updatedTask = { ...existingTask, dueDate: undefined };

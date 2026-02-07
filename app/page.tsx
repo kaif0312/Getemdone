@@ -680,23 +680,7 @@ export default function Home() {
         />
         {/* First task tip below input - Mobile only (hidden on desktop) */}
         {onboarding.isLoaded && onboarding.shouldShowTip('first-task', !onboarding.state.hasSeenFirstTask && tasks.length === 0) && (
-          <div className="hidden md:block absolute -top-12 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-50">
-            <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-2 px-3 text-xs max-w-[200px] text-center relative">
-              {TIPS.FIRST_TASK.message}
-              <button
-                onClick={() => onboarding.dismissTip('first-task')}
-                className="ml-2 text-white/70 hover:text-white"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-900 dark:border-t-gray-800" />
-          </div>
-        )}
-        {/* Mobile version */}
-        {onboarding.isLoaded && onboarding.shouldShowTip('first-task', !onboarding.state.hasSeenFirstTask && tasks.length === 0) && (
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-50">
+          <div className="md:hidden absolute -top-12 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-50">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-2 px-3 text-xs max-w-[200px] text-center relative">
               {TIPS.FIRST_TASK.message}
               <button

@@ -42,6 +42,7 @@ export default function Home() {
   const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
   const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
   const [showAllFriends, setShowAllFriends] = useState(false);
+  const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -212,15 +213,29 @@ export default function Home() {
 
   // Helper function to toggle friend expansion
   const toggleFriend = (friendId: string) => {
-    setExpandedFriends(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(friendId)) {
-        newSet.delete(friendId);
-      } else {
-        newSet.add(friendId);
-      }
-      return newSet;
-    });
+    // If "Show All" is active, toggle the collapsed set instead
+    if (showAllFriends) {
+      setCollapsedFriends(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(friendId)) {
+          newSet.delete(friendId); // Remove from collapsed = expand it
+        } else {
+          newSet.add(friendId); // Add to collapsed = collapse it
+        }
+        return newSet;
+      });
+    } else {
+      // Normal toggle when "Show All" is not active
+      setExpandedFriends(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(friendId)) {
+          newSet.delete(friendId);
+        } else {
+          newSet.add(friendId);
+        }
+        return newSet;
+      });
+    }
   };
 
   // Scroll to friend when clicked in summary bar
@@ -600,7 +615,11 @@ export default function Home() {
                         : 0;
                       const color = colors[colorIndex] || colors[0];
 
-                      const isExpanded = showAllFriends || expandedFriends.has(userId);
+                      // If "Show All" is active, check if friend is NOT in collapsed set
+                      // Otherwise, check if friend is in expanded set
+                      const isExpanded = showAllFriends 
+                        ? !collapsedFriends.has(userId)
+                        : expandedFriends.has(userId);
 
                       return (
                         <div key={userId} id={`friend-${userId}`}>
@@ -644,11 +663,12 @@ export default function Home() {
                                 defaultExpanded.add(friendEntries[i][0]);
                               }
                               setExpandedFriends(defaultExpanded);
+                              // Clear collapsed set when turning off "Show All"
+                              setCollapsedFriends(new Set());
                             } else {
                               setShowAllFriends(true);
-                              // Expand all
-                              const allExpanded = new Set(friendEntries.map(([userId]) => userId));
-                              setExpandedFriends(allExpanded);
+                              // Expand all (clear collapsed set)
+                              setCollapsedFriends(new Set());
                             }
                             setActiveFriendId(null);
                           }}

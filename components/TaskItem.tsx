@@ -64,7 +64,6 @@ export default function TaskItem({
   const [editText, setEditText] = useState(task.text);
   const [isSaving, setIsSaving] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
-  const [pendingDueDate, setPendingDueDate] = useState<string>(''); // Temporary date value before saving
   const [showNotes, setShowNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState(task.notes || '');
@@ -92,13 +91,6 @@ export default function TaskItem({
       setNotesText(task.notes || '');
     }
   }, [task.notes, isEditingNotes]);
-
-  // Initialize pendingDueDate when picker opens
-  useEffect(() => {
-    if (showDueDatePicker) {
-      setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
-    }
-  }, [showDueDatePicker, task.dueDate]);
 
   // Handle notes save
   const handleSaveNotes = async () => {
@@ -788,7 +780,7 @@ export default function TaskItem({
           
           {/* Due Date Indicator - Minimal, sleek, clickable to edit */}
           {task.dueDate && !task.completed && isOwnTask && onUpdateDueDate ? (
-            <div className="relative due-date-picker-container">
+            <div className="relative due-date-picker-container inline-flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setShowDueDatePicker(!showDueDatePicker)}
@@ -798,7 +790,20 @@ export default function TaskItem({
                 <FaClock size={10} />
                 <span className="font-medium">{formatDueDate(task.dueDate)}</span>
               </button>
-              
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (onUpdateDueDate) {
+                    await onUpdateDueDate(task.id, null);
+                    setShowDueDatePicker(false);
+                  }
+                }}
+                className="mt-1 w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                title="Remove deadline"
+              >
+                <FaTimes size={10} className="text-gray-500 dark:text-gray-400" />
+              </button>
             </div>
           ) : task.dueDate && !task.completed ? (
             <div className={`mt-1 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${getDueDateColor(task.dueDate)}`}>
@@ -1037,130 +1042,62 @@ export default function TaskItem({
                 <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
                   {task.dueDate ? 'Change Deadline' : 'Set Deadline'}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Close without saving - reset to original value
-                    setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
-                    setShowDueDatePicker(false);
-                  }}
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                  title="Close"
-                >
-                  <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
-              
-              {/* Remove Deadline Button - Always visible when deadline exists */}
-              {task.dueDate && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    console.log('[TaskItem] Remove Deadline button clicked, taskId:', task.id, 'onUpdateDueDate:', !!onUpdateDueDate);
-                    try {
+                {task.dueDate && (
+                  <button
+                    type="button"
+                    onClick={async () => {
                       if (onUpdateDueDate) {
-                        console.log('[TaskItem] Calling onUpdateDueDate with null');
                         await onUpdateDueDate(task.id, null);
-                        console.log('[TaskItem] onUpdateDueDate completed successfully');
                         setShowDueDatePicker(false);
                       }
-                    } catch (error) {
-                      console.error('[TaskItem] Error removing deadline:', error);
-                    }
-                  }}
-                  className="w-full mb-4 px-4 py-3 text-base text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <FaTimes size={14} />
-                  Remove Deadline
-                </button>
-              )}
-
-              {/* Divider when both remove and set options are available */}
-              {task.dueDate && (
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">OR</span>
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                </div>
-              )}
-
-              {/* Date Picker Section */}
+                    }}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Remove deadline"
+                  >
+                    <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
+                  </button>
+                )}
+              </div>
               <div className="w-full mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {task.dueDate ? 'Set New Deadline' : 'Select Deadline'}
-                </label>
-                <div className="relative">
-                  <input
-                    ref={dueDateInputRef}
-                    type="datetime-local"
-                    value={pendingDueDate}
-                    onChange={(e) => {
-                      // Only update local state, don't save yet
-                      setPendingDueDate(e.target.value);
-                    }}
-                    min={new Date().toISOString().slice(0, 16)}
-                    className="w-full px-3 py-2.5 pr-10 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    style={{
-                      WebkitAppearance: 'none',
-                      appearance: 'none',
-                      boxSizing: 'border-box',
-                      minHeight: '44px', // iOS touch target minimum
-                    }}
-                  />
-                  {pendingDueDate && (
-                    <button
-                      type="button"
-                      onClick={() => setPendingDueDate('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
-                      title="Clear date"
-                    >
-                      <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    console.log('[TaskItem] Done button clicked, pendingDueDate:', pendingDueDate, 'onUpdateDueDate:', !!onUpdateDueDate);
-                    try {
-                      // Save the selected date when Done is clicked
-                      if (pendingDueDate && pendingDueDate.trim() !== '' && onUpdateDueDate) {
-                        console.log('[TaskItem] Calling onUpdateDueDate with taskId:', task.id);
-                        const date = new Date(pendingDueDate);
-                        await onUpdateDueDate(task.id, date.getTime());
-                        console.log('[TaskItem] onUpdateDueDate completed successfully');
-                        setShowDueDatePicker(false);
-                      } else {
-                        console.log('[TaskItem] Skipping update - no date or no handler');
-                        // No date selected - just close
-                        setShowDueDatePicker(false);
-                      }
-                    } catch (error) {
-                      console.error('[TaskItem] Error updating due date:', error);
-                      // Don't close on error so user can retry
+                <input
+                  ref={dueDateInputRef}
+                  type="datetime-local"
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    if (value && onUpdateDueDate) {
+                      const date = new Date(value);
+                      await onUpdateDueDate(task.id, date.getTime());
+                      // Don't auto-close - let user see the selected date and click Done
                     }
                   }}
-                  disabled={!pendingDueDate || pendingDueDate.trim() === ''}
-                  className="flex-1 px-4 py-2.5 text-base text-white bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed rounded-lg transition-colors font-medium"
-                >
-                  Done
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Cancel - reset to original value and close
-                    setPendingDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
-                    setShowDueDatePicker(false);
+                  min={new Date().toISOString().slice(0, 16)}
+                  defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
+                  className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  style={{
+                    WebkitAppearance: 'none',
+                    appearance: 'none',
+                    boxSizing: 'border-box',
+                    minHeight: '44px', // iOS touch target minimum
                   }}
-                  className="px-4 py-2.5 text-base bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors font-medium"
-                >
-                  Cancel
-                </button>
+                />
               </div>
+              {task.dueDate && (
+                <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
+                  Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowDueDatePicker(false)}
+                className="w-full px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+              >
+                Done
+              </button>
             </div>
           </div>
         </>

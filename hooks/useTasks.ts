@@ -12,8 +12,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
-  deleteField
+  getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Task, TaskWithUser, User, Reaction, Comment } from '@/lib/types';
@@ -23,8 +22,6 @@ export function useTasks() {
   const { user, userData } = useAuth();
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
-  // Ref to access allTasks map from outside the useEffect
-  const allTasksRef = useRef<Map<string, TaskWithUser>>(new Map());
   
   // Create stable key for friends list to avoid infinite loops
   // Use ref to track last value and only update if contents actually changed
@@ -230,7 +227,6 @@ export function useTasks() {
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
     const allTasks = new Map<string, TaskWithUser>();
-    allTasksRef.current = allTasks; // Initialize ref immediately
     const friendNameCache = new Map<string, string>();
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot
@@ -317,8 +313,6 @@ export function useTasks() {
           if (task.deleted !== true) {
             allTasks.set(task.id, { ...task, userName: 'You' });
           }
-          // Keep ref in sync
-          allTasksRef.current = allTasks;
         });
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
@@ -326,24 +320,15 @@ export function useTasks() {
       } else {
         // Subsequent updates - only process changes
         snapshot.docChanges().forEach((change) => {
-          const taskData = change.doc.data();
-          const task = { id: change.doc.id, ...taskData } as Task;
+          const task = { id: change.doc.id, ...change.doc.data() } as Task;
           
           if (change.type === 'removed') {
             allTasks.delete(change.doc.id);
-            allTasksRef.current = allTasks;
           } else {
             if (task.deleted === true) {
               allTasks.delete(change.doc.id);
-              allTasksRef.current = allTasks;
             } else {
-              // When a field is deleted using deleteField(), it won't exist in taskData
-              // Ensure dueDate is explicitly undefined if not present (not just missing)
-              if (!taskData.hasOwnProperty('dueDate')) {
-                task.dueDate = undefined;
-              }
               allTasks.set(task.id, { ...task, userName: 'You' });
-              allTasksRef.current = allTasks;
             }
           }
         });
@@ -406,14 +391,7 @@ export function useTasks() {
         const unsubFriendTasks = onSnapshot(friendTasksQuery, (snapshot) => {
           // Only process actual changes to reduce reads
           snapshot.docChanges().forEach((change) => {
-            const taskData = change.doc.data();
-            const task = { id: change.doc.id, ...taskData } as Task;
-            
-            // When a field is deleted using deleteField(), it won't exist in taskData
-            // Ensure dueDate is explicitly undefined if not present
-            if (!taskData.hasOwnProperty('dueDate')) {
-              task.dueDate = undefined;
-            }
+            const task = { id: change.doc.id, ...change.doc.data() } as Task;
             
             // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
             if (task.userId === currentUserId) {
@@ -431,17 +409,14 @@ export function useTasks() {
             
             if (change.type === 'removed') {
               allTasks.delete(change.doc.id);
-              allTasksRef.current = allTasks;
             } else {
               // Filter out deleted tasks client-side (only if explicitly deleted: true)
               if (task.deleted === true) {
                 allTasks.delete(change.doc.id);
-                allTasksRef.current = allTasks;
               } else {
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
                 allTasks.set(task.id, { ...task, userName });
-                allTasksRef.current = allTasks;
               }
             }
           });
@@ -575,97 +550,12 @@ export function useTasks() {
   };
 
   const updateTaskDueDate = async (taskId: string, dueDate: number | null) => {
-    if (!user) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[updateTaskDueDate] No user');
-      }
-      return;
-    }
+    if (!user) return;
 
     const taskRef = doc(db, 'tasks', taskId);
-    
-    // Get the current allTasks map from ref - ensure we have the latest
-    const allTasks = allTasksRef.current;
-    const existingTask = allTasks?.get(taskId);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[updateTaskDueDate] Updating task:', taskId, 'dueDate:', dueDate ? new Date(dueDate) : 'null', 'task exists:', !!existingTask);
-    }
-    
-    // Store original for rollback
-    const originalTask = existingTask ? { ...existingTask } : null;
-    
-    if (dueDate === null || dueDate === undefined) {
-      // Remove the dueDate field entirely using deleteField()
-      // Optimistically update local state immediately for better UX
-      if (existingTask && allTasks) {
-        const updatedTask = { ...existingTask, dueDate: undefined };
-        allTasks.set(taskId, updatedTask);
-        allTasksRef.current = allTasks; // Sync ref
-        // Trigger immediate state update
-        const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-        setTasks(sortedTasks);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Optimistically removed dueDate from task:', taskId);
-        }
-      } else if (process.env.NODE_ENV === 'development') {
-        console.warn('[updateTaskDueDate] Task not in allTasks, will rely on Firestore listener:', taskId);
-      }
-      
-      try {
-        await updateDoc(taskRef, {
-          dueDate: deleteField(),
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Firestore: Removed dueDate from task:', taskId);
-        }
-      } catch (error) {
-        console.error('[updateTaskDueDate] ❌ Error removing dueDate:', error);
-        // Revert optimistic update on error
-        if (originalTask && allTasks) {
-          allTasks.set(taskId, originalTask);
-          allTasksRef.current = allTasks; // Sync ref
-          const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-          setTasks(sortedTasks);
-        }
-        throw error;
-      }
-    } else {
-      // Set the dueDate
-      // Optimistically update local state immediately for better UX
-      if (existingTask && allTasks) {
-        const updatedTask = { ...existingTask, dueDate: dueDate };
-        allTasks.set(taskId, updatedTask);
-        allTasksRef.current = allTasks; // Sync ref
-        // Trigger immediate state update
-        const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-        setTasks(sortedTasks);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Optimistically set dueDate for task:', taskId, 'to:', new Date(dueDate));
-        }
-      } else if (process.env.NODE_ENV === 'development') {
-        console.warn('[updateTaskDueDate] Task not in allTasks, will rely on Firestore listener:', taskId);
-      }
-      
-      try {
-        await updateDoc(taskRef, {
-          dueDate: dueDate,
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[updateTaskDueDate] ✅ Firestore: Set dueDate for task:', taskId, 'to:', new Date(dueDate));
-        }
-      } catch (error) {
-        console.error('[updateTaskDueDate] ❌ Error setting dueDate:', error);
-        // Revert optimistic update on error
-        if (originalTask && allTasks) {
-          allTasks.set(taskId, originalTask);
-          allTasksRef.current = allTasks; // Sync ref
-          const sortedTasks = Array.from(allTasks.values()).sort((a, b) => b.createdAt - a.createdAt);
-          setTasks(sortedTasks);
-        }
-        throw error;
-      }
-    }
+    await updateDoc(taskRef, {
+      dueDate: dueDate || null,
+    });
   };
 
   const toggleSkipRollover = async (taskId: string, skipRollover: boolean) => {

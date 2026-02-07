@@ -101,9 +101,9 @@ For a complete feature list, see **[docs/FEATURES.md](./docs/FEATURES.md)**.
    ```
 
 6. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 

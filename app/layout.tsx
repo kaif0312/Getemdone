@@ -49,7 +49,7 @@ export default function RootLayout({
       >
         <RegisterServiceWorker />
         <Providers>
-          {children}
+        {children}
         </Providers>
       </body>
     </html>

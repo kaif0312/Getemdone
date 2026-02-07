@@ -330,9 +330,11 @@ export function useTasks() {
           
           if (change.type === 'removed') {
             allTasks.delete(change.doc.id);
+            allTasksRef.current = allTasks;
           } else {
             if (task.deleted === true) {
               allTasks.delete(change.doc.id);
+              allTasksRef.current = allTasks;
             } else {
               // When a field is deleted using deleteField(), it won't exist in taskData
               // Ensure dueDate is explicitly undefined if not present (not just missing)
@@ -340,6 +342,7 @@ export function useTasks() {
                 task.dueDate = undefined;
               }
               allTasks.set(task.id, { ...task, userName: 'You' });
+              allTasksRef.current = allTasks;
             }
           }
         });
@@ -427,14 +430,17 @@ export function useTasks() {
             
             if (change.type === 'removed') {
               allTasks.delete(change.doc.id);
+              allTasksRef.current = allTasks;
             } else {
               // Filter out deleted tasks client-side (only if explicitly deleted: true)
               if (task.deleted === true) {
                 allTasks.delete(change.doc.id);
+                allTasksRef.current = allTasks;
               } else {
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
                 allTasks.set(task.id, { ...task, userName });
+                allTasksRef.current = allTasks;
               }
             }
           });

@@ -538,39 +538,7 @@ export default function Home() {
             })()}
 
             {/* Friends' Tasks - Hybrid Approach */}
-            {(() => {
-              const today = new Date();
-              const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-              
-              // Get all friend tasks (both private and public)
-              const allFriendTasks = tasks.filter(task => {
-                if (task.userId === user.uid) return false;
-                if (task.deleted === true) return false;
-                
-                // For friends' tasks, only show completed tasks from today
-                // (we want to see what they accomplished today!)
-                if (task.completed && task.completedAt) {
-                  const completedDate = new Date(task.completedAt);
-                  const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
-                  return completedStr === todayStr;
-                }
-                
-                // Show incomplete tasks (they're working on them)
-                return !task.completed;
-              });
-              
-              if (allFriendTasks.length === 0) return null;
-
-              // Group tasks by userId
-              const tasksByUser = allFriendTasks.reduce((acc, task) => {
-                if (!acc[task.userId]) {
-                  acc[task.userId] = [];
-                }
-                acc[task.userId].push(task);
-                return acc;
-              }, {} as Record<string, typeof tasks>);
-
-              const friendEntries = Object.entries(tasksByUser);
+            {friendEntries.length > 0 && (() => {
               
               const colors = [
                 { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
@@ -606,18 +574,6 @@ export default function Home() {
                   color,
                 };
               });
-
-              // Smart defaults: Expand first 2-3 friends by default (only on first load)
-              useEffect(() => {
-                if (expandedFriends.size === 0 && friendEntries.length > 0) {
-                  const defaultExpanded = new Set<string>();
-                  const maxDefault = Math.min(3, friendEntries.length);
-                  for (let i = 0; i < maxDefault; i++) {
-                    defaultExpanded.add(friendEntries[i][0]);
-                  }
-                  setExpandedFriends(defaultExpanded);
-                }
-              }, [friendEntries.length]);
 
               return (
                 <>

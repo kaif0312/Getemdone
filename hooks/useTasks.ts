@@ -230,6 +230,7 @@ export function useTasks() {
     const tasksRef = collection(db, 'tasks');
     const unsubscribers: (() => void)[] = [];
     const allTasks = new Map<string, TaskWithUser>();
+    allTasksRef.current = allTasks; // Initialize ref immediately
     const friendNameCache = new Map<string, string>();
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot

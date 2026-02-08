@@ -20,9 +20,19 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
+  // Extract comment text from payload if available
+  const commentText = payload.data?.commentText || '';
+  const fromUserName = payload.data?.fromUserName || '';
+  
+  // Format notification body to show actual comment text
+  let notificationBody = payload.notification?.body || 'You have a new update';
+  if (commentText && fromUserName) {
+    notificationBody = `${fromUserName}: "${commentText}"`;
+  }
+  
   const notificationTitle = payload.notification?.title || 'New Notification';
   const notificationOptions = {
-    body: payload.notification?.body || 'You have a new update',
+    body: notificationBody,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: payload.data?.tag || 'default',

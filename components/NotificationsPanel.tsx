@@ -197,7 +197,9 @@ export default function NotificationsPanel({
                             {notification.title}
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                            {notification.message}
+                            {notification.commentText 
+                              ? `"${notification.commentText}"`
+                              : notification.message}
                           </p>
                           {notification.taskText && (
                             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">

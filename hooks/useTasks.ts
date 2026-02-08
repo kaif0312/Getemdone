@@ -791,13 +791,13 @@ export function useTasks() {
               const notificationData = {
                 userId: task.userId,
                 type: 'comment',
-                title: 'New Comment',
+                title: `💬 ${userData.displayName} commented`,
                 message: `${userData.displayName} commented on your task`,
                 taskId: taskId,
-                taskText: task.text,
+                taskText: task.text.substring(0, 50), // Store first 50 chars of task
                 fromUserId: user.uid,
                 fromUserName: userData.displayName,
-                commentText: text.substring(0, 100), // Store first 100 chars
+                commentText: text.substring(0, 150), // Store first 150 chars of comment
                 createdAt: Date.now(),
                 read: false,
               };

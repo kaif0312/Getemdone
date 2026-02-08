@@ -91,19 +91,25 @@ export function useNotificationListener({
 
             // Trigger push notification
             if (notification.type === 'comment') {
+              // Use the actual comment text in the notification body
+              const notificationBody = notification.commentText 
+                ? `${notification.fromUserName}: "${notification.commentText}"`
+                : notification.message;
+              
               showNotification(notification.title, {
-                body: notification.message,
+                body: notificationBody,
                 tag: `comment-${notification.id}`,
                 icon: '/icon-192.png',
                 badge: '/icon-192.png',
                 data: {
                   taskId: notification.taskId,
                   notificationId: notification.id,
+                  url: '/', // Open app when clicked
                 },
                 requireInteraction: false,
                 settings,
               });
-              console.log('[NotificationListener] ✅ Push notification sent');
+              console.log('[NotificationListener] ✅ Push notification sent with comment text');
             }
           }
         });

@@ -1,0 +1,121 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { InAppNotification } from '@/lib/types';
+
+interface UseNotificationListenerProps {
+  userId: string | undefined;
+  notificationSettings: any;
+  showNotification: (title: string, options?: any) => void;
+  isSupported: boolean;
+}
+
+/**
+ * Background listener for new notifications
+ * Triggers push notifications when friends comment
+ */
+export function useNotificationListener({
+  userId,
+  notificationSettings,
+  showNotification,
+  isSupported,
+}: UseNotificationListenerProps) {
+  const processedNotificationsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (!userId || !isSupported) return;
+
+    const settings = notificationSettings;
+    if (!settings?.enabled || !settings?.friendComments) {
+      console.log('[NotificationListener] Notifications disabled in settings');
+      return;
+    }
+
+    console.log('[NotificationListener] Starting notification listener for user:', userId);
+
+    // Listen to user's notifications in real-time
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        // Skip initial load - don't notify for existing notifications
+        if (isInitialLoadRef.current) {
+          snapshot.forEach((doc) => {
+            processedNotificationsRef.current.add(doc.id);
+          });
+          isInitialLoadRef.current = false;
+          console.log('[NotificationListener] Initial load complete, tracking', processedNotificationsRef.current.size, 'existing notifications');
+          return;
+        }
+
+        // Process new notifications
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const doc = change.doc;
+            const notificationId = doc.id;
+
+            // Skip if already processed
+            if (processedNotificationsRef.current.has(notificationId)) {
+              return;
+            }
+
+            // Mark as processed
+            processedNotificationsRef.current.add(notificationId);
+
+            const data = doc.data();
+            const notification: InAppNotification = {
+              id: notificationId,
+              userId: data.userId,
+              type: data.type,
+              title: data.title,
+              message: data.message,
+              taskId: data.taskId,
+              taskText: data.taskText,
+              fromUserId: data.fromUserId,
+              fromUserName: data.fromUserName,
+              commentText: data.commentText,
+              createdAt: data.createdAt,
+              read: data.read || false,
+            };
+
+            console.log('[NotificationListener] 🔔 New notification received:', notification.title);
+
+            // Trigger push notification
+            if (notification.type === 'comment') {
+              showNotification(notification.title, {
+                body: notification.message,
+                tag: `comment-${notification.id}`,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                data: {
+                  taskId: notification.taskId,
+                  notificationId: notification.id,
+                },
+                requireInteraction: false,
+                settings,
+              });
+              console.log('[NotificationListener] ✅ Push notification sent');
+            }
+          }
+        });
+      },
+      (error) => {
+        console.error('[NotificationListener] Error listening to notifications:', error);
+      }
+    );
+
+    return () => {
+      console.log('[NotificationListener] Cleaning up listener');
+      unsubscribe();
+    };
+  }, [userId, notificationSettings, showNotification, isSupported]);
+}

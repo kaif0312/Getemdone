@@ -22,6 +22,7 @@ import Avatar from '@/components/Avatar';
 import NotificationSettings from '@/components/NotificationSettings';
 import NotificationToast, { ToastNotification } from '@/components/NotificationToast';
 import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNotifications';
+import { useNotificationListener } from '@/hooks/useNotificationListener';
 import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
@@ -47,6 +48,7 @@ export default function Home() {
   
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(user?.uid);
+
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks, addAttachment, deleteAttachment, userStorageUsage } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
@@ -69,6 +71,15 @@ export default function Home() {
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
   const notifications = useNotifications();
+
+  // Listen for new notifications and trigger push notifications
+  useNotificationListener({
+    userId: user?.uid,
+    notificationSettings: userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS,
+    showNotification: notifications.showNotification,
+    isSupported: notifications.isSupported,
+  });
+
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);

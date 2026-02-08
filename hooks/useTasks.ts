@@ -14,14 +14,17 @@ import {
   getDoc,
   getDocs
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { Task, TaskWithUser, User, Reaction, Comment } from '@/lib/types';
+import { db, storage } from '@/lib/firebase';
+import { Task, TaskWithUser, User, Reaction, Comment, Attachment } from '@/lib/types';
+import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
+import { updateUserStorageUsage } from '@/utils/storageManager';
 
 export function useTasks() {
   const { user, userData } = useAuth();
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userStorageUsage, setUserStorageUsage] = useState(0);
   
   // Create stable key for friends list to avoid infinite loops
   // Use ref to track last value and only update if contents actually changed
@@ -202,6 +205,26 @@ export function useTasks() {
       };
     }
   }, [user]);
+
+  // Real-time listener for user storage usage
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserStorageUsage(0);
+      return;
+    }
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data() as User;
+        setUserStorageUsage(userData.storageUsed || 0);
+      }
+    }, (error) => {
+      console.error('Error listening to storage usage:', error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!userId || !userDataId) {
@@ -609,8 +632,42 @@ export function useTasks() {
   };
 
   const permanentlyDeleteTask = async (taskId: string) => {
-    // Permanently delete task from database
-    await deleteDoc(doc(db, 'tasks', taskId));
+    try {
+      // Get task data to check for attachments
+      const taskDoc = await getDoc(doc(db, 'tasks', taskId));
+      
+      if (taskDoc.exists()) {
+        const task = taskDoc.data() as Task;
+        
+        // Delete all attachments from storage first
+        if (task.attachments && task.attachments.length > 0) {
+          const deletePromises = task.attachments.map(async (attachment) => {
+            try {
+              // Delete main file
+              const mainRef = ref(storage, `attachments/${taskId}/${attachment.id}`);
+              await deleteObject(mainRef);
+              
+              // Delete thumbnail if exists
+              if (attachment.thumbnailUrl) {
+                const thumbRef = ref(storage, `attachments/${taskId}/${attachment.id}_thumb`);
+                await deleteObject(thumbRef);
+              }
+            } catch (error) {
+              // File might not exist, log and continue
+              console.warn(`Could not delete attachment ${attachment.id}:`, error);
+            }
+          });
+          
+          await Promise.all(deletePromises);
+        }
+      }
+      
+      // Permanently delete task from database
+      await deleteDoc(doc(db, 'tasks', taskId));
+    } catch (error) {
+      console.error('Error permanently deleting task:', error);
+      throw error;
+    }
   };
 
   const getDeletedTasks = () => {
@@ -738,6 +795,78 @@ export function useTasks() {
     });
   };
 
+  // Add attachment to task
+  const addAttachment = async (taskId: string, attachment: Attachment) => {
+    if (!user?.uid) return;
+
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskDoc = await getDoc(taskRef);
+      
+      if (!taskDoc.exists()) {
+        throw new Error('Task not found');
+      }
+
+      const currentAttachments = taskDoc.data().attachments || [];
+      await updateDoc(taskRef, {
+        attachments: [...currentAttachments, attachment]
+      });
+
+      // Update user's storage usage
+      await updateUserStorageUsage(user.uid, attachment.size);
+    } catch (error) {
+      console.error('Error adding attachment:', error);
+      throw error;
+    }
+  };
+
+  // Delete attachment from task
+  const deleteAttachment = async (taskId: string, attachmentId: string) => {
+    if (!user?.uid) return;
+
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskDoc = await getDoc(taskRef);
+      
+      if (!taskDoc.exists()) {
+        throw new Error('Task not found');
+      }
+
+      const currentAttachments = (taskDoc.data().attachments || []) as Attachment[];
+      const attachmentToDelete = currentAttachments.find(a => a.id === attachmentId);
+      
+      if (attachmentToDelete) {
+        // Delete from storage
+        try {
+          const mainRef = ref(storage, `attachments/${taskId}/${attachmentId}`);
+          await deleteObject(mainRef);
+          
+          // Delete thumbnail if exists
+          if (attachmentToDelete.thumbnailUrl) {
+            const thumbRef = ref(storage, `attachments/${taskId}/${attachmentId}_thumb`);
+            await deleteObject(thumbRef);
+          }
+        } catch (storageError) {
+          console.warn('Storage delete error (file may not exist):', storageError);
+        }
+      }
+
+      // Remove from Firestore
+      const updatedAttachments = currentAttachments.filter(a => a.id !== attachmentId);
+      await updateDoc(taskRef, {
+        attachments: updatedAttachments
+      });
+
+      // Update user's storage usage (subtract the size)
+      if (attachmentToDelete) {
+        await updateUserStorageUsage(user.uid, -attachmentToDelete.size);
+      }
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      throw error;
+    }
+  };
+
   return {
     tasks,
     loading,
@@ -757,5 +886,8 @@ export function useTasks() {
     addComment,
     deferTask,
     reorderTasks,
+    addAttachment,
+    deleteAttachment,
+    userStorageUsage,
   };
 }

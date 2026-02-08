@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaTimes, FaUndo, FaTrash, FaTrashRestoreAlt } from 'react-icons/fa';
+import { FaTimes, FaUndo, FaTrash, FaTrashRestoreAlt, FaClock } from 'react-icons/fa';
 import { TaskWithUser } from '@/lib/types';
+import { formatExpiryInfo, DEFAULT_RETENTION_DAYS } from '@/utils/recycleCleanup';
 
 interface RecycleBinProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export default function RecycleBin({
                   Recycle Bin
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {deletedTasks.length} {deletedTasks.length === 1 ? 'task' : 'tasks'}
+                  {deletedTasks.length} {deletedTasks.length === 1 ? 'task' : 'tasks'} • Auto-deleted after {DEFAULT_RETENTION_DAYS} days
                 </p>
               </div>
             </div>
@@ -131,17 +132,33 @@ export default function RecycleBin({
                         <p className="text-gray-900 dark:text-gray-100 line-clamp-2">
                           {task.text}
                         </p>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          {task.deletedAt && (
-                            <span>
-                              Deleted {new Date(task.deletedAt).toLocaleDateString()}
-                            </span>
-                          )}
-                          {task.isPrivate && (
-                            <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded-full">
-                              Private
-                            </span>
-                          )}
+                        <div className="flex flex-col gap-1 mt-2 text-xs">
+                          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                            {task.deletedAt && (
+                              <span>
+                                Deleted {new Date(task.deletedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                            {task.isPrivate && (
+                              <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 rounded-full">
+                                Private
+                              </span>
+                            )}
+                          </div>
+                          {task.deletedAt && (() => {
+                            const expiryInfo = formatExpiryInfo(task.deletedAt);
+                            return (
+                              <div className={`flex items-center gap-1 ${expiryInfo.isExpiringSoon ? 'text-orange-500 dark:text-orange-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                                <FaClock size={10} />
+                                <span>
+                                  {expiryInfo.daysRemaining === 0 
+                                    ? 'Expires today'
+                                    : `${expiryInfo.daysRemaining} ${expiryInfo.daysRemaining === 1 ? 'day' : 'days'} until permanent deletion`
+                                  }
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
 

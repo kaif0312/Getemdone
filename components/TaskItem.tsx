@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { TaskWithUser } from '@/lib/types';
+import { TaskWithUser, Attachment } from '@/lib/types';
 import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaChevronDown, FaChevronUp, FaEllipsisV } from 'react-icons/fa';
 import EmojiPicker from './EmojiPicker';
 import Confetti from './Confetti';
 import TaskContextMenu from './TaskContextMenu';
+import AttachmentUpload from './AttachmentUpload';
+import AttachmentGallery from './AttachmentGallery';
 import { playSound } from '@/utils/sounds';
 import { isRolledOver, getTodayString } from '@/utils/taskFilter';
 
@@ -30,6 +32,10 @@ interface TaskItemProps {
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
+  onAddAttachment?: (taskId: string, attachment: Attachment) => void;
+  onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
+  userStorageUsed?: number;
+  userStorageLimit?: number;
   currentUserId?: string;
   dragHandleProps?: DragHandleProps;
 }
@@ -48,6 +54,10 @@ export default function TaskItem({
   onAddReaction,
   onOpenComments,
   onDeferTask,
+  onAddAttachment,
+  onDeleteAttachment,
+  userStorageUsed,
+  userStorageLimit,
   currentUserId,
   dragHandleProps
 }: TaskItemProps) {
@@ -635,49 +645,49 @@ export default function TaskItem({
             touchAction: 'pan-y pinch-zoom', // Allow vertical scrolling and pinch zoom
             willChange: isSwiping ? 'transform' : 'auto', // Optimize for smooth animations
           } as React.CSSProperties}
-          className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
+          className={`group bg-white dark:bg-gray-800 rounded-lg p-2.5 transition-all duration-200 select-none task-item-touchable ${
             task.completed 
-              ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 
-              : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+              ? 'bg-green-50 dark:bg-green-900/20 shadow-sm' 
+              : 'shadow-sm hover:shadow-md'
           } ${isAnimatingOut ? 'animate-task-complete' : ''} ${
-            swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-100 dark:bg-green-900/40' : ''
+            swipeAction === 'complete' ? 'bg-green-100 dark:bg-green-900/40 shadow-md' : ''
           } ${
-            swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
+            swipeAction === 'delete' ? 'bg-red-100 dark:bg-red-900/40 shadow-md' : ''
           } ${
-            isEditing ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''
+            isEditing ? 'bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-400 dark:ring-blue-600' : ''
           } ${
-            isLongPressing ? 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-2 bg-blue-50 dark:bg-blue-900/30 scale-[0.98]' : ''
+            isLongPressing ? 'ring-2 ring-blue-500 dark:ring-blue-400 scale-[0.98]' : ''
           }`}
         >
-        <div className="flex items-start gap-3">
-          {/* Drag Handle - Mobile-friendly, always visible */}
+        {/* LINE 1: Checkbox + Title + Due Badge Inline */}
+        <div className="flex items-center gap-2 mb-1">
+          {/* Drag Handle - Ultra-compact, hidden until hover */}
           {dragHandleProps && (
             <button
               ref={dragHandleProps.ref}
               {...dragHandleProps.attributes}
               {...dragHandleProps.listeners}
-              className="flex-shrink-0 p-2 -ml-2 touch-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="flex-shrink-0 p-0.5 -ml-1 touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
               title="Drag to reorder"
-              style={{ touchAction: 'none' }}
+              style={{ touchAction: 'none', minWidth: '24px', minHeight: '24px' }}
             >
-              <FaGripVertical size={18} />
+              <FaGripVertical size={12} />
             </button>
           )}
 
-          {/* Checkbox - Minimal, sleek, perfectly aligned */}
+          {/* Checkbox - Ultra-compact */}
           <button
             onClick={handleToggleComplete}
             disabled={!isOwnTask}
-            className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all duration-200 ${
+            className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
               task.completed 
-                ? 'bg-green-500 border-green-500 shadow-sm' 
+                ? 'bg-green-500 border-green-500' 
                 : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-green-400 dark:hover:border-green-500'
             } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
-            style={{ marginTop: '2px' }}
           >
             {task.completed && (
               <svg 
-                className="w-3 h-3 text-white" 
+                className="w-2.5 h-2.5 text-white" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -688,34 +698,22 @@ export default function TaskItem({
             )}
           </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className={`font-semibold text-sm ${
-              isOwnTask ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
-            }`} suppressHydrationWarning>
-              {task.userName}
-            </span>
-            {task.isPrivate && isOwnTask && (
-              <span className="text-xs text-gray-500 flex items-center gap-1">
-                <FaEyeSlash size={12} /> Private
-              </span>
-            )}
-          </div>
-          
+          {/* Star badge if committed */}
+          {task.committed && (
+            <FaStar 
+              className="text-yellow-500 dark:text-yellow-400 flex-shrink-0" 
+              size={12} 
+              title="Committed" 
+            />
+          )}
+
+          {/* Task Title - Inline with everything */}
           <div 
-            className="flex items-start gap-2"
+            className="flex-1 min-w-0"
             onDoubleClick={handleDoubleClick}
           >
-            {task.committed && (
-              <FaStar 
-                className="text-yellow-500 dark:text-yellow-400 mt-0.5 md:mt-1 flex-shrink-0 z-10" 
-                size={18} 
-                title="Committed Task - Must Complete Today!" 
-                style={{ minWidth: '18px', minHeight: '18px' }}
-              />
-            )}
             {isEditing ? (
-              <div className="flex-1 flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <input
                   ref={editInputRef}
                   type="text"
@@ -733,299 +731,360 @@ export default function TaskItem({
                   }}
                   maxLength={500}
                   disabled={isSaving}
-                  className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border-2 border-blue-500 dark:border-blue-400 rounded-lg text-base text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-blue-500 dark:border-blue-400 rounded text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={isSaving || !editText.trim() || editText.trim() === task.text}
-                    className="p-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
-                    title="Save"
-                  >
-                    {isSaving ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <FaCheckIcon size={14} />
-                    )}
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    disabled={isSaving}
-                    className="p-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
-                    title="Cancel"
-                  >
-                    <FaTimes size={14} />
-                  </button>
-                </div>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={isSaving || !editText.trim() || editText.trim() === task.text}
+                  className="p-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors"
+                  title="Save"
+                >
+                  {isSaving ? (
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <FaCheckIcon size={10} />
+                  )}
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="p-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded transition-colors"
+                  title="Cancel"
+                >
+                  <FaTimes size={10} />
+                </button>
               </div>
             ) : (
               <p 
-                className={`text-base flex-1 ${
+                className={`text-sm truncate ${
                   task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
-                } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`} 
+                }`} 
                 suppressHydrationWarning
-                title={isOwnTask && !task.completed && onUpdateTask ? 'Long-press or double-click to edit' : undefined}
+                title={task.text}
               >
                 {task.text}
               </p>
             )}
           </div>
-          
-          {task.deferredTo && (
-            <div className="mt-1 inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-full">
-              <FaCalendarPlus size={10} />
-              <span>Deferred to {new Date(task.deferredTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-            </div>
-          )}
-          
-          {/* Due Date Indicator - Minimal, sleek, clickable to edit */}
-          {task.dueDate && !task.completed && isOwnTask && onUpdateDueDate ? (
-            <div className="relative due-date-picker-container inline-flex items-center gap-1">
+
+          {/* Due Badge - Inline on same line */}
+          {task.dueDate && !task.completed && (
+            <div className="flex items-center gap-0.5">
               <button
                 type="button"
-                onClick={() => setShowDueDatePicker(!showDueDatePicker)}
-                className={`mt-1 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors hover:opacity-80 ${getDueDateColor(task.dueDate)}`}
-                title="Tap to change deadline"
+                onClick={() => isOwnTask && onUpdateDueDate && setShowDueDatePicker(!showDueDatePicker)}
+                className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full border transition-colors ${getDueDateColor(task.dueDate)} ${isOwnTask && onUpdateDueDate ? 'hover:opacity-80' : ''}`}
+                title={isOwnTask && onUpdateDueDate ? "Tap to change deadline" : formatDueDate(task.dueDate)}
+                disabled={!isOwnTask || !onUpdateDueDate}
               >
-                <FaClock size={10} />
+                <FaClock size={8} />
                 <span className="font-medium">{formatDueDate(task.dueDate)}</span>
               </button>
-              <button
-                type="button"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (onUpdateDueDate) {
-                    await onUpdateDueDate(task.id, null);
-                    setShowDueDatePicker(false);
-                  }
-                }}
-                className="mt-1 w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                title="Remove deadline"
-              >
-                <FaTimes size={10} className="text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-          ) : task.dueDate && !task.completed ? (
-            <div className={`mt-1 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border ${getDueDateColor(task.dueDate)}`}>
-              <FaClock size={10} />
-              <span className="font-medium">{formatDueDate(task.dueDate)}</span>
-            </div>
-          ) : null}
-
-          {/* Expandable Notes - Minimal, sleek, mobile-first */}
-          {isOwnTask && onUpdateNotes && (
-            <div className="mt-2">
-              {/* Notes Toggle Button - Only show if notes exist or user wants to add */}
-              {(task.notes || showNotes) && (
+              {isOwnTask && onUpdateDueDate && (
                 <button
-                  onClick={() => {
-                    setShowNotes(!showNotes);
-                    if (!showNotes && !task.notes) {
-                      setIsEditingNotes(true);
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (onUpdateDueDate) {
+                      await onUpdateDueDate(task.id, null);
+                      setShowDueDatePicker(false);
                     }
                   }}
-                  className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                  className="w-3 h-3 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Remove deadline"
                 >
-                  <FaStickyNote size={12} className={task.notes ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'} />
-                  <span className="font-medium">
-                    {task.notes ? 'Notes' : 'Add notes'}
-                  </span>
-                  {showNotes ? (
-                    <FaChevronUp size={10} className="text-gray-400" />
-                  ) : (
-                    <FaChevronDown size={10} className="text-gray-400" />
-                  )}
-                </button>
-              )}
-
-              {/* Expanded Notes Content */}
-              {showNotes && (
-                <div className="mt-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
-                  {isEditingNotes ? (
-                    <div className="space-y-2">
-                      <textarea
-                        ref={notesTextareaRef}
-                        value={notesText}
-                        onChange={(e) => setNotesText(e.target.value)}
-                        onKeyDown={(e) => {
-                          // Save on Ctrl+Enter or Cmd+Enter
-                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSaveNotes();
-                          }
-                          // Close on Escape
-                          if (e.key === 'Escape') {
-                            e.preventDefault();
-                            handleCancelNotes();
-                          }
-                        }}
-                        placeholder="Add notes, reminders, or details..."
-                        rows={4}
-                        maxLength={1000}
-                        className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none"
-                        autoFocus
-                        disabled={isSavingNotes}
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {notesText.length}/1000
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleCancelNotes}
-                            disabled={isSavingNotes}
-                            className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleSaveNotes}
-                            disabled={isSavingNotes || notesText.trim() === (task.notes || '')}
-                            className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
-                          >
-                            {isSavingNotes ? (
-                              <span className="flex items-center gap-1">
-                                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Saving...
-                              </span>
-                            ) : (
-                              'Save'
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
-                        {task.notes || (
-                          <span className="text-gray-400 dark:text-gray-500 italic">No notes yet</span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setIsEditingNotes(true)}
-                        className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                      >
-                        <FaEdit size={10} />
-                        <span>{task.notes ? 'Edit' : 'Add notes'}</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Add Notes Button - Show if no notes and not expanded */}
-              {!task.notes && !showNotes && (
-                <button
-                  onClick={() => {
-                    setShowNotes(true);
-                    setIsEditingNotes(true);
-                  }}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mt-1"
-                >
-                  <FaStickyNote size={12} />
-                  <span>Add notes</span>
+                  <FaTimes size={7} className="text-gray-500 dark:text-gray-400" />
                 </button>
               )}
             </div>
           )}
-          
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className="text-xs text-gray-500 dark:text-gray-400" suppressHydrationWarning>
-              {formatTime(task.createdAt)}
+        </div>
+
+        {/* LINE 2: Subtle Metadata Row - Right-aligned */}
+        <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400">
+          {/* Left side: Username + Private badge */}
+          <div className="flex items-center gap-1.5">
+            <span className={isOwnTask ? 'text-blue-600 dark:text-blue-400 font-medium' : ''} suppressHydrationWarning>
+              {task.userName}
             </span>
-            {task.completed && task.completedAt && (
-              <span className="text-xs text-green-600" suppressHydrationWarning>
-                ✓ {formatTime(task.completedAt)}
+            {task.isPrivate && isOwnTask && (
+              <span className="flex items-center gap-0.5 opacity-60">
+                <FaEyeSlash size={8} /> Private
               </span>
             )}
-            
-            {/* Reactions Display */}
+            {task.deferredTo && (
+              <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                <FaCalendarPlus size={8} />
+                {new Date(task.deferredTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+            )}
+          </div>
+
+          {/* Right side: Icons + Timestamp */}
+          <div className="flex items-center gap-2">
+            {/* Attachments indicator */}
+            {task.attachments && task.attachments.length > 0 && (
+              <span className="flex items-center gap-0.5" title={`${task.attachments.length} attachment(s)`}>
+                📎 {task.attachments.length}
+              </span>
+            )}
+
+            {/* Reactions */}
             {task.reactions && task.reactions.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 {Object.entries(
                   task.reactions.reduce((acc, r) => {
                     acc[r.emoji] = (acc[r.emoji] || 0) + 1;
                     return acc;
                   }, {} as Record<string, number>)
-                ).map(([emoji, count]) => (
-                  <button
-                    key={emoji}
-                    onClick={() => onAddReaction?.(task.id, emoji)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
-                      task.reactions?.some(r => r.userId === currentUserId && r.emoji === emoji)
-                        ? 'bg-blue-100 border border-blue-300'
-                        : 'bg-gray-100 hover:bg-gray-200 border border-gray-300'
-                    }`}
-                    title={task.reactions
-                      ?.filter(r => r.emoji === emoji)
-                      .map(r => r.userName)
-                      .join(', ')}
-                  >
-                    <span>{emoji}</span>
-                    {count > 1 && <span className="text-gray-600">{count}</span>}
-                  </button>
+                ).slice(0, 2).map(([emoji, count]) => (
+                  <span key={emoji} className="flex items-center">
+                    {emoji}{count > 1 && count}
+                  </span>
                 ))}
               </div>
             )}
-            
-            {/* Comment Button - Visible for all tasks */}
-            {onOpenComments && (
+
+            {/* Comments */}
+            {task.comments && task.comments.length > 0 && (
               <button
-                onClick={() => onOpenComments(task.id)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
-                title="View comments"
+                onClick={() => onOpenComments?.(task.id)}
+                className="flex items-center gap-0.5 hover:text-gray-700 dark:hover:text-gray-300"
               >
-                <FaComment size={11} className="text-gray-600 dark:text-gray-300" />
-                {task.comments && task.comments.length > 0 && (
-                  <span className="text-gray-700 dark:text-gray-200 font-medium">
-                    {task.comments.length}
-                  </span>
-                )}
+                <FaComment size={8} /> {task.comments.length}
               </button>
             )}
-            
-            {/* Add Reaction Button - Only for completed tasks */}
-            {task.completed && onAddReaction && (
-              <div className="relative z-[10000]">
-                <button
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
-                  title="Add reaction"
-                >
-                  <FaSmile size={12} className="text-gray-600 dark:text-gray-300" />
-                </button>
-                
-                {showEmojiPicker && (
-                  <EmojiPicker
-                    onSelect={(emoji) => onAddReaction(task.id, emoji)}
-                    onClose={() => setShowEmojiPicker(false)}
-                    position="bottom"
-                  />
-                )}
-              </div>
+
+            {/* Timestamp */}
+            <span suppressHydrationWarning>
+              {formatTime(task.createdAt)}
+            </span>
+            {task.completed && task.completedAt && (
+              <span className="text-green-600 dark:text-green-400 font-medium" suppressHydrationWarning>
+                ✓ {formatTime(task.completedAt)}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Context Menu Button - For own tasks (both completed and incomplete) */}
-        {isOwnTask && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setContextMenuPosition({ x: e.clientX, y: e.clientY });
-              setShowContextMenu(true);
-              if ('vibrate' in navigator) {
-                navigator.vibrate(10);
-              }
-            }}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-500 dark:text-gray-400"
-            title="More options (long-press or right-click)"
-          >
-            <FaEllipsisV size={14} />
-          </button>
-        )}
+        {/* Hidden Actions - Show on Hover/Long-press */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          {/* Notes toggle */}
+          {isOwnTask && onUpdateNotes && !task.notes && (
+            <button
+              onClick={() => {
+                setShowNotes(true);
+                setIsEditingNotes(true);
+              }}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Add notes"
+            >
+              <FaStickyNote size={10} />
+            </button>
+          )}
+
+          {/* Attachment upload */}
+          {isOwnTask && !task.completed && onAddAttachment && (
+            <AttachmentUpload
+              taskId={task.id}
+              currentAttachments={task.attachments || []}
+              onUploadComplete={(attachment) => onAddAttachment(task.id, attachment)}
+              maxAttachments={3}
+              userStorageUsed={userStorageUsed}
+              userStorageLimit={userStorageLimit}
+            />
+          )}
+
+          {/* Add reaction */}
+          {task.completed && onAddReaction && (
+            <button
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Add reaction"
+            >
+              <FaSmile size={10} />
+            </button>
+          )}
         </div>
+
+        {/* Expandable Notes Section - Hidden by default, shows when toggled */}
+        {showNotes && isOwnTask && onUpdateNotes && (
+          <div className="mt-2 relative">
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded p-2 border border-gray-200 dark:border-gray-600">
+              {isEditingNotes ? (
+                <div className="space-y-2">
+                  <textarea
+                    ref={notesTextareaRef}
+                    value={notesText}
+                    onChange={(e) => setNotesText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveNotes();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        handleCancelNotes();
+                      }
+                    }}
+                    placeholder="Add notes..."
+                    rows={3}
+                    maxLength={1000}
+                    className="w-full px-2 py-1 text-xs text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                    autoFocus
+                    disabled={isSavingNotes}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400">
+                      {notesText.length}/1000
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleCancelNotes}
+                        disabled={isSavingNotes}
+                        className="px-2 py-1 text-[9px] text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveNotes}
+                        disabled={isSavingNotes || notesText.trim() === (task.notes || '')}
+                        className="px-2 py-1 text-[9px] bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors font-medium"
+                      >
+                        {isSavingNotes ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                    {task.notes}
+                  </div>
+                  <button
+                    onClick={() => setIsEditingNotes(true)}
+                    className="text-[9px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Attachments - Shows existing attachments */}
+        {task.attachments && task.attachments.length > 0 && (
+          <div className="mt-2">
+            <AttachmentGallery
+              attachments={task.attachments}
+              onDelete={isOwnTask && onDeleteAttachment ? (attachmentId) => onDeleteAttachment(task.id, attachmentId) : undefined}
+              canDelete={isOwnTask && !task.completed}
+              compact={true}
+            />
+          </div>
+        )}
+        
+        {/* Emoji Picker - Shows on hover actions */}
+        {showEmojiPicker && (
+          <div className="absolute top-full mt-1 right-2 z-[10000]">
+            <EmojiPicker
+              onSelect={(emoji) => {
+                onAddReaction?.(task.id, emoji);
+                setShowEmojiPicker(false);
+              }}
+              onClose={() => setShowEmojiPicker(false)}
+              position="bottom"
+            />
+          </div>
+        )}
+
+        {/* Context Menu */}
+        {showContextMenu && (
+          <TaskContextMenu
+            task={task}
+            isOwnTask={isOwnTask}
+            isOpen={showContextMenu}
+            position={contextMenuPosition}
+            onClose={() => setShowContextMenu(false)}
+            onEdit={isOwnTask && !task.completed && onUpdateTask ? () => {
+              setIsEditing(true);
+              setShowContextMenu(false);
+            } : undefined}
+            onDelete={isOwnTask ? () => {
+              onDelete(task.id);
+              setShowContextMenu(false);
+            } : undefined}
+            onTogglePrivacy={isOwnTask ? () => {
+              onTogglePrivacy(task.id, !task.isPrivate);
+              setShowContextMenu(false);
+            } : undefined}
+            onToggleCommitment={isOwnTask && !task.completed && onToggleCommitment ? () => {
+              onToggleCommitment(task.id, !task.committed);
+              setShowContextMenu(false);
+            } : undefined}
+            onSetDeadline={isOwnTask && !task.completed && onUpdateDueDate ? () => {
+              setShowDueDatePicker(true);
+              setShowContextMenu(false);
+            } : undefined}
+            onToggleNotes={isOwnTask && onUpdateNotes ? () => {
+              setShowNotes(!showNotes);
+              if (!showNotes && !task.notes) {
+                setIsEditingNotes(true);
+              }
+              setShowContextMenu(false);
+            } : undefined}
+            onDefer={isOwnTask && !task.completed && onDeferTask ? () => {
+              setShowDeferPicker(true);
+              setShowContextMenu(false);
+            } : undefined}
+            hasNotes={!!task.notes}
+            isCommitted={task.committed}
+            isPrivate={task.isPrivate}
+          />
+        )}
+
+        {/* Defer Picker */}
+        {showDeferPicker && onDeferTask && (
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50" onClick={() => setShowDeferPicker(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Defer Task</h3>
+              <div className="space-y-2">
+                {['tomorrow', 'this-weekend', 'next-week', 'next-month'].map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      let deferDate = '';
+                      const today = new Date();
+                      if (option === 'tomorrow') {
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        deferDate = tomorrow.toISOString().split('T')[0];
+                      } else if (option === 'this-weekend') {
+                        const weekend = new Date(today);
+                        weekend.setDate(weekend.getDate() + (6 - weekend.getDay()));
+                        deferDate = weekend.toISOString().split('T')[0];
+                      } else if (option === 'next-week') {
+                        const nextWeek = new Date(today);
+                        nextWeek.setDate(nextWeek.getDate() + 7);
+                        deferDate = nextWeek.toISOString().split('T')[0];
+                      } else if (option === 'next-month') {
+                        const nextMonth = new Date(today);
+                        nextMonth.setMonth(nextMonth.getMonth() + 1);
+                        deferDate = nextMonth.toISOString().split('T')[0];
+                      }
+                      onDeferTask(task.id, deferDate);
+                      setShowDeferPicker(false);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-900 dark:text-white"
+                  >
+                    {option.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       </div>
 

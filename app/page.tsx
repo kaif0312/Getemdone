@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriends } from '@/hooks/useFriends';
+import { useRecycleCleanup } from '@/hooks/useRecycleCleanup';
 import AuthModal from '@/components/AuthModal';
 import PendingApproval from '@/components/PendingApproval';
 import TaskInput from '@/components/TaskInput';
@@ -18,7 +19,12 @@ import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
 import ProfileSettings from '@/components/ProfileSettings';
 import Avatar from '@/components/Avatar';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaTrash, FaWhatsapp, FaShieldAlt, FaQuestionCircle } from 'react-icons/fa';
+import NotificationSettings from '@/components/NotificationSettings';
+import NotificationToast, { ToastNotification } from '@/components/NotificationToast';
+import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNotifications';
+import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
+import SettingsMenu from '@/components/SettingsMenu';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
 import ContextualTooltip from '@/components/ContextualTooltip';
@@ -35,7 +41,10 @@ export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks } = useTasks();
+  
+  // Auto-cleanup expired recycle bin items
+  useRecycleCleanup(user?.uid);
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks, addAttachment, deleteAttachment, userStorageUsage } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -48,6 +57,12 @@ export default function Home() {
   const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
+  
+  // Notification system
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
+  const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
+  const notifications = useNotifications();
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -216,6 +231,218 @@ export default function Home() {
     await shareMyTasks({ userData, tasks });
   };
 
+  // Notification functions
+  const saveNotificationSettings = async (settings: NotificationSettingsType) => {
+    if (!user?.uid) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const userDocRef = doc(db, 'users', user.uid);
+      await updateDoc(userDocRef, { notificationSettings: settings });
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+    }
+  };
+
+  const addToastNotification = (notif: Omit<ToastNotification, 'id'>) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToastNotifications(prev => [...prev, { ...notif, id }]);
+  };
+
+  const dismissToastNotification = (id: string) => {
+    setToastNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Schedule deadline reminders for tasks with due dates
+  useEffect(() => {
+    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    
+    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    if (!settings.enabled || !settings.deadlineReminders) return;
+
+    const myTasks = tasks.filter(t => t.userId === user.uid && !t.completed && !t.deleted && t.dueDate);
+    const timeoutIds: NodeJS.Timeout[] = [];
+
+    myTasks.forEach(task => {
+      if (!task.dueDate) return;
+      
+      const now = Date.now();
+      const deadlineTime = task.dueDate;
+      const reminderTime = deadlineTime - settings.deadlineMinutesBefore * 60 * 1000;
+
+      if (reminderTime > now && reminderTime - now < 24 * 60 * 60 * 1000) { // Only schedule within next 24 hours
+        const delay = reminderTime - now;
+        const timeoutId = setTimeout(() => {
+          addToastNotification({
+            type: 'deadline',
+            title: '⏰ Deadline Reminder',
+            message: `"${task.text}" is due in ${settings.deadlineMinutesBefore} minutes!`,
+            duration: 8000,
+          });
+          notifications.showNotification('⏰ Deadline Reminder', {
+            body: `"${task.text}" is due in ${settings.deadlineMinutesBefore} minutes!`,
+            tag: `deadline-${task.id}`,
+            settings,
+          });
+        }, delay);
+        timeoutIds.push(timeoutId);
+      }
+    });
+
+    return () => timeoutIds.forEach(clearTimeout);
+  }, [user?.uid, tasks, userData?.notificationSettings, notifications]);
+
+  // Schedule noon check-in
+  useEffect(() => {
+    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported || noonCheckScheduled) return;
+    
+    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    if (!settings.enabled || !settings.noonCheckIn) return;
+
+    const now = new Date();
+    const noon = new Date();
+    noon.setHours(12, 0, 0, 0);
+
+    // If it's past noon today, schedule for tomorrow
+    if (now >= noon) {
+      noon.setDate(noon.getDate() + 1);
+    }
+
+    const delay = noon.getTime() - now.getTime();
+    
+    const timeoutId = setTimeout(() => {
+      const todayStr = getTodayString();
+      const completedToday = tasks.filter(t => 
+        t.userId === user.uid && 
+        t.completed && 
+        t.completedAt && 
+        getDateString(t.completedAt) === todayStr
+      ).length;
+
+      if (completedToday === 0) {
+        addToastNotification({
+          type: 'noon-checkin',
+          title: '☀️ Noon Check-In',
+          message: "Hey! You haven't completed any tasks yet today. Let's make progress! 💪",
+          duration: 10000,
+        });
+        notifications.showNotification('☀️ Noon Check-In', {
+          body: "Hey! You haven't completed any tasks yet today. Let's make progress! 💪",
+          tag: 'noon-checkin',
+          settings,
+        });
+      } else {
+        addToastNotification({
+          type: 'success',
+          title: '🎉 Great Progress!',
+          message: `You've completed ${completedToday} task${completedToday !== 1 ? 's' : ''} today. Keep it up!`,
+          duration: 8000,
+        });
+      }
+      setNoonCheckScheduled(false); // Reset for next day
+    }, delay);
+
+    setNoonCheckScheduled(true);
+
+    return () => clearTimeout(timeoutId);
+  }, [user?.uid, userData?.notificationSettings, noonCheckScheduled, notifications, tasks]);
+
+  // Detect friend task completions (notify only on new completions)
+  const previousFriendTasksRef = useRef<Map<string, boolean>>(new Map());
+  useEffect(() => {
+    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    
+    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    if (!settings.enabled || !settings.friendCompletions) return;
+
+    // Check for newly completed friend tasks
+    const friendTasks = tasks.filter(t => t.userId !== user.uid && !t.isPrivate);
+    
+    friendTasks.forEach(task => {
+      const wasCompleted = previousFriendTasksRef.current.get(task.id);
+      
+      // If task is now completed and wasn't before, it's a new completion!
+      if (task.completed && wasCompleted === false) {
+        const friend = friendUsers.find(f => f.id === task.userId);
+        if (friend) {
+          addToastNotification({
+            type: 'friend',
+            title: `🎊 ${friend.displayName} completed a task!`,
+            message: `"${task.text}" — Way to go!`,
+            duration: 7000,
+          });
+          notifications.showNotification(`🎊 ${friend.displayName} completed a task!`, {
+            body: `"${task.text}" — Way to go!`,
+            tag: `friend-${task.id}`,
+            settings,
+          });
+        }
+      }
+      
+      // Update tracking
+      previousFriendTasksRef.current.set(task.id, task.completed);
+    });
+  }, [user?.uid, tasks, userData?.notificationSettings, notifications, friendUsers]);
+
+  // Commitment reminders (check morning and evening)
+  const [commitmentCheckScheduled, setCommitmentCheckScheduled] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    
+    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    if (!settings.enabled || !settings.commitmentReminders) return;
+
+    const committedTasks = tasks.filter(t => 
+      t.userId === user.uid && 
+      t.committed && 
+      !t.completed && 
+      !t.deleted &&
+      shouldShowInTodayView(t, getTodayString())
+    );
+
+    if (committedTasks.length === 0) return;
+
+    const now = new Date();
+    const today = getTodayString();
+    
+    // Skip if we already checked today
+    if (commitmentCheckScheduled === today) return;
+
+    // Morning reminder: 9 AM
+    const morningTime = new Date();
+    morningTime.setHours(9, 0, 0, 0);
+    
+    // Evening reminder: 6 PM
+    const eveningTime = new Date();
+    eveningTime.setHours(18, 0, 0, 0);
+
+    const scheduleReminder = (time: Date, period: string) => {
+      if (time > now) {
+        const delay = time.getTime() - now.getTime();
+        setTimeout(() => {
+          if (committedTasks.length > 0) {
+            const taskList = committedTasks.map(t => t.text).join(', ');
+            addToastNotification({
+              type: 'commitment',
+              title: '💪 Commitment Reminder',
+              message: `You committed to: ${taskList}. Let's get it done!`,
+              duration: 10000,
+            });
+            notifications.showNotification('💪 Commitment Reminder', {
+              body: `You committed to: ${taskList}. Let's get it done!`,
+              tag: `commitment-${period}`,
+              settings,
+            });
+          }
+          setCommitmentCheckScheduled(today);
+        }, delay);
+      }
+    };
+
+    scheduleReminder(morningTime, 'morning');
+    scheduleReminder(eveningTime, 'evening');
+  }, [user?.uid, tasks, userData?.notificationSettings, notifications, commitmentCheckScheduled]);
+
   // Helper function to toggle friend expansion
   const toggleFriend = (friendId: string) => {
     // If "Show All" is active, toggle the collapsed set instead
@@ -312,14 +539,22 @@ export default function Home() {
             </div>
             
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowHelpModal(true)}
-                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors relative"
-                title="Help & Tips"
-              >
-                <FaQuestionCircle size={18} />
-              </button>
+              {/* Settings Menu - Contains: Notifications, Help, Recycle Bin, WhatsApp, Admin */}
+              <SettingsMenu
+                onNotificationSettings={() => setShowNotificationSettings(true)}
+                onHelp={() => setShowHelpModal(true)}
+                onRecycleBin={() => setShowRecycleBin(true)}
+                onAdmin={userData?.isAdmin ? () => router.push('/admin') : undefined}
+                onWhatsAppShare={handleShare}
+                deletedCount={deletedCount}
+                isAdmin={userData?.isAdmin || false}
+                notificationPermission={notifications.permission}
+                userId={user.uid}
+                storageUsed={userStorageUsage}
+                storageLimit={userData?.storageLimit}
+              />
 
+              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
                 className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
@@ -328,14 +563,7 @@ export default function Home() {
                 {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} />}
               </button>
 
-              <button
-                onClick={handleShare}
-                className="bg-green-500 dark:bg-green-600 text-white p-3 rounded-full hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
-                title="Share on WhatsApp"
-              >
-                <FaWhatsapp size={18} />
-              </button>
-
+              {/* Friends */}
               <button
                 ref={friendsButtonRef}
                 onClick={() => {
@@ -357,30 +585,8 @@ export default function Home() {
                   />
                 )}
               </button>
-
-              <button
-                onClick={() => setShowRecycleBin(true)}
-                className="relative bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                title="Recycle Bin"
-              >
-                <FaTrash size={18} />
-                {deletedCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {deletedCount > 9 ? '9+' : deletedCount}
-                  </span>
-                )}
-              </button>
-
-              {userData?.isAdmin && (
-                <button
-                  onClick={() => router.push('/admin')}
-                  className="bg-purple-600 dark:bg-purple-500 text-white p-3 rounded-full hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors"
-                  title="Admin Dashboard"
-                >
-                  <FaShieldAlt size={18} />
-                </button>
-              )}
               
+              {/* Sign Out */}
               <button
                 onClick={signOut}
                 className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
@@ -503,15 +709,21 @@ export default function Home() {
               return (
                 <div className="mb-6">
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-600 font-bold text-lg">
-                        {userData.displayName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <h2 className="text-white font-semibold">You</h2>
+                    <button 
+                      onClick={() => setShowProfileSettings(true)}
+                      className="flex items-center gap-3 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors group"
+                      title="Profile Settings"
+                    >
+                      <Avatar
+                        photoURL={userData?.photoURL}
+                        displayName={userData.displayName}
+                        size="md"
+                      />
+                      <div className="text-left">
+                        <h2 className="text-white font-semibold group-hover:underline">You</h2>
                         <p className="text-blue-100 text-sm">{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
                       </div>
-                    </div>
+                    </button>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-4 space-y-3">
                     <DndContext
@@ -539,6 +751,10 @@ export default function Home() {
                             onAddReaction={addReaction}
                             onOpenComments={setSelectedTaskForComments}
                             onDeferTask={deferTask}
+                            onAddAttachment={addAttachment}
+                            onDeleteAttachment={deleteAttachment}
+                            userStorageUsed={userData?.storageUsed}
+                            userStorageLimit={userData?.storageLimit}
                             currentUserId={user.uid}
                           />
                         ))}
@@ -562,6 +778,10 @@ export default function Home() {
                         onAddReaction={addReaction}
                         onOpenComments={setSelectedTaskForComments}
                         onDeferTask={deferTask}
+                        onAddAttachment={addAttachment}
+                        onDeleteAttachment={deleteAttachment}
+                        userStorageUsed={userData?.storageUsed}
+                        userStorageLimit={userData?.storageLimit}
                         currentUserId={user.uid}
                       />
                     ))}
@@ -608,6 +828,7 @@ export default function Home() {
                 return {
                   id: userId,
                   name: friendName,
+                  photoURL: friendPhotoURLMap.get(userId),
                   pendingCount,
                   completedToday,
                   privateTotal,
@@ -668,6 +889,8 @@ export default function Home() {
                             onAddReaction={addReaction}
                             onOpenComments={setSelectedTaskForComments}
                             onDeferTask={deferTask}
+                            onAddAttachment={addAttachment}
+                            onDeleteAttachment={deleteAttachment}
                             currentUserId={user.uid}
                           />
                         </div>
@@ -858,6 +1081,22 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Notification Settings Modal */}
+      <NotificationSettings
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+        settings={userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS}
+        onSave={saveNotificationSettings}
+        onRequestPermission={notifications.requestPermission}
+        permission={notifications.permission}
+      />
+
+      {/* Toast Notifications */}
+      <NotificationToast
+        notifications={toastNotifications}
+        onDismiss={dismissToastNotification}
+      />
     </div>
   );
 }

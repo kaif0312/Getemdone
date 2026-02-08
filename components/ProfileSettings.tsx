@@ -56,13 +56,9 @@ export default function ProfileSettings({
 
     setUploading(true);
     try {
-      // Create a unique filename
-      const timestamp = Date.now();
-      const fileExtension = file.name.split('.').pop();
-      const filename = `profile_${currentUser.id}_${timestamp}.${fileExtension}`;
-      
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `profile-pictures/${filename}`);
+      // Upload to Firebase Storage (simple path: profilePictures/{userId})
+      // This overwrites any existing profile picture
+      const storageRef = ref(storage, `profilePictures/${currentUser.id}`);
       await uploadBytes(storageRef, file);
       
       // Get download URL
@@ -101,9 +97,9 @@ export default function ProfileSettings({
     setUploading(true);
     try {
       // Try to delete from storage if it's a custom upload (not Google profile)
-      if (currentUser.photoURL.includes('firebasestorage.googleapis.com')) {
+      if (currentUser.photoURL?.includes('firebasestorage.googleapis.com')) {
         try {
-          const photoRef = ref(storage, currentUser.photoURL);
+          const photoRef = ref(storage, `profilePictures/${currentUser.id}`);
           await deleteObject(photoRef);
         } catch (error) {
           // File might not exist or already deleted, continue anyway

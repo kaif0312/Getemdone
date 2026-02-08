@@ -6,6 +6,17 @@ export interface StreakData {
   missedCommitments: { [date: string]: number }; // date -> count of missed committed tasks
 }
 
+export interface NotificationSettings {
+  enabled: boolean;
+  deadlineReminders: boolean;
+  deadlineMinutesBefore: number; // How many minutes before deadline to remind
+  noonCheckIn: boolean; // Remind at noon if no tasks completed
+  commitmentReminders: boolean;
+  friendCompletions: boolean;
+  sound: boolean;
+  vibrate: boolean;
+}
+
 export interface User {
   id: string;
   displayName: string;
@@ -16,6 +27,9 @@ export interface User {
   streakData?: StreakData;
   isAdmin?: boolean; // Admin users can manage whitelist and view all users
   photoURL?: string; // Profile picture URL (Google profile or custom upload)
+  notificationSettings?: NotificationSettings; // User's notification preferences
+  storageUsed?: number; // Storage used in bytes
+  storageLimit?: number; // Storage limit in bytes (default: 100MB)
 }
 
 export interface Reaction {
@@ -31,6 +45,16 @@ export interface Comment {
   userName: string;
   text: string;
   timestamp: number;
+}
+
+export interface Attachment {
+  id: string;
+  type: 'image' | 'document';
+  url: string;
+  thumbnailUrl?: string;
+  name: string;
+  size: number; // in bytes
+  uploadedAt: number;
 }
 
 export interface Task {
@@ -51,6 +75,7 @@ export interface Task {
   committed?: boolean; // Commitment Mode - must complete today!
   skipRollover?: boolean; // If true, don't auto-rollover to next day
   notes?: string; // Personal notes/description for the task
+  attachments?: Attachment[]; // Media attachments (max 3)
 }
 
 export interface TaskWithUser extends Task {

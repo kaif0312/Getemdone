@@ -3,7 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import TaskItem from './TaskItem';
-import { TaskWithUser } from '@/lib/types';
+import { TaskWithUser, Attachment } from '@/lib/types';
 import { MdDragIndicator } from 'react-icons/md';
 
 interface SortableTaskItemProps {
@@ -20,6 +20,10 @@ interface SortableTaskItemProps {
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
   onDeferTask?: (taskId: string, deferToDate: string) => void;
+  onAddAttachment?: (taskId: string, attachment: Attachment) => void;
+  onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
+  userStorageUsed?: number;
+  userStorageLimit?: number;
   currentUserId?: string;
 }
 

@@ -2,7 +2,7 @@
 
 import TaskItem from './TaskItem';
 import Avatar from './Avatar';
-import { TaskWithUser } from '@/lib/types';
+import { TaskWithUser, Attachment } from '@/lib/types';
 import { FaChevronDown, FaChevronUp, FaLock } from 'react-icons/fa';
 
 interface FriendTaskCardProps {
@@ -26,6 +26,8 @@ interface FriendTaskCardProps {
   onAddReaction: (taskId: string, emoji: string) => void;
   onOpenComments: (taskId: string) => void;
   onDeferTask: (taskId: string, date: string) => void;
+  onAddAttachment?: (taskId: string, attachment: Attachment) => void;
+  onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   currentUserId: string;
 }
 
@@ -50,6 +52,8 @@ export default function FriendTaskCard({
   onAddReaction,
   onOpenComments,
   onDeferTask,
+  onAddAttachment,
+  onDeleteAttachment,
   currentUserId,
 }: FriendTaskCardProps) {
   const publicTasks = tasks.filter(t => !t.isPrivate);
@@ -138,6 +142,8 @@ export default function FriendTaskCard({
               onAddReaction={onAddReaction}
               onOpenComments={onOpenComments}
               onDeferTask={onDeferTask}
+              onAddAttachment={onAddAttachment}
+              onDeleteAttachment={onDeleteAttachment}
               currentUserId={currentUserId}
             />
           ))}

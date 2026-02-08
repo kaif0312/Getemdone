@@ -64,6 +64,7 @@ export default function Home() {
   const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
+  const [hasManuallyInteracted, setHasManuallyInteracted] = useState(false); // Track if user has manually expanded/collapsed
   
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
@@ -215,9 +216,9 @@ export default function Home() {
     return Object.entries(tasksByUser);
   }, [user?.uid, tasks]);
 
-  // Smart defaults: Expand first 2-3 friends by default (only on first load)
+  // Smart defaults: Expand first 2-3 friends by default (only on first load, not after manual interaction)
   useEffect(() => {
-    if (expandedFriends.size === 0 && friendEntries.length > 0) {
+    if (!hasManuallyInteracted && expandedFriends.size === 0 && friendEntries.length > 0) {
       const defaultExpanded = new Set<string>();
       const maxDefault = Math.min(3, friendEntries.length);
       for (let i = 0; i < maxDefault; i++) {
@@ -225,7 +226,7 @@ export default function Home() {
       }
       setExpandedFriends(defaultExpanded);
     }
-  }, [friendEntries.length, expandedFriends.size]);
+  }, [friendEntries.length, expandedFriends.size, hasManuallyInteracted]);
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
     await toggleComplete(taskId, completed);
@@ -466,6 +467,9 @@ export default function Home() {
 
   // Helper function to toggle friend expansion
   const toggleFriend = (friendId: string) => {
+    // Mark that user has manually interacted
+    setHasManuallyInteracted(true);
+
     // If "Show All" is active, toggle the collapsed set instead
     if (showAllFriends) {
       setCollapsedFriends(prev => {

@@ -52,7 +52,7 @@ export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps)
 
           {/* Created By - Very Compact */}
           <div className="px-4 py-3 text-center text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-            Made with <FaHeart className="inline text-red-500 text-[10px]" /> by <span className="font-semibold text-gray-900 dark:text-white">Kaifu Ten</span> • v1.0.0
+            Made with <FaHeart className="inline text-red-500 text-[10px]" /> by <span className="font-semibold text-gray-900 dark:text-white">Kaifuten</span> • v1.0.0
           </div>
 
           {/* Updates List - Compact */}

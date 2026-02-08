@@ -23,6 +23,8 @@ messaging.onBackgroundMessage((payload) => {
   // Extract comment text from payload if available
   const commentText = payload.data?.commentText || '';
   const fromUserName = payload.data?.fromUserName || '';
+  const notificationId = payload.data?.notificationId || '';
+  const type = payload.data?.type || 'default';
   
   // Format notification body to show actual comment text
   let notificationBody = payload.notification?.body || 'You have a new update';
@@ -31,14 +33,21 @@ messaging.onBackgroundMessage((payload) => {
   }
   
   const notificationTitle = payload.notification?.title || 'New Notification';
+  
+  // Use notification ID as tag to prevent duplicates across tabs/windows
+  const tag = notificationId ? `${type}-${notificationId}` : payload.data?.tag || 'default';
+  
+  console.log('[firebase-messaging-sw.js] Showing notification with tag:', tag);
+  
   const notificationOptions = {
     body: notificationBody,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: payload.data?.tag || 'default',
+    tag: tag, // Same tag = replaces previous notification instead of showing duplicate
     data: payload.data,
     requireInteraction: false,
     vibrate: [100, 50, 100],
+    renotify: false, // Don't re-alert if notification with same tag already exists
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions);

@@ -15,7 +15,6 @@ interface AttachmentUploadProps {
   maxAttachments?: number;
   userStorageUsed?: number;
   userStorageLimit?: number;
-  compact?: boolean; // Ultra-compact mode for hover actions
 }
 
 export default function AttachmentUpload({
@@ -25,7 +24,6 @@ export default function AttachmentUpload({
   maxAttachments = 3,
   userStorageUsed = 0,
   userStorageLimit = DEFAULT_STORAGE_LIMIT,
-  compact = false,
 }: AttachmentUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,13 +132,7 @@ export default function AttachmentUpload({
       <button
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading || !canUploadMore}
-        className={compact ? `
-          p-1 rounded transition-colors
-          ${uploading || !canUploadMore
-            ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }
-        ` : `
+        className={`
           p-2 rounded-lg transition-all
           ${uploading || !canUploadMore
             ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
@@ -156,9 +148,9 @@ export default function AttachmentUpload({
         }
       >
         {uploading ? (
-          <FaSpinner className="animate-spin" size={compact ? 10 : 16} />
+          <FaSpinner className="animate-spin" size={16} />
         ) : (
-          <FaPaperclip size={compact ? 10 : 16} />
+          <FaPaperclip size={16} />
         )}
       </button>
 

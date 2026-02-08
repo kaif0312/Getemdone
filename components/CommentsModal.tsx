@@ -25,15 +25,26 @@ export default function CommentsModal({
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when comments change
+  // Smart auto-scroll: only scroll if user is already near the bottom
   useEffect(() => {
-    if (isOpen && commentsEndRef.current) {
+    if (!isOpen || !commentsEndRef.current || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const scrollHeight = container.scrollHeight;
+    const scrollTop = container.scrollTop;
+    const clientHeight = container.clientHeight;
+    
+    // Check if user is near the bottom (within 150px)
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
+    
+    // Only auto-scroll if user is near the bottom (not reading older messages)
+    if (isNearBottom) {
       commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    if (isOpen) {
-      console.log('[CommentsModal] Comments updated, count:', task.comments?.length || 0);
-    }
+    // If user scrolled up, new messages appear but don't force scroll
+    
   }, [task.comments, isOpen]);
 
   // Focus input when modal opens
@@ -124,7 +135,7 @@ export default function CommentsModal({
           </div>
 
           {/* Comments List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {comments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">

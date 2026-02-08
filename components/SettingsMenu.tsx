@@ -1,17 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaBug } from 'react-icons/fa';
+import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb } from 'react-icons/fa';
 import StorageUsage from './StorageUsage';
 
 interface SettingsMenuProps {
   onNotificationSettings: () => void;
-  onNotificationsPanel: () => void;
   onHelp: () => void;
   onRecycleBin: () => void;
   onAdmin?: () => void;
   onWhatsAppShare: () => void;
-  onBugReport: () => void;
+  onFeedback: () => void;
   deletedCount: number;
   isAdmin: boolean;
   notificationPermission: NotificationPermission;
@@ -22,12 +21,11 @@ interface SettingsMenuProps {
 
 export default function SettingsMenu({
   onNotificationSettings,
-  onNotificationsPanel,
   onHelp,
   onRecycleBin,
   onAdmin,
   onWhatsAppShare,
-  onBugReport,
+  onFeedback,
   deletedCount,
   isAdmin,
   notificationPermission,
@@ -91,35 +89,19 @@ export default function SettingsMenu({
               />
             </div>
 
-            {/* View Notifications */}
-            <button
-              onClick={() => handleItemClick(onNotificationsPanel)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
-            >
-              <FaBell size={18} className="text-blue-500" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  View Notifications
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  See updates from friends
-                </div>
-              </div>
-            </button>
-
             {/* Notification Settings */}
             <button
               onClick={() => handleItemClick(onNotificationSettings)}
               className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
             >
               <div className="relative">
-                <FaBell size={18} className="text-gray-500" />
+                <FaBell size={18} className="text-blue-500" />
                 {notificationPermission !== 'granted' && (
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-gray-600 dark:group-hover:text-gray-400">
+                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
                   Notification Settings
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -183,18 +165,18 @@ export default function SettingsMenu({
               </div>
             </button>
 
-            {/* Bug Report */}
+            {/* Feedback & Feature Requests */}
             <button
-              onClick={() => handleItemClick(onBugReport)}
+              onClick={() => handleItemClick(onFeedback)}
               className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
             >
-              <FaBug size={18} className="text-orange-500" />
+              <FaLightbulb size={18} className="text-yellow-500" />
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400">
-                  Report a Bug
+                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400">
+                  Feedback & Ideas
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Help us improve the app
+                  Report bugs or suggest features
                 </div>
               </div>
             </button>

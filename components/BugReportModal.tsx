@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { FaTimes, FaBug, FaImage, FaSpinner, FaCheck } from 'react-icons/fa';
+import { FaTimes, FaBug, FaImage, FaSpinner, FaCheck, FaLightbulb } from 'react-icons/fa';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
@@ -138,15 +138,15 @@ export default function BugReportModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                <FaBug className="text-red-600 dark:text-red-400" size={20} />
+              <div className="p-2 bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-lg">
+                <FaLightbulb className="text-yellow-600 dark:text-yellow-400" size={20} />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  Report a Bug
+                  Feedback & Ideas
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Help us improve the app
+                  Report bugs or suggest features
                 </p>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function BugReportModal({
                   <FaCheck className="text-green-600 dark:text-green-400" size={32} />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Bug Report Submitted!
+                  Feedback Submitted!
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Thank you for helping us improve the app.
@@ -179,16 +179,16 @@ export default function BugReportModal({
                 {/* Description */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Describe the issue <span className="text-red-500">*</span>
+                    Your feedback <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What happened? What were you trying to do? What did you expect to happen?"
+                    placeholder="Found a bug? Have a feature idea? Tell us what you're thinking..."
                     rows={6}
                     maxLength={1000}
                     disabled={submitting}
-                    className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:focus:ring-red-400 resize-none disabled:opacity-50"
+                    className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 dark:focus:ring-yellow-400 resize-none disabled:opacity-50"
                   />
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -270,7 +270,7 @@ export default function BugReportModal({
                 {/* Info */}
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <p className="text-xs text-blue-700 dark:text-blue-300">
-                    💡 <strong>Tip:</strong> Include steps to reproduce the issue and any error messages you see.
+                    💡 <strong>Tip:</strong> For bugs, include steps to reproduce. For features, describe how it would help you!
                   </p>
                 </div>
               </div>
@@ -290,7 +290,7 @@ export default function BugReportModal({
               <button
                 onClick={handleSubmit}
                 disabled={submitting || !description.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -299,8 +299,8 @@ export default function BugReportModal({
                   </>
                 ) : (
                   <>
-                    <FaBug size={14} />
-                    Submit Bug Report
+                    <FaLightbulb size={14} />
+                    Submit Feedback
                   </>
                 )}
               </button>

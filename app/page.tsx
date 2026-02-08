@@ -27,7 +27,7 @@ import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import QuickInfoModal from '@/components/QuickInfoModal';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
+import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
 import ContextualTooltip from '@/components/ContextualTooltip';
@@ -549,15 +549,24 @@ export default function Home() {
             </button>
             
             <div className="flex items-center gap-2">
-              {/* Settings Menu - Contains: Notifications, Help, Recycle Bin, WhatsApp, Admin */}
+              {/* Notifications Button */}
+              <button
+                onClick={() => setShowNotificationsPanel(true)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative"
+                title="Notifications"
+              >
+                <FaBell className="text-gray-600 dark:text-gray-300" size={18} />
+                {/* Unread badge - can be added later with real count */}
+              </button>
+
+              {/* Settings Menu - Contains: Notification Settings, Help, Recycle Bin, WhatsApp, Feedback, Admin */}
               <SettingsMenu
                 onNotificationSettings={() => setShowNotificationSettings(true)}
-                onNotificationsPanel={() => setShowNotificationsPanel(true)}
                 onHelp={() => setShowHelpModal(true)}
                 onRecycleBin={() => setShowRecycleBin(true)}
                 onAdmin={userData?.isAdmin ? () => router.push('/admin') : undefined}
                 onWhatsAppShare={handleShare}
-                onBugReport={() => setShowBugReportModal(true)}
+                onFeedback={() => setShowBugReportModal(true)}
                 deletedCount={deletedCount}
                 isAdmin={userData?.isAdmin || false}
                 notificationPermission={notifications.permission}

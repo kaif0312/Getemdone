@@ -1,0 +1,13 @@
+# Ignore Cloud Functions directory (deployed separately to Firebase)
+functions/
+
+# Ignore Firebase config files
+firebase.json
+firestore.rules
+firestore.indexes.json
+
+# Ignore documentation
+docs/
+
+# Ignore scripts
+scripts/

@@ -772,32 +772,51 @@ export function useTasks() {
 
       // Create notification for task owner if commenter is a friend
       if (task.userId !== user.uid) {
-        // Check if users are friends
-        const taskOwnerRef = doc(db, 'users', task.userId);
-        const taskOwnerDoc = await getDoc(taskOwnerRef);
+        console.log('[addComment] Task owner is different, checking for notification...');
         
-        if (taskOwnerDoc.exists()) {
-          const taskOwnerData = taskOwnerDoc.data();
+        try {
+          const taskOwnerRef = doc(db, 'users', task.userId);
+          const taskOwnerDoc = await getDoc(taskOwnerRef);
           
-          // Check if friend comments notifications are enabled
-          if (taskOwnerData.notificationSettings?.friendComments !== false) {
-            // Create in-app notification
-            await addDoc(collection(db, 'notifications'), {
-              userId: task.userId,
-              type: 'comment',
-              title: 'New Comment',
-              message: `${userData.displayName} commented on your task`,
-              taskId: taskId,
-              taskText: task.text,
-              fromUserId: user.uid,
-              fromUserName: userData.displayName,
-              commentText: text.substring(0, 100), // Store first 100 chars
-              createdAt: Date.now(),
-              read: false,
-            });
-            console.log('[addComment] Notification created for task owner');
+          if (taskOwnerDoc.exists()) {
+            const taskOwnerData = taskOwnerDoc.data();
+            console.log('[addComment] Task owner data found, notificationSettings:', taskOwnerData.notificationSettings);
+            
+            // Check if friend comments notifications are enabled (default to true if not set)
+            const friendCommentsEnabled = taskOwnerData.notificationSettings?.friendComments !== false;
+            console.log('[addComment] Friend comments enabled:', friendCommentsEnabled);
+            
+            if (friendCommentsEnabled) {
+              // Create in-app notification
+              const notificationData = {
+                userId: task.userId,
+                type: 'comment',
+                title: 'New Comment',
+                message: `${userData.displayName} commented on your task`,
+                taskId: taskId,
+                taskText: task.text,
+                fromUserId: user.uid,
+                fromUserName: userData.displayName,
+                commentText: text.substring(0, 100), // Store first 100 chars
+                createdAt: Date.now(),
+                read: false,
+              };
+              console.log('[addComment] Creating notification:', notificationData);
+              
+              await addDoc(collection(db, 'notifications'), notificationData);
+              console.log('[addComment] ✅ Notification created successfully for task owner');
+            } else {
+              console.log('[addComment] Notifications disabled for task owner');
+            }
+          } else {
+            console.log('[addComment] Task owner document not found');
           }
+        } catch (notifError) {
+          console.error('[addComment] ❌ Error creating notification:', notifError);
+          // Don't throw - comment was already saved, just notification failed
         }
+      } else {
+        console.log('[addComment] Skipping notification - commenting on own task');
       }
     } catch (error) {
       console.error('[addComment] Error adding comment:', error);

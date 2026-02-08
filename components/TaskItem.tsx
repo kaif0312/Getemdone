@@ -892,6 +892,7 @@ export default function TaskItem({
               maxAttachments={3}
               userStorageUsed={userStorageUsed}
               userStorageLimit={userStorageLimit}
+              compact={true}
             />
           )}
 

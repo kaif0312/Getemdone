@@ -31,6 +31,60 @@ export function useNotifications(userId?: string) {
     }
   }, []);
 
+  // Auto-generate FCM token if permission already granted and user is logged in
+  useEffect(() => {
+    const initializeFCMToken = async () => {
+      // Skip if no user, not supported, or permission not granted
+      if (!userId || !isSupported || !messaging) return;
+      if (Notification.permission !== 'granted') return;
+
+      try {
+        console.log('[useNotifications] Auto-generating FCM token for logged-in user...');
+        
+        // Wait for service worker to be ready
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Get FCM token
+        const currentToken = await getToken(messaging, {
+          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration,
+        });
+        
+        if (currentToken) {
+          console.log('✅ FCM Token auto-generated:', currentToken);
+          setFcmToken(currentToken);
+          
+          // Save to Firestore
+          const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('@/lib/firebase');
+          
+          // Check if token already exists and is the same
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          const existingToken = userDoc.data()?.fcmToken;
+          
+          if (existingToken !== currentToken) {
+            await updateDoc(doc(db, 'users', userId), {
+              fcmToken: currentToken,
+              fcmTokenUpdatedAt: Date.now(),
+            });
+            console.log('✅ FCM token saved to Firestore for user:', userId);
+          } else {
+            console.log('ℹ️ FCM token already up to date');
+          }
+        } else {
+          console.warn('⚠️ No FCM token available');
+        }
+      } catch (error) {
+        console.error('❌ Error auto-generating FCM token:', error);
+        console.error('💡 Make sure NEXT_PUBLIC_FIREBASE_VAPID_KEY is set');
+      }
+    };
+
+    // Run after a short delay to ensure service worker is registered
+    const timer = setTimeout(initializeFCMToken, 1000);
+    return () => clearTimeout(timer);
+  }, [userId, isSupported]);
+
   // Listen for foreground messages (when app is open)
   useEffect(() => {
     if (!messaging) return;

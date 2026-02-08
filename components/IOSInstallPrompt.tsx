@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Share, X, Smartphone, Bell, Check } from 'lucide-react';
+import { FaShare, FaTimes, FaMobileAlt, FaBell, FaCheck } from 'react-icons/fa';
 
 interface IOSInstallPromptProps {
   onDismiss?: () => void;
@@ -24,7 +24,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
             aria-label="Close"
           >
-            <X className="w-6 h-6" />
+            <FaTimes className="w-6 h-6" />
           </button>
         )}
 
@@ -33,7 +33,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
           {/* App Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg flex items-center justify-center">
-              <Bell className="w-10 h-10 text-white" />
+              <FaBell className="w-10 h-10 text-white" />
             </div>
           </div>
 
@@ -70,7 +70,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <span>Look for</span>
                   <div className="bg-blue-500 rounded-lg p-2">
-                    <Share className="w-5 h-5 text-white" />
+                    <FaShare className="w-5 h-5 text-white" />
                   </div>
                   <span>at the bottom of Safari</span>
                 </div>
@@ -94,7 +94,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
                   Select "Add to Home Screen"
                 </p>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Smartphone className="w-5 h-5 text-purple-500" />
+                  <FaMobileAlt className="w-5 h-5 text-purple-500" />
                   <span>Scroll down and tap this option</span>
                 </div>
               </div>
@@ -117,7 +117,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
                   Tap "Add"
                 </p>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Check className="w-5 h-5 text-green-500" />
+                  <FaCheck className="w-5 h-5 text-green-500" />
                   <span>Confirm to add the app to your home screen</span>
                 </div>
               </div>

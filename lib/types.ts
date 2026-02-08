@@ -57,6 +57,19 @@ export interface Attachment {
   uploadedAt: number;
 }
 
+export interface BugReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  description: string;
+  imageUrl?: string;
+  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  createdAt: number;
+  resolvedAt?: number;
+  adminNotes?: string;
+}
+
 export interface Task {
   id: string;
   userId: string;

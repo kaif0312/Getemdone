@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage } from 'react-icons/fa';
+import { BugReport } from '@/lib/types';
 
 interface WhitelistEntry {
   id: string;
@@ -35,11 +36,13 @@ export default function AdminDashboard() {
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   const [pendingSignups, setPendingSignups] = useState<PendingSignup[]>([]);
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedBugImage, setSelectedBugImage] = useState<string | null>(null);
 
   // Check if user is admin
   const isAdmin = userData?.isAdmin === true;
@@ -111,10 +114,39 @@ export default function AdminDashboard() {
       }
     );
 
+    // Listen to bug reports
+    const bugReportsRef = collection(db, 'bugReports');
+    const unsubscribeBugReports = onSnapshot(
+      query(bugReportsRef, orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        const reports: BugReport[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          reports.push({
+            id: doc.id,
+            userId: data.userId,
+            userName: data.userName,
+            userEmail: data.userEmail,
+            description: data.description,
+            imageUrl: data.imageUrl,
+            status: data.status,
+            createdAt: data.createdAt?.toMillis?.() || data.createdAt || 0,
+            resolvedAt: data.resolvedAt?.toMillis?.() || data.resolvedAt,
+            adminNotes: data.adminNotes,
+          });
+        });
+        setBugReports(reports);
+      },
+      (err) => {
+        console.error('Error fetching bug reports:', err);
+      }
+    );
+
     return () => {
       unsubscribeWhitelist();
       unsubscribeUsers();
       unsubscribePending();
+      unsubscribeBugReports();
     };
   }, [isAdmin]);
 
@@ -232,6 +264,32 @@ export default function AdminDashboard() {
     } catch (err: any) {
       console.error('Error rejecting signup:', err);
       setError(err.message || 'Failed to reject signup');
+    }
+  };
+
+  const handleUpdateBugStatus = async (bugId: string, newStatus: BugReport['status']) => {
+    try {
+      await updateDoc(doc(db, 'bugReports', bugId), {
+        status: newStatus,
+        ...(newStatus === 'resolved' || newStatus === 'closed' ? { resolvedAt: Date.now() } : {}),
+      });
+      setSuccess(`Bug report ${newStatus}`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error('Error updating bug status:', err);
+      setError(err.message || 'Failed to update bug status');
+    }
+  };
+
+  const handleDeleteBugReport = async (bugId: string) => {
+    if (!confirm('Are you sure you want to delete this bug report?')) return;
+    try {
+      await deleteDoc(doc(db, 'bugReports', bugId));
+      setSuccess('Bug report deleted');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error('Error deleting bug report:', err);
+      setError(err.message || 'Failed to delete bug report');
     }
   };
 
@@ -442,6 +500,96 @@ export default function AdminDashboard() {
           )}
         </div>
 
+        {/* Bug Reports Section */}
+        {bugReports.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <FaBug className="text-red-500" />
+              Bug Reports ({bugReports.length})
+            </h2>
+            <div className="space-y-4">
+              {bugReports.map((report) => (
+                <div
+                  key={report.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {report.userName}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({report.userEmail})
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            report.status === 'open'
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              : report.status === 'in-progress'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                              : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                          }`}
+                        >
+                          {report.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap mb-2">
+                        {report.description}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(report.createdAt)}
+                      </p>
+                    </div>
+                    {report.imageUrl && (
+                      <button
+                        onClick={() => setSelectedBugImage(report.imageUrl || null)}
+                        className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+                        title="View screenshot"
+                      >
+                        <img
+                          src={report.imageUrl}
+                          alt="Bug screenshot"
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => handleUpdateBugStatus(report.id, 'in-progress')}
+                      disabled={report.status === 'in-progress'}
+                      className="px-3 py-1 text-xs bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Mark In Progress
+                    </button>
+                    <button
+                      onClick={() => handleUpdateBugStatus(report.id, 'resolved')}
+                      disabled={report.status === 'resolved' || report.status === 'closed'}
+                      className="px-3 py-1 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Mark Resolved
+                    </button>
+                    <button
+                      onClick={() => handleUpdateBugStatus(report.id, 'closed')}
+                      disabled={report.status === 'closed'}
+                      className="px-3 py-1 text-xs bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBugReport(report.id)}
+                      className="px-3 py-1 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                    >
+                      <FaTrash size={10} /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* All Users Table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
@@ -510,6 +658,32 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Bug Screenshot Lightbox */}
+      {selectedBugImage && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/80 z-50 animate-in fade-in duration-200"
+            onClick={() => setSelectedBugImage(null)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="relative max-w-4xl max-h-[90vh] pointer-events-auto">
+              <button
+                onClick={() => setSelectedBugImage(null)}
+                className="absolute -top-12 right-0 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                title="Close"
+              >
+                <FaTimes size={24} />
+              </button>
+              <img
+                src={selectedBugImage}
+                alt="Bug screenshot"
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

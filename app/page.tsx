@@ -24,6 +24,7 @@ import NotificationToast, { ToastNotification } from '@/components/NotificationT
 import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNotifications';
 import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import SettingsMenu from '@/components/SettingsMenu';
+import BugReportModal from '@/components/BugReportModal';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -48,6 +49,7 @@ export default function Home() {
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
+  const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
@@ -546,6 +548,7 @@ export default function Home() {
                 onRecycleBin={() => setShowRecycleBin(true)}
                 onAdmin={userData?.isAdmin ? () => router.push('/admin') : undefined}
                 onWhatsAppShare={handleShare}
+                onBugReport={() => setShowBugReportModal(true)}
                 deletedCount={deletedCount}
                 isAdmin={userData?.isAdmin || false}
                 notificationPermission={notifications.permission}
@@ -1034,6 +1037,15 @@ export default function Home() {
       <HelpModal
         isOpen={showHelpModal}
         onClose={() => setShowHelpModal(false)}
+      />
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        isOpen={showBugReportModal}
+        onClose={() => setShowBugReportModal(false)}
+        userId={user.uid}
+        userName={userData?.displayName || 'Unknown User'}
+        userEmail={userData?.email || ''}
       />
 
       {/* Contextual Tooltips - Mobile only (desktop has help button) */}

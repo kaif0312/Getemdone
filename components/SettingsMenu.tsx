@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase } from 'react-icons/fa';
+import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaBug } from 'react-icons/fa';
 import StorageUsage from './StorageUsage';
 
 interface SettingsMenuProps {
@@ -10,6 +10,7 @@ interface SettingsMenuProps {
   onRecycleBin: () => void;
   onAdmin?: () => void;
   onWhatsAppShare: () => void;
+  onBugReport: () => void;
   deletedCount: number;
   isAdmin: boolean;
   notificationPermission: NotificationPermission;
@@ -24,6 +25,7 @@ export default function SettingsMenu({
   onRecycleBin,
   onAdmin,
   onWhatsAppShare,
+  onBugReport,
   deletedCount,
   isAdmin,
   notificationPermission,
@@ -159,6 +161,22 @@ export default function SettingsMenu({
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   Share your tasks
+                </div>
+              </div>
+            </button>
+
+            {/* Bug Report */}
+            <button
+              onClick={() => handleItemClick(onBugReport)}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+            >
+              <FaBug size={18} className="text-orange-500" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400">
+                  Report a Bug
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Help us improve the app
                 </div>
               </div>
             </button>

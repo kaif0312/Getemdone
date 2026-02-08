@@ -86,28 +86,15 @@ export function useNotifications(userId?: string) {
   }, [userId, isSupported]);
 
   // Listen for foreground messages (when app is open)
+  // Note: Service worker handles background messages, this handles foreground
   useEffect(() => {
     if (!messaging) return;
 
     const unsubscribe = onMessage(messaging, (payload) => {
-      console.log('[useNotifications] Foreground message received:', payload);
-      
-      // Show notification when app is in foreground
-      if (Notification.permission === 'granted') {
-        const title = payload.notification?.title || 'New Notification';
-        const options: NotificationOptions = {
-          body: payload.notification?.body || '',
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
-          tag: payload.data?.tag || 'default',
-          data: payload.data,
-        };
-        
-        // Use service worker to show notification
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.showNotification(title, options);
-        });
-      }
+      console.log('[useNotifications] Foreground FCM message received:', payload);
+      console.log('[useNotifications] ℹ️ Not showing notification (Cloud Function already sent it via FCM background channel)');
+      // Don't show notification here - FCM already delivered it via background channel
+      // This avoids duplicate notifications when app is open
     });
 
     return () => unsubscribe();

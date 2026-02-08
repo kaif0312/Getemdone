@@ -14,7 +14,8 @@ interface UseNotificationListenerProps {
 
 /**
  * Background listener for new notifications
- * Triggers push notifications when friends comment
+ * Tracks notifications for in-app display and unread badge
+ * Push notifications are handled by Cloud Functions (no duplicates!)
  */
 export function useNotificationListener({
   userId,
@@ -88,46 +89,7 @@ export function useNotificationListener({
             };
 
             console.log('[NotificationListener] 🔔 New notification received:', notification.title);
-
-            // Trigger push notification
-            if (notification.type === 'comment') {
-              // Use the actual comment text in the notification body
-              const notificationBody = notification.commentText 
-                ? `${notification.fromUserName}: "${notification.commentText}"`
-                : notification.message;
-              
-              showNotification(notification.title, {
-                body: notificationBody,
-                tag: `comment-${notification.id}`,
-                icon: '/icon-192.png',
-                badge: '/icon-192.png',
-                data: {
-                  taskId: notification.taskId,
-                  notificationId: notification.id,
-                  url: '/', // Open app when clicked
-                },
-                requireInteraction: false,
-                settings,
-              });
-              console.log('[NotificationListener] ✅ Push notification sent with comment text');
-            } else if (notification.type === 'encouragement') {
-              // Send encouragement notification
-              const notificationBody = notification.commentText || notification.message;
-              
-              showNotification(notification.title, {
-                body: notificationBody,
-                tag: `encouragement-${notification.id}`,
-                icon: '/icon-192.png',
-                badge: '/icon-192.png',
-                data: {
-                  notificationId: notification.id,
-                  url: '/',
-                },
-                requireInteraction: false,
-                settings,
-              });
-              console.log('[NotificationListener] ✅ Encouragement notification sent');
-            }
+            console.log('[NotificationListener] ℹ️ Push notification will be sent by Cloud Function (no client-side notification to avoid duplicates)');
           }
         });
       },

@@ -23,6 +23,7 @@ import NotificationSettings from '@/components/NotificationSettings';
 import NotificationToast, { ToastNotification } from '@/components/NotificationToast';
 import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNotifications';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
@@ -79,6 +80,9 @@ export default function Home() {
     showNotification: notifications.showNotification,
     isSupported: notifications.isSupported,
   });
+
+  // Track unread notification count
+  const unreadNotifications = useUnreadNotifications(user?.uid);
 
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -564,10 +568,15 @@ export default function Home() {
               <button
                 onClick={() => setShowNotificationsPanel(true)}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative"
-                title="Notifications"
+                title={unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications !== 1 ? 's' : ''}` : 'Notifications'}
               >
-                <FaBell className="text-gray-600 dark:text-gray-300" size={18} />
-                {/* Unread badge - can be added later with real count */}
+                <FaBell className={`${unreadNotifications > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'} transition-colors`} size={18} />
+                {/* Unread badge */}
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-in zoom-in duration-200">
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </span>
+                )}
               </button>
 
               {/* Settings Menu - Contains: Notification Settings, Help, Recycle Bin, WhatsApp, Feedback, Admin */}

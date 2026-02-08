@@ -26,6 +26,7 @@ import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
 import NotificationsPanel from '@/components/NotificationsPanel';
+import QuickInfoModal from '@/components/QuickInfoModal';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -64,6 +65,7 @@ export default function Home() {
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
+  const [showQuickInfo, setShowQuickInfo] = useState(false);
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
   const notifications = useNotifications();
@@ -529,18 +531,22 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowQuickInfo(true)}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              title="About & Updates"
+            >
               {/* App Icon/Logo */}
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
                 <svg width="20" height="20" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="text-white">
                   <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <div>
+              <div className="text-left">
                 <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">GetDone</h1>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {userData.displayName}!</p>
               </div>
-            </div>
+            </button>
             
             <div className="flex items-center gap-2">
               {/* Settings Menu - Contains: Notifications, Help, Recycle Bin, WhatsApp, Admin */}
@@ -1060,6 +1066,12 @@ export default function Home() {
           // Scroll to task or open comments
           setSelectedTaskForComments(taskId);
         }}
+      />
+
+      {/* Quick Info Modal */}
+      <QuickInfoModal
+        isOpen={showQuickInfo}
+        onClose={() => setShowQuickInfo(false)}
       />
 
       {/* Contextual Tooltips - Mobile only (desktop has help button) */}

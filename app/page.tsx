@@ -1090,7 +1090,7 @@ export default function Home() {
         
         return (
           <CommentsModal
-            key={`comments-${selectedTask.id}-${selectedTask.comments?.length || 0}`}
+            key={`comments-${selectedTask.id}`}
             isOpen={true}
             task={selectedTask}
             currentUserId={user.uid}

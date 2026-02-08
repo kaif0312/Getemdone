@@ -72,7 +72,7 @@ export default function Home() {
   const [showQuickInfo, setShowQuickInfo] = useState(false);
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
-  const notifications = useNotifications();
+  const notifications = useNotifications(user?.uid);
 
   // Listen for new notifications and trigger push notifications
   useNotificationListener({

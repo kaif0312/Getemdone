@@ -39,6 +39,8 @@ export interface User {
   displayName: string;
   email: string;
   friendCode: string;
+  fcmToken?: string; // Firebase Cloud Messaging token for push notifications
+  fcmTokenUpdatedAt?: number; // Timestamp when FCM token was last updated
   friends: string[];
   createdAt: number;
   streakData?: StreakData;

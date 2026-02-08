@@ -30,7 +30,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   vibrate: true,
 };
 
-export function useNotifications() {
+export function useNotifications(userId?: string) {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSupported, setIsSupported] = useState(false);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -97,8 +97,22 @@ export function useNotifications() {
             console.log('✅ FCM Token obtained:', currentToken);
             setFcmToken(currentToken);
             
-            // TODO: Save this token to Firestore user document for server-side push notifications
-            // You'll need to send push notifications from your server/Cloud Functions
+            // Save FCM token to user's Firestore document for server-side push notifications
+            if (userId) {
+              try {
+                const { doc, updateDoc } = await import('firebase/firestore');
+                const { db } = await import('@/lib/firebase');
+                
+                await updateDoc(doc(db, 'users', userId), {
+                  fcmToken: currentToken,
+                  fcmTokenUpdatedAt: Date.now(),
+                });
+                console.log('✅ FCM token saved to Firestore for user:', userId);
+              } catch (saveError) {
+                console.error('⚠️ Error saving FCM token to Firestore:', saveError);
+                // Don't fail the whole flow if token save fails
+              }
+            }
             
             return true;
           } else {

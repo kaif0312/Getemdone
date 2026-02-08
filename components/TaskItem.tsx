@@ -937,9 +937,9 @@ export default function TaskItem({
                       setShowNotes(true);
                       setIsEditingNotes(true);
                     }}
-                    className="flex items-center gap-0.5 text-[9px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors min-h-[32px]"
                   >
-                    <FaStickyNote size={9} />
+                    <FaStickyNote size={11} />
                     <span>Add notes</span>
                   </button>
                   
@@ -1024,16 +1024,16 @@ export default function TaskItem({
               </div>
             )}
             
-            {/* Comment Button - Ultra-compact */}
+            {/* Comment Button - Touch-friendly */}
             {onOpenComments && (
               <button
                 onClick={() => onOpenComments(task.id)}
-                className="flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors min-h-[28px]"
                 title="View comments"
               >
-                <FaComment size={8} className="text-gray-600 dark:text-gray-300" />
+                <FaComment size={10} className="text-gray-600 dark:text-gray-300" />
                 {task.comments && task.comments.length > 0 && (
-                  <span className="text-gray-700 dark:text-gray-200 font-medium">
+                  <span className="text-[10px] text-gray-700 dark:text-gray-200 font-medium">
                     {task.comments.length}
                   </span>
                 )}

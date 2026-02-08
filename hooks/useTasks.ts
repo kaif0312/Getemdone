@@ -769,6 +769,36 @@ export function useTasks() {
       console.log('[addComment] Adding comment to task:', taskId, 'Current comments:', comments.length);
       await updateDoc(taskRef, { comments });
       console.log('[addComment] Comment added successfully');
+
+      // Create notification for task owner if commenter is a friend
+      if (task.userId !== user.uid) {
+        // Check if users are friends
+        const taskOwnerRef = doc(db, 'users', task.userId);
+        const taskOwnerDoc = await getDoc(taskOwnerRef);
+        
+        if (taskOwnerDoc.exists()) {
+          const taskOwnerData = taskOwnerDoc.data();
+          
+          // Check if friend comments notifications are enabled
+          if (taskOwnerData.notificationSettings?.friendComments !== false) {
+            // Create in-app notification
+            await addDoc(collection(db, 'notifications'), {
+              userId: task.userId,
+              type: 'comment',
+              title: 'New Comment',
+              message: `${userData.displayName} commented on your task`,
+              taskId: taskId,
+              taskText: task.text,
+              fromUserId: user.uid,
+              fromUserName: userData.displayName,
+              commentText: text.substring(0, 100), // Store first 100 chars
+              createdAt: Date.now(),
+              read: false,
+            });
+            console.log('[addComment] Notification created for task owner');
+          }
+        }
+      }
     } catch (error) {
       console.error('[addComment] Error adding comment:', error);
       throw error;

@@ -13,8 +13,24 @@ export interface NotificationSettings {
   noonCheckIn: boolean; // Remind at noon if no tasks completed
   commitmentReminders: boolean;
   friendCompletions: boolean;
+  friendComments: boolean; // Notify when friends comment on your tasks
   sound: boolean;
   vibrate: boolean;
+}
+
+export interface InAppNotification {
+  id: string;
+  userId: string; // Who receives the notification
+  type: 'comment' | 'completion' | 'deadline' | 'commitment';
+  title: string;
+  message: string;
+  taskId?: string;
+  taskText?: string;
+  fromUserId?: string;
+  fromUserName?: string;
+  commentText?: string;
+  createdAt: number;
+  read: boolean;
 }
 
 export interface User {

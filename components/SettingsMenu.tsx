@@ -6,6 +6,7 @@ import StorageUsage from './StorageUsage';
 
 interface SettingsMenuProps {
   onNotificationSettings: () => void;
+  onNotificationsPanel: () => void;
   onHelp: () => void;
   onRecycleBin: () => void;
   onAdmin?: () => void;
@@ -21,6 +22,7 @@ interface SettingsMenuProps {
 
 export default function SettingsMenu({
   onNotificationSettings,
+  onNotificationsPanel,
   onHelp,
   onRecycleBin,
   onAdmin,
@@ -89,20 +91,36 @@ export default function SettingsMenu({
               />
             </div>
 
-            {/* Notifications */}
+            {/* View Notifications */}
+            <button
+              onClick={() => handleItemClick(onNotificationsPanel)}
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+            >
+              <FaBell size={18} className="text-blue-500" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  View Notifications
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  See updates from friends
+                </div>
+              </div>
+            </button>
+
+            {/* Notification Settings */}
             <button
               onClick={() => handleItemClick(onNotificationSettings)}
               className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
             >
               <div className="relative">
-                <FaBell size={18} className="text-blue-500" />
+                <FaBell size={18} className="text-gray-500" />
                 {notificationPermission !== 'granted' && (
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                  Notifications
+                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-gray-600 dark:group-hover:text-gray-400">
+                  Notification Settings
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
                   {notificationPermission === 'granted' ? 'Enabled' : 'Not enabled'}

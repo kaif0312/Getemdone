@@ -25,6 +25,7 @@ import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNoti
 import { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
+import NotificationsPanel from '@/components/NotificationsPanel';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -62,6 +63,7 @@ export default function Home() {
   
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
   const notifications = useNotifications();
@@ -544,6 +546,7 @@ export default function Home() {
               {/* Settings Menu - Contains: Notifications, Help, Recycle Bin, WhatsApp, Admin */}
               <SettingsMenu
                 onNotificationSettings={() => setShowNotificationSettings(true)}
+                onNotificationsPanel={() => setShowNotificationsPanel(true)}
                 onHelp={() => setShowHelpModal(true)}
                 onRecycleBin={() => setShowRecycleBin(true)}
                 onAdmin={userData?.isAdmin ? () => router.push('/admin') : undefined}
@@ -1046,6 +1049,17 @@ export default function Home() {
         userId={user.uid}
         userName={userData?.displayName || 'Unknown User'}
         userEmail={userData?.email || ''}
+      />
+
+      {/* Notifications Panel */}
+      <NotificationsPanel
+        isOpen={showNotificationsPanel}
+        onClose={() => setShowNotificationsPanel(false)}
+        userId={user.uid}
+        onTaskClick={(taskId) => {
+          // Scroll to task or open comments
+          setSelectedTaskForComments(taskId);
+        }}
       />
 
       {/* Contextual Tooltips - Mobile only (desktop has help button) */}

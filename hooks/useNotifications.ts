@@ -10,6 +10,7 @@ export interface NotificationSettings {
   noonCheckIn: boolean; // Remind at noon if no tasks completed
   commitmentReminders: boolean;
   friendCompletions: boolean;
+  friendComments: boolean; // Notify when friends comment on your tasks
   sound: boolean;
   vibrate: boolean;
 }
@@ -21,6 +22,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   noonCheckIn: true,
   commitmentReminders: true,
   friendCompletions: true,
+  friendComments: true,
   sound: false, // Keep it subtle
   vibrate: true,
 };

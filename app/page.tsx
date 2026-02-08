@@ -29,6 +29,7 @@ import SettingsMenu from '@/components/SettingsMenu';
 import BugReportModal from '@/components/BugReportModal';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import QuickInfoModal from '@/components/QuickInfoModal';
+import IOSInstallPrompt from '@/components/IOSInstallPrompt';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -41,6 +42,7 @@ import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
+import { needsInstallation } from '@/utils/deviceDetection';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading, signOut, updateStreakData } = useAuth();
@@ -96,6 +98,24 @@ export default function Home() {
   const taskInputRef = useRef<HTMLInputElement>(null);
   const friendsButtonRef = useRef<HTMLButtonElement>(null);
   const streakButtonRef = useRef<HTMLButtonElement>(null);
+
+  // iOS Installation Detection
+  const [showIOSInstallPrompt, setShowIOSInstallPrompt] = useState(false);
+  const [isCheckingIOSInstall, setIsCheckingIOSInstall] = useState(true);
+
+  // Check if iOS user needs to install app
+  useEffect(() => {
+    // Only check on client-side after mount
+    if (typeof window !== 'undefined') {
+      const needsInstall = needsInstallation();
+      setShowIOSInstallPrompt(needsInstall);
+      setIsCheckingIOSInstall(false);
+      
+      if (needsInstall) {
+        console.log('🍎 iOS user detected - App must be installed to home screen for full functionality');
+      }
+    }
+  }, []);
 
   // Reset rollover notice dismissal on new day (check periodically)
   useEffect(() => {
@@ -542,6 +562,11 @@ export default function Home() {
   // Show pending approval screen if user is not whitelisted
   if (isWhitelisted === false) {
     return <PendingApproval />;
+  }
+
+  // Show iOS installation prompt if needed (blocks access until installed)
+  if (showIOSInstallPrompt && !isCheckingIOSInstall) {
+    return <IOSInstallPrompt allowDismiss={false} />;
   }
 
   return (

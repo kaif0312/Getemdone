@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '@/lib/types';
+import { messaging } from '@/lib/firebase';
+import { getToken, onMessage } from 'firebase/messaging';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -30,6 +32,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 export function useNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSupported, setIsSupported] = useState(false);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if notifications are supported
@@ -39,6 +42,34 @@ export function useNotifications() {
     }
   }, []);
 
+  // Listen for foreground messages (when app is open)
+  useEffect(() => {
+    if (!messaging) return;
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('[useNotifications] Foreground message received:', payload);
+      
+      // Show notification when app is in foreground
+      if (Notification.permission === 'granted') {
+        const title = payload.notification?.title || 'New Notification';
+        const options: NotificationOptions = {
+          body: payload.notification?.body || '',
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: payload.data?.tag || 'default',
+          data: payload.data,
+        };
+        
+        // Use service worker to show notification
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(title, options);
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isSupported) {
       console.warn('Notifications not supported');
@@ -46,8 +77,40 @@ export function useNotifications() {
     }
 
     try {
+      // Request notification permission
       const result = await Notification.requestPermission();
       setPermission(result);
+      
+      if (result === 'granted' && messaging) {
+        // Get FCM token for this device
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          
+          // IMPORTANT: Get your VAPID key from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+          const currentToken = await getToken(messaging, {
+            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: registration,
+          });
+          
+          if (currentToken) {
+            console.log('✅ FCM Token obtained:', currentToken);
+            setFcmToken(currentToken);
+            
+            // TODO: Save this token to Firestore user document for server-side push notifications
+            // You'll need to send push notifications from your server/Cloud Functions
+            
+            return true;
+          } else {
+            console.warn('⚠️ No FCM token available. Request permission first.');
+            return false;
+          }
+        } catch (tokenError) {
+          console.error('❌ Error getting FCM token:', tokenError);
+          console.error('💡 Make sure you have set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your .env.local file');
+          return result === 'granted'; // Still return true if permission granted, even if token fails
+        }
+      }
+      
       return result === 'granted';
     } catch (error) {
       console.error('Error requesting notification permission:', error);
@@ -184,6 +247,7 @@ export function useNotifications() {
   return {
     permission,
     isSupported,
+    fcmToken,
     requestPermission,
     showNotification,
     scheduleDeadlineReminder,

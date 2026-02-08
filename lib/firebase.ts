@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,6 +18,21 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// Initialize Firebase Cloud Messaging (only on client side)
+let messaging: ReturnType<typeof getMessaging> | null = null;
+if (typeof window !== 'undefined') {
+  isSupported().then((supported) => {
+    if (supported) {
+      messaging = getMessaging(app);
+      console.log('✅ Firebase Cloud Messaging initialized');
+    } else {
+      console.log('⚠️ Firebase Cloud Messaging not supported in this browser');
+    }
+  }).catch((error) => {
+    console.error('❌ Error checking FCM support:', error);
+  });
+}
 
 // Connect to emulators if in development and USE_EMULATOR is true
 // Must be done on client side only, and BEFORE any Firebase operations
@@ -39,4 +55,4 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_EMULATOR === 't
   }
 }
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, messaging };

@@ -14,6 +14,7 @@ export interface NotificationSettings {
   commitmentReminders: boolean;
   friendCompletions: boolean;
   friendComments: boolean; // Notify when friends comment on your tasks
+  friendEncouragement: boolean; // Receive encouragement from friends
   sound: boolean;
   vibrate: boolean;
 }
@@ -21,7 +22,7 @@ export interface NotificationSettings {
 export interface InAppNotification {
   id: string;
   userId: string; // Who receives the notification
-  type: 'comment' | 'completion' | 'deadline' | 'commitment';
+  type: 'comment' | 'completion' | 'deadline' | 'commitment' | 'encouragement';
   title: string;
   message: string;
   taskId?: string;

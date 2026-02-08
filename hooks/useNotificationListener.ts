@@ -110,6 +110,23 @@ export function useNotificationListener({
                 settings,
               });
               console.log('[NotificationListener] ✅ Push notification sent with comment text');
+            } else if (notification.type === 'encouragement') {
+              // Send encouragement notification
+              const notificationBody = notification.commentText || notification.message;
+              
+              showNotification(notification.title, {
+                body: notificationBody,
+                tag: `encouragement-${notification.id}`,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                data: {
+                  notificationId: notification.id,
+                  url: '/',
+                },
+                requireInteraction: false,
+                settings,
+              });
+              console.log('[NotificationListener] ✅ Encouragement notification sent');
             }
           }
         });

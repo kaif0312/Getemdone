@@ -301,6 +301,38 @@ export default function NotificationSettings({
               </div>
             </div>
 
+            {/* Friend Encouragement */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <FaFire className="text-orange-500" size={18} />
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white">
+                      Friend Encouragement
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Receive motivational messages from friends
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleToggle('friendEncouragement')}
+                  disabled={!localSettings.enabled}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                    localSettings.friendEncouragement
+                      ? 'bg-orange-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  } disabled:opacity-50`}
+                >
+                  <div
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                      localSettings.friendEncouragement ? 'translate-x-6' : ''
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             {/* Sound & Vibration */}
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">

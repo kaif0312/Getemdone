@@ -916,6 +916,51 @@ export function useTasks() {
     }
   };
 
+  // Send encouragement to a friend
+  const sendEncouragement = async (friendId: string, message: string) => {
+    if (!user || !userData) {
+      throw new Error('Must be logged in to send encouragement');
+    }
+
+    try {
+      console.log('[sendEncouragement] Sending encouragement to friend:', friendId);
+      
+      // Get friend's data to check notification settings
+      const friendDocRef = doc(db, 'users', friendId);
+      const friendDoc = await getDoc(friendDocRef);
+      
+      if (!friendDoc.exists()) {
+        throw new Error('Friend not found');
+      }
+      
+      const friendData = friendDoc.data() as User;
+      
+      // Check if friend has encouragement notifications enabled
+      if (friendData.notificationSettings?.enabled && friendData.notificationSettings?.friendEncouragement !== false) {
+        const notificationData = {
+          userId: friendId,
+          type: 'encouragement',
+          title: `💪 ${userData.displayName} sent you encouragement!`,
+          message: message,
+          fromUserId: user.uid,
+          fromUserName: userData.displayName,
+          commentText: message, // Store the encouragement message
+          createdAt: Date.now(),
+          read: false,
+        };
+        
+        console.log('[sendEncouragement] Creating notification:', notificationData);
+        await addDoc(collection(db, 'notifications'), notificationData);
+        console.log('[sendEncouragement] ✅ Encouragement sent successfully!');
+      } else {
+        console.log('[sendEncouragement] Friend has encouragement notifications disabled');
+      }
+    } catch (error) {
+      console.error('[sendEncouragement] ❌ Error sending encouragement:', error);
+      throw error;
+    }
+  };
+
   return {
     tasks,
     loading,
@@ -937,6 +982,7 @@ export function useTasks() {
     reorderTasks,
     addAttachment,
     deleteAttachment,
+    sendEncouragement,
     userStorageUsage,
   };
 }

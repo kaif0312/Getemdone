@@ -25,6 +25,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   commitmentReminders: true,
   friendCompletions: true,
   friendComments: true,
+  friendEncouragement: true,
   sound: false, // Keep it subtle
   vibrate: true,
 };

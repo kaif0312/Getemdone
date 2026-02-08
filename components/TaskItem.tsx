@@ -931,34 +931,46 @@ export default function TaskItem({
 
               {/* Add Notes Button - Show if no notes and not expanded */}
               {!task.notes && !showNotes && (
-                <button
-                  onClick={() => {
-                    setShowNotes(true);
-                    setIsEditingNotes(true);
-                  }}
-                  className="flex items-center gap-0.5 text-[9px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                >
-                  <FaStickyNote size={9} />
-                  <span>Add notes</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowNotes(true);
+                      setIsEditingNotes(true);
+                    }}
+                    className="flex items-center gap-0.5 text-[9px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  >
+                    <FaStickyNote size={9} />
+                    <span>Add notes</span>
+                  </button>
+                  
+                  {/* Inline Attachment Upload - Show only if no attachments yet */}
+                  {isOwnTask && !task.completed && onAddAttachment && (!task.attachments || task.attachments.length === 0) && (
+                    <AttachmentUpload
+                      taskId={task.id}
+                      currentAttachments={task.attachments || []}
+                      onUploadComplete={(attachment) => onAddAttachment(task.id, attachment)}
+                      maxAttachments={3}
+                      userStorageUsed={userStorageUsed}
+                      userStorageLimit={userStorageLimit}
+                    />
+                  )}
+                </div>
               )}
             </div>
           )}
 
-          {/* Attachments & Upload - Consolidated section */}
-          {(isOwnTask && ((task.attachments && task.attachments.length > 0) || (!task.completed && onAddAttachment))) && (
+          {/* Attachments & Upload - Show when attachments exist or notes are visible */}
+          {(isOwnTask && task.attachments && task.attachments.length > 0) && (
             <div className="mt-1 space-y-1">
               {/* Existing Attachments */}
-              {task.attachments && task.attachments.length > 0 && (
-                <AttachmentGallery
-                  attachments={task.attachments}
-                  onDelete={isOwnTask && onDeleteAttachment ? (attachmentId) => onDeleteAttachment(task.id, attachmentId) : undefined}
-                  canDelete={isOwnTask && !task.completed}
-                  compact={true}
-                />
-              )}
+              <AttachmentGallery
+                attachments={task.attachments}
+                onDelete={isOwnTask && onDeleteAttachment ? (attachmentId) => onDeleteAttachment(task.id, attachmentId) : undefined}
+                canDelete={isOwnTask && !task.completed}
+                compact={true}
+              />
 
-              {/* Attachment Upload Button - Show only for own incomplete tasks */}
+              {/* Attachment Upload Button - Show when attachments exist */}
               {isOwnTask && !task.completed && onAddAttachment && (
                 <AttachmentUpload
                   taskId={task.id}

@@ -119,7 +119,7 @@ export default function AttachmentUpload({
   };
 
   return (
-    <div className="relative">
+    <div className="relative inline-block">
       <input
         ref={fileInputRef}
         type="file"
@@ -133,10 +133,10 @@ export default function AttachmentUpload({
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading || !canUploadMore}
         className={`
-          p-2 rounded-lg transition-all
+          flex items-center gap-0.5 text-[9px] transition-colors
           ${uploading || !canUploadMore
-            ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
           }
         `}
         title={
@@ -148,21 +148,16 @@ export default function AttachmentUpload({
         }
       >
         {uploading ? (
-          <FaSpinner className="animate-spin" size={16} />
+          <FaSpinner className="animate-spin" size={9} />
         ) : (
-          <FaPaperclip size={16} />
+          <FaPaperclip size={9} />
         )}
+        <span className="font-medium">{uploading ? 'Uploading...' : 'Attach'}</span>
       </button>
 
       {error && (
-        <div className="absolute top-full left-0 mt-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+        <div className="absolute top-full left-0 mt-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 shadow-lg">
           {error}
-        </div>
-      )}
-
-      {!canUploadMore && !uploading && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-          {maxAttachments}
         </div>
       )}
     </div>

@@ -1,21 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Task } from '@/lib/types';
+import { Task, NotificationSettings } from '@/lib/types';
 import { messaging } from '@/lib/firebase';
 import { getToken, onMessage } from 'firebase/messaging';
-
-export interface NotificationSettings {
-  enabled: boolean;
-  deadlineReminders: boolean;
-  deadlineMinutesBefore: number; // How many minutes before deadline to remind
-  noonCheckIn: boolean; // Remind at noon if no tasks completed
-  commitmentReminders: boolean;
-  friendCompletions: boolean;
-  friendComments: boolean; // Notify when friends comment on your tasks
-  sound: boolean;
-  vibrate: boolean;
-}
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled: true,

@@ -679,14 +679,14 @@ export default function AdminDashboard() {
                       Mark In Progress
                     </button>
                     <button
-                      onClick={() => handleUpdateBugStatus(report.id, 'resolved')}
+                      onClick={() => handleResolveWithReply(report.id, 'resolved')}
                       disabled={report.status === 'resolved' || report.status === 'closed'}
                       className="px-3 py-1 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Mark Resolved
                     </button>
                     <button
-                      onClick={() => handleUpdateBugStatus(report.id, 'closed')}
+                      onClick={() => handleResolveWithReply(report.id, 'closed')}
                       disabled={report.status === 'closed'}
                       className="px-3 py-1 text-xs bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >

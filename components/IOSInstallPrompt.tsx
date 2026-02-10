@@ -28,9 +28,8 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFe
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
         touchAction: 'pan-y',
-        height: '100vh',
-        height: '100dvh', // Dynamic viewport height for mobile
-      }}
+        height: '100dvh', // Dynamic viewport height for mobile (fallback to 100vh if not supported)
+      } as React.CSSProperties}
     >
       <div className="min-h-full flex items-start justify-center p-4 py-8">
         <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 relative overflow-hidden my-8">

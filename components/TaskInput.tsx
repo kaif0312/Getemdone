@@ -175,7 +175,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     <>
       <form 
         onSubmit={handleSubmit} 
-        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg safe-area-inset-bottom"
+        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg safe-area-inset-bottom z-50"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}
       >
         {/* Mobile: Compact single row with essential buttons */}

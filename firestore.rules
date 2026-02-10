@@ -161,5 +161,46 @@ service cloud.firestore {
       // Users can only delete their own tasks
       allow delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
+    
+    // Bug Reports collection
+    match /bugReports/{bugReportId} {
+      // Users can create bug reports
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'userName', 'userEmail', 'description', 'status', 'createdAt']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.userName is string &&
+        request.resource.data.userEmail is string &&
+        request.resource.data.description is string &&
+        request.resource.data.status == 'open' &&
+        (!request.resource.data.keys().hasAny(['imageUrl']) || request.resource.data.imageUrl is string || request.resource.data.imageUrl == null) &&
+        (!request.resource.data.keys().hasAny(['resolvedAt']) || request.resource.data.resolvedAt == null) &&
+        (!request.resource.data.keys().hasAny(['adminNotes']) || request.resource.data.adminNotes == null);
+      
+      // Users can read their own bug reports
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Only admins can read all bug reports and update/delete them
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can create notifications (for admin notifications)
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasAll(['userId', 'type', 'title', 'message', 'createdAt', 'read']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.type is string &&
+        request.resource.data.title is string &&
+        request.resource.data.message is string &&
+        request.resource.data.createdAt is number &&
+        request.resource.data.read is bool;
+      
+      // Users can read and update their own notifications
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
   }
 }

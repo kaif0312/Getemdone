@@ -19,9 +19,20 @@ const messaging = firebase.messaging();
 // Track shown notifications to prevent duplicates
 const shownNotifications = new Set();
 
+// Detect iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 // Handle background push notifications
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  
+  // On iOS, if payload has a notification field, iOS will show it automatically
+  // We should NOT show it again in the service worker to prevent duplicates
+  if (isIOS && payload.notification) {
+    console.log('[firebase-messaging-sw.js] iOS detected with notification payload - iOS will show automatically, skipping service worker display');
+    return;
+  }
   
   // Extract comment text from payload if available
   const commentText = payload.data?.commentText || '';

@@ -238,6 +238,10 @@ export function useNotifications(userId?: string) {
           if (tokenError.message?.includes('service worker') || tokenError.message?.includes('messaging')) {
             console.log('🔄 Retrying FCM token generation after delay...');
             setTimeout(async () => {
+              if (!messaging) {
+                console.error('❌ Messaging not available for retry');
+                return;
+              }
               try {
                 const registration = await navigator.serviceWorker.ready;
                 const retryToken = await getToken(messaging, {

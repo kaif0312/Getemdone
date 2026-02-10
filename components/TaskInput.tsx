@@ -189,11 +189,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
           maxWidth: '100%',
           paddingLeft: 'max(env(safe-area-inset-left, 0px), 0.5rem)',
           paddingRight: 'max(env(safe-area-inset-right, 0px), 0.5rem)',
-          overflowX: 'auto', 
-          overflowY: 'hidden', 
-          WebkitOverflowScrolling: 'touch' 
         }}>
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap" style={{ minWidth: 'fit-content' }}>
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap w-full">
             {/* Templates - Hidden on mobile, shown on desktop */}
             <button
               type="button"

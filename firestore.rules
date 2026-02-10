@@ -15,7 +15,11 @@ service cloud.firestore {
     
     // Helper function to check if users are friends
     function areFriends(userId) {
-      return userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['friends']) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends is list &&
+        userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
     }
     
     // Helper function to check if user is admin

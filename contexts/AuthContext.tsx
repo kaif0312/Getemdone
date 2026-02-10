@@ -239,9 +239,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
         }
       } else {
-        // User was previously whitelisted but now removed - don't auto-add, show error
-        await firebaseSignOut(auth);
-        throw new Error('ACCESS_REMOVED'); // Special error code for access removed screen
+        // User was previously whitelisted but now removed - don't auto-add
+        // Don't sign out - let them stay authenticated so AccessRemovedScreen can be shown
+        // The auth state listener will set isWhitelisted to false, which will trigger the screen
+        // Just return without throwing error - the screen will be shown automatically
+        return;
       }
     }
   };
@@ -315,9 +317,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
         }
       } else {
-        // User was previously whitelisted but now removed - don't auto-add, show error
-        await firebaseSignOut(auth);
-        throw new Error('ACCESS_REMOVED'); // Special error code for access removed screen
+        // User was previously whitelisted but now removed - don't auto-add
+        // Don't sign out - let them stay authenticated so AccessRemovedScreen can be shown
+        // The auth state listener will set isWhitelisted to false, which will trigger the screen
+        // Just return without throwing error - the screen will be shown automatically
+        return;
       }
     }
     

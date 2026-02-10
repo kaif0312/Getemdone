@@ -170,11 +170,13 @@ export default function AdminDashboard() {
     setSuccess('');
 
     try {
-      await addDoc(collection(db, 'betaWhitelist'), {
+      // Use setDoc with email as document ID (required by Firestore rules)
+      // Use merge: true to avoid overwriting if document already exists
+      await setDoc(doc(db, 'betaWhitelist', email), {
         email: email,
         addedAt: Date.now(),
         addedBy: user?.uid || 'unknown',
-      });
+      }, { merge: true });
       
       setNewEmail('');
       setSuccess(`Added ${email} to whitelist`);
@@ -208,12 +210,13 @@ export default function AdminDashboard() {
 
   const handleApproveSignup = async (signup: PendingSignup) => {
     try {
-      // Add to whitelist
-      await addDoc(collection(db, 'betaWhitelist'), {
-        email: signup.email,
+      // Add to whitelist - use email as document ID (required by Firestore rules)
+      const emailLower = signup.email.toLowerCase();
+      await setDoc(doc(db, 'betaWhitelist', emailLower), {
+        email: emailLower,
         addedAt: Date.now(),
         addedBy: user?.uid || 'unknown',
-      });
+      }, { merge: true });
 
       // Update pending signup status
       await updateDoc(doc(db, 'pendingSignups', signup.id), {

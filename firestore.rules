@@ -45,6 +45,10 @@ service cloud.firestore {
         (request.resource.data.email == request.auth.token.email ||
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           request.resource.data.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email));
+      // Admins can create entries for any email (for adding users to whitelist)
+      allow create: if isAdmin() &&
+        !exists(/databases/$(database)/documents/betaWhitelist/$(email)) &&
+        request.resource.data.email == email;
       // Only admins can update or delete (remove from whitelist)
       allow update, delete: if isAdmin();
     }

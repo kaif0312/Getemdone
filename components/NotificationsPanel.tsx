@@ -196,7 +196,7 @@ export default function NotificationsPanel({
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
                             {notification.title}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
                             {notification.commentText 
                               ? `"${notification.commentText}"`
                               : notification.type === 'bugReport' && notification.message && !notification.message.includes('Your feedback has been')
@@ -212,7 +212,7 @@ export default function NotificationsPanel({
                                   </div>
                                 )
                               : notification.message}
-                          </p>
+                          </div>
                           {notification.taskText && (
                             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
                               "{notification.taskText}"

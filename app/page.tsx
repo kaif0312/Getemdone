@@ -852,18 +852,39 @@ export default function Home() {
                 
                 return shouldShow;
               }).sort((a, b) => {
-                // Sort by due date: tasks with due dates first, then by due date (earliest first)
-                // Overdue tasks come first, then tasks due soon, then no due date
+                // Helper to get scheduled time from deferredTo
+                const getScheduledTime = (task: typeof a) => {
+                  if (!task.deferredTo || !task.deferredTo.includes('T')) return null;
+                  try {
+                    return new Date(task.deferredTo).getTime();
+                  } catch {
+                    return null;
+                  }
+                };
+                
+                const aScheduled = getScheduledTime(a);
+                const bScheduled = getScheduledTime(b);
+                
+                // Priority 1: Tasks with due dates
                 if (a.dueDate && b.dueDate) {
                   return a.dueDate - b.dueDate; // Earliest first
                 } else if (a.dueDate && !b.dueDate) {
                   return -1; // Tasks with due date come first
                 } else if (!a.dueDate && b.dueDate) {
                   return 1; // Tasks without due date come after
-                } else {
-                  // Both have no due date, sort by order (for drag-and-drop)
-                  return (a.order || 0) - (b.order || 0);
                 }
+                
+                // Priority 2: Scheduled tasks (created today, scheduled for today or future)
+                if (aScheduled && bScheduled) {
+                  return aScheduled - bScheduled; // Earliest scheduled time first
+                } else if (aScheduled && !bScheduled) {
+                  return -1; // Scheduled tasks come before non-scheduled
+                } else if (!aScheduled && bScheduled) {
+                  return 1; // Non-scheduled come after scheduled
+                }
+                
+                // Priority 3: Sort by order (for drag-and-drop)
+                return (a.order || 0) - (b.order || 0);
               });
               
               // Debug logging removed

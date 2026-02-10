@@ -86,10 +86,15 @@ export default function StreakCalendar({
         return taskDateStr === dateStr;
       }
       
-      // For incomplete tasks, show on BOTH creation date AND deferred date
+      // For incomplete tasks, show on BOTH creation date AND deferred/scheduled date
       if (!task.completed) {
-        // Check if this matches the deferred date
-        if (task.deferredTo === dateStr) return true;
+        // Check if this matches the deferred/scheduled date
+        if (task.deferredTo) {
+          const deferredDate = task.deferredTo.includes('T') 
+            ? task.deferredTo.split('T')[0] 
+            : task.deferredTo;
+          if (deferredDate === dateStr) return true;
+        }
         
         // Check if this matches the creation date
         const date = new Date(task.createdAt);

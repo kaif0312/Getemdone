@@ -788,7 +788,8 @@ export default function TaskItem({
                 const todayStr = getTodayString();
                 const createdDate = new Date(task.createdAt).toISOString().split('T')[0];
                 const deferredDate = task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo;
-                const isScheduled = createdDate === todayStr && deferredDate > todayStr;
+                // A task is "scheduled" if it was created today and deferred to today or future
+                const isScheduled = createdDate === todayStr && deferredDate >= todayStr;
                 
                 // Parse datetime for display
                 let displayText: string;

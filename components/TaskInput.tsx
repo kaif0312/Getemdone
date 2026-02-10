@@ -216,7 +216,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               onChange={(e) => setText(e.target.value)}
               placeholder="Type or speak a task..."
               disabled={disabled}
-              className="flex-1 min-w-0 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-2 sm:py-2.5 md:px-4 md:py-3 text-sm md:text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
             />
           
             {/* Unified Date & Schedule Button - Always visible */}

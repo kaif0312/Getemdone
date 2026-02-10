@@ -104,14 +104,14 @@ export default function VoiceButton({
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className={`p-3 rounded-full transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${
+        className={`p-2 md:p-3 rounded-full transition-all min-w-[36px] min-h-[36px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center ${
           isListening
             ? 'bg-red-500 text-white animate-pulse shadow-lg'
             : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/70'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
         title={isListening ? 'Stop recording' : `Voice input (${currentLanguage.name})`}
       >
-        {isListening ? <FaStop size={18} /> : <FaMicrophone size={18} />}
+        {isListening ? <FaStop size={14} className="md:w-[18px] md:h-[18px]" /> : <FaMicrophone size={14} className="md:w-[18px] md:h-[18px]" />}
       </button>
 
       {/* Language Selector Badge */}

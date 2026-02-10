@@ -184,8 +184,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         }}
       >
         {/* Mobile: Compact single row with essential buttons */}
-        <div className="max-w-3xl mx-auto px-3 py-2.5 md:p-4 overflow-x-auto overflow-y-hidden">
-          <div className="flex items-center gap-1.5 md:gap-2 min-w-fit flex-nowrap">
+        <div className="max-w-3xl mx-auto px-2 sm:px-3 py-2.5 md:p-4" style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap" style={{ minWidth: 'fit-content' }}>
             {/* Templates - Hidden on mobile, shown on desktop */}
             <button
               type="button"
@@ -225,7 +225,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                 type="button"
                 onClick={handleOpenUnifiedPicker}
                 disabled={disabled}
-                className={`p-2.5 md:p-3 rounded-full transition-colors min-w-[40px] min-h-[40px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center relative ${
+                className={`p-2 md:p-2.5 md:p-3 rounded-full transition-colors min-w-[36px] min-h-[36px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center relative ${
                   scheduledFor
                     ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/70'
                     : dueDate
@@ -245,9 +245,9 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               >
                 {/* Show clock icon if scheduled, calendar if deadline, calendar if both */}
                 {scheduledFor ? (
-                  <FaClock size={16} className="md:w-[18px] md:h-[18px]" />
+                  <FaClock size={14} className="md:w-[18px] md:h-[18px]" />
                 ) : (
-                  <FaCalendar size={16} className="md:w-[18px] md:h-[18px]" />
+                  <FaCalendar size={14} className="md:w-[18px] md:h-[18px]" />
                 )}
                 {/* Indicator dot if both are set */}
                 {scheduledFor && dueDate && (
@@ -412,23 +412,23 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               type="button"
               onClick={() => setIsPrivate(!isPrivate)}
               disabled={disabled}
-              className={`p-2.5 md:p-3 rounded-full transition-colors min-w-[40px] min-h-[40px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center flex-shrink-0 ${
+              className={`p-2 md:p-2.5 md:p-3 rounded-full transition-colors min-w-[36px] min-h-[36px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center flex-shrink-0 ${
                 isPrivate 
                   ? 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600' 
                   : 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/70'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
               title={isPrivate ? 'Private (only you can see)' : 'Shared (friends can see)'}
             >
-              {isPrivate ? <FaEyeSlash size={16} className="md:w-[20px] md:h-[20px]" /> : <FaEye size={16} className="md:w-[20px] md:h-[20px]" />}
+              {isPrivate ? <FaEyeSlash size={14} className="md:w-[20px] md:h-[20px]" /> : <FaEye size={14} className="md:w-[20px] md:h-[20px]" />}
             </button>
             
             {/* Submit Button */}
             <button
               type="submit"
               disabled={!text.trim() || disabled}
-              className="bg-blue-600 dark:bg-blue-500 text-white p-2.5 md:p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed min-w-[40px] min-h-[40px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center flex-shrink-0"
+              className="bg-blue-600 dark:bg-blue-500 text-white p-2 md:p-2.5 md:p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] md:min-w-[44px] md:min-h-[44px] flex items-center justify-center flex-shrink-0"
             >
-              <FaPaperPlane size={16} className="md:w-[18px] md:h-[18px]" />
+              <FaPaperPlane size={14} className="md:w-[18px] md:h-[18px]" />
             </button>
           </div>
         </div>

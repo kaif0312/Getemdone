@@ -7,7 +7,6 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFriends } from '@/hooks/useFriends';
 import { useRecycleCleanup } from '@/hooks/useRecycleCleanup';
 import AuthModal from '@/components/AuthModal';
-import PendingApproval from '@/components/PendingApproval';
 import TaskInput from '@/components/TaskInput';
 import TaskItem from '@/components/TaskItem';
 import SortableTaskItem from '@/components/SortableTaskItem';
@@ -559,10 +558,7 @@ export default function Home() {
     return <AuthModal />;
   }
 
-  // Show pending approval screen if user is not whitelisted
-  if (isWhitelisted === false) {
-    return <PendingApproval />;
-  }
+  // Whitelist verification disabled - no pending approval screen needed
 
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {

@@ -113,11 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          // Re-check whitelist status when user data changes
-          if (firebaseUser.email) {
-            const whitelisted = await checkBetaWhitelist(firebaseUser.email);
-            setIsWhitelisted(whitelisted);
-          }
+          // Whitelist check disabled - always set to true
+          setIsWhitelisted(true);
           
           setLoading(false);
         }, (error) => {
@@ -148,42 +145,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Check if user email is in beta whitelist
+  // DISABLED: Whitelist verification is disabled - all users can sign up
   const checkBetaWhitelist = async (email: string): Promise<boolean> => {
-    try {
-      const emailLower = email.toLowerCase().trim();
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[AuthContext] Checking whitelist for email:', emailLower);
-      }
-      const whitelistRef = collection(db, 'betaWhitelist');
-      const q = query(whitelistRef, where('email', '==', emailLower));
-      const querySnapshot = await getDocs(q);
-      const isWhitelisted = !querySnapshot.empty;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[AuthContext] Whitelist check result:', isWhitelisted, 'for email:', emailLower);
-        if (!isWhitelisted) {
-          console.log('[AuthContext] Email not found in whitelist. Make sure:');
-          console.log('  1. Collection name is exactly: betaWhitelist');
-          console.log('  2. Document has a field named: email');
-          console.log('  3. Email value matches exactly (case-insensitive):', emailLower);
-        }
-      }
-      return isWhitelisted;
-    } catch (error: any) {
-      console.error('[AuthContext] Error checking beta whitelist:', error);
-      console.error('[AuthContext] Error code:', error.code);
-      console.error('[AuthContext] Error message:', error.message);
-      // If whitelist check fails, deny access for safety
-      return false;
-    }
+    // Always return true - whitelist verification is disabled
+    return true;
   };
 
   const signIn = async (email: string, password: string) => {
-    // Check beta whitelist before signing in
-    const isWhitelisted = await checkBetaWhitelist(email);
-    if (!isWhitelisted) {
-      throw new Error('Access restricted. This app is currently in beta testing. Please contact the administrator for access.');
-    }
-    
+    // Whitelist check disabled - allow all users to sign in
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -198,14 +167,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    // Check if already whitelisted
-    const isWhitelisted = await checkBetaWhitelist(email);
+    // Whitelist check disabled - allow all users to sign up
     
     // Create Firebase Auth account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
 
-    // Create user document (always create it, even if not whitelisted)
+    // Create user document
     const newUser: User = {
       id: userId,
       displayName,
@@ -218,40 +186,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await setDoc(doc(db, 'users', userId), newUser);
     setUserData(newUser);
-    setIsWhitelisted(isWhitelisted);
-
-    if (!isWhitelisted) {
-      // User is not whitelisted - create pending signup request
-      try {
-        await addDoc(collection(db, 'pendingSignups'), {
-          userId,
-          email: email.toLowerCase(),
-          displayName,
-          requestedAt: Date.now(),
-          status: 'pending',
-        });
-      } catch (error) {
-        console.error('[AuthContext] Error creating pending signup:', error);
-        // Continue anyway - user account is created
-      }
-      // Don't throw error - let user stay logged in and see pending approval screen
-    }
+    setIsWhitelisted(true); // Always set to true since whitelist is disabled
   };
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Check beta whitelist after Google auth (we need email from result)
+    // Whitelist check disabled - allow all users to sign in
     const email = result.user.email;
     if (!email) {
       await firebaseSignOut(auth);
       throw new Error('Unable to get email from Google account. Please try again.');
     }
     
-    const isWhitelisted = await checkBetaWhitelist(email);
     const userId = result.user.uid;
-    setIsWhitelisted(isWhitelisted);
+    setIsWhitelisted(true); // Always set to true since whitelist is disabled
 
     // Check if user document exists
     const userDocRef = doc(db, 'users', userId);
@@ -286,22 +236,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           photoURL: result.user.photoURL
         }, { merge: true });
       }
-    }
-
-    if (!isWhitelisted) {
-      // User is not whitelisted - create pending signup request
-      try {
-        await addDoc(collection(db, 'pendingSignups'), {
-          userId,
-          email: email.toLowerCase(),
-          displayName: result.user.displayName || 'User',
-          requestedAt: Date.now(),
-          status: 'pending',
-        });
-      } catch (error) {
-        console.error('[AuthContext] Error creating pending signup:', error);
-      }
-      // Don't throw error - let user stay logged in and see pending approval screen
     }
   };
 

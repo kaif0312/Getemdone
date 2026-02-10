@@ -75,6 +75,18 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   };
 
+  const getTomorrowDateTime = (): string => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0); // Default to 9:00 AM
+    const year = tomorrow.getFullYear();
+    const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const day = String(tomorrow.getDate()).padStart(2, '0');
+    const hours = String(tomorrow.getHours()).padStart(2, '0');
+    const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
@@ -92,7 +104,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   };
 
   const scheduleForTomorrow = () => {
-    setScheduledFor(getTomorrowDate());
+    setScheduledFor(getTomorrowDateTime());
   };
 
   const handleOpenUnifiedPicker = () => {
@@ -265,26 +277,38 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                           onClick={scheduleForTomorrow}
                           className="w-full px-3 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg transition-all font-medium text-sm shadow-sm active:scale-[0.98]"
                         >
-                          📅 Schedule for Tomorrow
+                          📅 Schedule for Tomorrow (9:00 AM)
                         </button>
                         
-                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose a date</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date & time</div>
                         
                         <input
                           ref={scheduleInputRef}
-                          type="date"
+                          type="datetime-local"
                           onChange={handleScheduleChange}
-                          min={getTomorrowDate()}
+                          min={getTomorrowDateTime()}
                           defaultValue={scheduledFor || ''}
                           className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
                         />
                         {scheduledFor && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                            {new Date(scheduledFor + 'T00:00:00').toLocaleDateString('en-US', { 
-                              weekday: 'short',
-                              month: 'short', 
-                              day: 'numeric',
-                            })}
+                            {(() => {
+                              try {
+                                const dateTime = scheduledFor.includes('T') 
+                                  ? new Date(scheduledFor) 
+                                  : new Date(scheduledFor + 'T00:00:00');
+                                return dateTime.toLocaleDateString('en-US', { 
+                                  weekday: 'short',
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                });
+                              } catch {
+                                return scheduledFor;
+                              }
+                            })()}
                           </div>
                         )}
                       </div>

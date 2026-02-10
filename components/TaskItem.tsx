@@ -787,7 +787,37 @@ export default function TaskItem({
               {task.deferredTo && (() => {
                 const todayStr = getTodayString();
                 const createdDate = new Date(task.createdAt).toISOString().split('T')[0];
-                const isScheduled = createdDate === todayStr && task.deferredTo > todayStr;
+                const deferredDate = task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo;
+                const isScheduled = createdDate === todayStr && deferredDate > todayStr;
+                
+                // Parse datetime for display
+                let displayDate: string;
+                try {
+                  const dateTime = task.deferredTo.includes('T') 
+                    ? new Date(task.deferredTo) 
+                    : new Date(task.deferredTo + 'T00:00:00');
+                  
+                  // Check if time is set (not midnight)
+                  const hasTime = task.deferredTo.includes('T') && !task.deferredTo.endsWith('T00:00');
+                  
+                  if (hasTime) {
+                    displayDate = dateTime.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                  } else {
+                    displayDate = dateTime.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric'
+                    });
+                  }
+                } catch {
+                  displayDate = task.deferredTo;
+                }
+                
                 return (
                   <div className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full ${
                     isScheduled 
@@ -796,7 +826,7 @@ export default function TaskItem({
                   }`}>
                     <FaCalendarPlus size={8} />
                     <span>
-                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {new Date(task.deferredTo + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {displayDate}
                     </span>
                   </div>
                 );

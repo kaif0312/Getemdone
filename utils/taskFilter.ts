@@ -9,6 +9,17 @@ export function getTodayString(): string {
 }
 
 /**
+ * Extract date part from deferredTo string (handles both YYYY-MM-DD and YYYY-MM-DDTHH:mm formats)
+ */
+function extractDateFromDeferredTo(deferredTo: string): string {
+  // If it contains 'T', extract just the date part
+  if (deferredTo.includes('T')) {
+    return deferredTo.split('T')[0];
+  }
+  return deferredTo;
+}
+
+/**
  * Get date string from timestamp in YYYY-MM-DD format
  * Uses local timezone to ensure consistency
  */
@@ -44,13 +55,16 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
     const createdDate = getDateString(task.createdAt);
     
     // 1. Deferred to today - always show
-    if (task.deferredTo === todayStr) {
-      return true;
-    }
-    
-    // 2. Deferred to future - don't show
-    if (task.deferredTo && task.deferredTo > todayStr) {
-      return false;
+    if (task.deferredTo) {
+      const deferredDate = extractDateFromDeferredTo(task.deferredTo);
+      if (deferredDate === todayStr) {
+        return true;
+      }
+      
+      // 2. Deferred to future - don't show
+      if (deferredDate > todayStr) {
+        return false;
+      }
     }
     
     // 3. Created today - always show (most important check)

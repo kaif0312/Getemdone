@@ -36,10 +36,9 @@ service firebase.storage {
     match /bugReports/{userId}/{imageId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && (request.auth.uid == userId || 
-        // Admin can delete any bug report image
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      // Note: Admin delete check would require Firestore read, which Storage rules don't support
+      // For now, allow users to delete their own. Admin deletion can be handled via Cloud Functions if needed.
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
     // Deny all other paths

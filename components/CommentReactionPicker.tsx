@@ -134,7 +134,9 @@ export default function CommentReactionPicker({
         {EMOJIS.map((emoji, index) => (
           <button
             key={emoji}
-            ref={(el) => (emojiRefs.current[index] = el)}
+            ref={(el) => {
+              emojiRefs.current[index] = el;
+            }}
             className={`
               w-12 h-12 rounded-full flex items-center justify-center text-2xl
               transition-all duration-150 pointer-events-auto

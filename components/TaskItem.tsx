@@ -784,12 +784,23 @@ export default function TaskItem({
           {/* Badges row - Ultra-compact inline layout */}
           {(task.deferredTo || task.dueDate) && (
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              {task.deferredTo && (
-                <div className="inline-flex items-center gap-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-1 py-0.5 rounded-full">
-                  <FaCalendarPlus size={8} />
-                  <span>Deferred to {new Date(task.deferredTo).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                </div>
-              )}
+              {task.deferredTo && (() => {
+                const todayStr = getTodayString();
+                const createdDate = new Date(task.createdAt).toISOString().split('T')[0];
+                const isScheduled = createdDate === todayStr && task.deferredTo > todayStr;
+                return (
+                  <div className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full ${
+                    isScheduled 
+                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' 
+                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                  }`}>
+                    <FaCalendarPlus size={8} />
+                    <span>
+                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {new Date(task.deferredTo + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                );
+              })()}
               
               {/* Due Date Indicator - Ultra-compact */}
               {task.dueDate && !task.completed && isOwnTask && onUpdateDueDate ? (

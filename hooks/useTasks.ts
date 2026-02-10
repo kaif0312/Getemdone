@@ -498,7 +498,7 @@ export function useTasks() {
     };
   }, [userId, userDataId, stableFriendsKey, setupKey]); // Use stable IDs and friendsKey to avoid infinite loops
 
-  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
+  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
     if (!user) return;
 
     // Get current max order for user's tasks
@@ -517,6 +517,7 @@ export function useTasks() {
       order: maxOrder + 1,
       deleted: false, // Explicitly set deleted to false
       ...(dueDate && { dueDate }), // Only include if set
+      ...(scheduledFor && { deferredTo: scheduledFor }), // Schedule task for future date
     };
     
     try {

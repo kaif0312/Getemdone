@@ -275,8 +275,8 @@ export default function Home() {
     }
   };
 
-  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null) => {
-    await addTask(text, isPrivate, dueDate);
+  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
+    await addTask(text, isPrivate, dueDate, scheduledFor);
     // Mark first task as seen
     if (!onboarding.state.hasSeenFirstTask) {
       onboarding.markFeatureSeen('hasSeenFirstTask');

@@ -32,11 +32,15 @@ export function useNotifications(userId?: string) {
   }, []);
 
   // Auto-generate FCM token if permission already granted and user is logged in
+  // Also re-runs when permission changes (e.g., user grants permission)
   useEffect(() => {
     const initializeFCMToken = async () => {
       // Skip if no user, not supported, or permission not granted
       if (!userId || !isSupported || !messaging) return;
-      if (Notification.permission !== 'granted') return;
+      if (Notification.permission !== 'granted') {
+        console.log('[useNotifications] Permission not granted, skipping FCM token generation');
+        return;
+      }
 
       try {
         console.log('[useNotifications] Auto-generating FCM token for logged-in user...');
@@ -79,19 +83,37 @@ export function useNotifications(userId?: string) {
           // Save to Firestore
           const { doc, updateDoc, getDoc } = await import('firebase/firestore');
           const { db } = await import('@/lib/firebase');
+          const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
+          
+          const userDocRef = doc(db, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+          const userData = userDoc.data();
           
           // Check if token already exists and is the same
-          const userDoc = await getDoc(doc(db, 'users', userId));
-          const existingToken = userDoc.data()?.fcmToken;
+          const existingToken = userData?.fcmToken;
           
+          const updateData: any = {};
+          
+          // Update token if it changed
           if (existingToken !== currentToken) {
-            await updateDoc(doc(db, 'users', userId), {
-              fcmToken: currentToken,
-              fcmTokenUpdatedAt: Date.now(),
-            });
-            console.log('✅ FCM token saved to Firestore for user:', userId);
+            updateData.fcmToken = currentToken;
+            updateData.fcmTokenUpdatedAt = Date.now();
+          }
+          
+          // Ensure notification settings are enabled if permission is granted
+          if (!userData?.notificationSettings || !userData.notificationSettings.enabled) {
+            updateData.notificationSettings = {
+              ...(userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS),
+              enabled: true,
+            };
+            console.log('✅ Auto-enabling notification settings');
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await updateDoc(userDocRef, updateData);
+            console.log('✅ FCM token and settings saved to Firestore for user:', userId);
           } else {
-            console.log('ℹ️ FCM token already up to date');
+            console.log('ℹ️ FCM token and settings already up to date');
           }
         } else {
           console.warn('⚠️ No FCM token available');
@@ -106,7 +128,7 @@ export function useNotifications(userId?: string) {
     // Longer delay for new users to ensure service worker is fully ready
     const timer = setTimeout(initializeFCMToken, 2000);
     return () => clearTimeout(timer);
-  }, [userId, isSupported]);
+  }, [userId, isSupported, permission]); // Added permission to dependencies to re-run when permission changes
 
   // Listen for foreground messages (when app is open)
   // Note: Service worker handles background messages, this handles foreground

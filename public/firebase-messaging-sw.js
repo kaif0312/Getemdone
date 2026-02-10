@@ -20,7 +20,7 @@ const messaging = firebase.messaging();
 const shownNotifications = new Set();
 
 // Handle background push notifications
-messaging.onBackgroundMessage((payload) => {
+messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   // Extract comment text from payload if available
@@ -39,12 +39,13 @@ messaging.onBackgroundMessage((payload) => {
   }
   
   // Check if a notification with this tag already exists (prevent duplicates across service worker instances)
-  self.registration.getNotifications({ tag: tag }).then((notifications) => {
-    if (notifications.length > 0) {
-      console.log('[firebase-messaging-sw.js] Notification with tag already exists, skipping duplicate:', tag);
-      return;
-    }
-  });
+  const existingNotifications = await self.registration.getNotifications({ tag: tag });
+  if (existingNotifications.length > 0) {
+    console.log('[firebase-messaging-sw.js] Notification with tag already exists, skipping duplicate:', tag);
+    // Mark as shown to prevent future duplicates
+    shownNotifications.add(tag);
+    return;
+  }
   
   // Mark as shown
   shownNotifications.add(tag);

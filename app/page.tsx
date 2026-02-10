@@ -360,10 +360,9 @@ export default function Home() {
     const myTasks = tasks.filter(t => {
       if (t.userId !== user.uid || t.completed || t.deleted || !t.deferredTo) return false;
       
-      // Only schedule notifications for tasks created today and scheduled for future
-      const createdDate = new Date(t.createdAt).toISOString().split('T')[0];
+      // Schedule notifications for tasks scheduled for today or future (with time)
       const deferredDate = t.deferredTo.includes('T') ? t.deferredTo.split('T')[0] : t.deferredTo;
-      return createdDate === todayStr && deferredDate > todayStr && t.deferredTo.includes('T');
+      return (deferredDate >= todayStr) && t.deferredTo.includes('T');
     });
 
     const timeoutIds: NodeJS.Timeout[] = [];

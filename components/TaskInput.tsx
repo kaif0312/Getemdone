@@ -87,6 +87,32 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  const getLaterTodayDateTime = (): string => {
+    const later = new Date();
+    // Set to 1 hour from now, rounded to nearest 15 minutes
+    later.setHours(later.getHours() + 1);
+    later.setMinutes(Math.ceil(later.getMinutes() / 15) * 15, 0, 0);
+    const year = later.getFullYear();
+    const month = String(later.getMonth() + 1).padStart(2, '0');
+    const day = String(later.getDate()).padStart(2, '0');
+    const hours = String(later.getHours()).padStart(2, '0');
+    const minutes = String(later.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  const getMinDateTime = (): string => {
+    // Allow scheduling from current time onwards (same day or future)
+    const now = new Date();
+    // Round up to next 5 minutes
+    now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value) {
@@ -105,6 +131,10 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
 
   const scheduleForTomorrow = () => {
     setScheduledFor(getTomorrowDateTime());
+  };
+
+  const scheduleForLaterToday = () => {
+    setScheduledFor(getLaterTodayDateTime());
   };
 
   const handleOpenUnifiedPicker = () => {

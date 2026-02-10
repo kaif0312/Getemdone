@@ -54,11 +54,11 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
   if (!task.completed) {
     const createdDate = getDateString(task.createdAt);
     
-    // 1. Deferred to today - always show
+    // 1. Deferred/scheduled to today - always show (even if scheduled for later today)
     if (task.deferredTo) {
       const deferredDate = extractDateFromDeferredTo(task.deferredTo);
       if (deferredDate === todayStr) {
-        return true;
+        return true; // Show scheduled tasks for today
       }
       
       // 2. Deferred to future - don't show

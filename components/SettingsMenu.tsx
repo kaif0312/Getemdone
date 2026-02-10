@@ -77,7 +77,7 @@ export default function SettingsMenu({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 bottom-full mb-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-[calc(100vh-120px)] overflow-y-auto">
           <div className="py-2">
             {/* Storage Usage - Non-clickable display */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">

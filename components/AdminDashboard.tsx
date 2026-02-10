@@ -303,11 +303,10 @@ export default function AdminDashboard() {
           let message = '';
           
           if (reply && reply.trim()) {
-            // Beautified message with formatted admin reply
-            const trimmedReply = reply.trim();
-            message = `${statusEmoji} Your feedback has been ${statusText}!\n\n💬 Admin Reply:\n"${trimmedReply}"\n\nThank you for helping us improve! 🙏`;
+            // Just show the admin reply
+            message = reply.trim();
           } else {
-            message = `${statusEmoji} Your feedback has been ${statusText}! Thank you for helping us improve. 🙏`;
+            message = `${statusEmoji} Your feedback has been ${statusText}!`;
           }
 
           const notificationData = {

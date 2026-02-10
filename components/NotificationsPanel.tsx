@@ -199,31 +199,18 @@ export default function NotificationsPanel({
                           <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
                             {notification.commentText 
                               ? `"${notification.commentText}"`
-                              : notification.type === 'bugReport' && notification.message.includes('💬 Admin Reply:')
-                              ? (() => {
-                                  // Format bug report notifications with admin reply
-                                  const parts = notification.message.split('💬 Admin Reply:');
-                                  if (parts.length === 2) {
-                                    const [statusMsg, replyPart] = parts;
-                                    const replyText = replyPart.split('\n\n')[0]?.trim() || '';
-                                    const rest = replyPart.split('\n\n').slice(1).join('\n\n');
-                                    return (
-                                      <>
-                                        <span>{statusMsg.trim()}</span>
-                                        <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border-l-3 border-blue-500 rounded-r">
-                                          <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">
-                                            💬 Admin Reply:
-                                          </div>
-                                          <div className="text-sm text-gray-800 dark:text-gray-200 italic">
-                                            "{replyText}"
-                                          </div>
-                                        </div>
-                                        {rest && <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">{rest}</div>}
-                                      </>
-                                    );
-                                  }
-                                  return notification.message;
-                                })()
+                              : notification.type === 'bugReport' && notification.message && !notification.message.includes('Your feedback has been')
+                              ? (
+                                  // Format admin reply in a highlighted box
+                                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border-l-3 border-blue-500 rounded-r">
+                                    <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">
+                                      💬 Admin Reply:
+                                    </div>
+                                    <div className="text-sm text-gray-800 dark:text-gray-200">
+                                      {notification.message}
+                                    </div>
+                                  </div>
+                                )
                               : notification.message}
                           </p>
                           {notification.taskText && (

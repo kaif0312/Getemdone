@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy, updateDoc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
 import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage } from 'react-icons/fa';
 import { BugReport } from '@/lib/types';
 
@@ -329,6 +330,52 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteUser = async (userId: string, userName: string, userEmail: string) => {
+    // Prevent deleting own account
+    if (userId === user?.uid) {
+      setError('You cannot delete your own account');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    // Double confirmation for account deletion
+    const confirmMessage = `⚠️ WARNING: This will permanently delete ${userName}'s account and ALL their data!\n\nThis includes:\n- All tasks\n- All comments\n- All notifications\n- All bug reports\n- Profile picture\n- Friend connections\n\nThis action CANNOT be undone!\n\nType "${userName}" to confirm:`;
+    
+    const userInput = prompt(confirmMessage);
+    if (userInput !== userName) {
+      if (userInput !== null) { // User didn't cancel, just typed wrong
+        setError('Confirmation name does not match. Account deletion cancelled.');
+        setTimeout(() => setError(''), 3000);
+      }
+      return;
+    }
+
+    // Final confirmation
+    if (!confirm(`Are you absolutely sure you want to PERMANENTLY DELETE ${userName}'s account?\n\nThis action CANNOT be undone!`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    
+    try {
+      const deleteUserAccount = httpsCallable(functions, 'deleteUserAccount');
+      const result = await deleteUserAccount({ userId });
+      
+      setSuccess(`✅ ${userName}'s account has been permanently deleted`);
+      setTimeout(() => setSuccess(''), 5000);
+      
+      // The user will be removed from the list automatically via the real-time listener
+    } catch (err: any) {
+      console.error('Error deleting user account:', err);
+      const errorMessage = err.message || err.code || 'Failed to delete user account';
+      setError(`Failed to delete account: ${errorMessage}`);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -644,6 +691,7 @@ export default function AdminDashboard() {
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Joined</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -684,6 +732,16 @@ export default function AdminDashboard() {
                               Not Whitelisted
                             </span>
                           )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleDeleteUser(userInfo.id, userInfo.displayName, userInfo.email)}
+                            disabled={userInfo.id === user?.uid || userInfo.isAdmin}
+                            className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            title={userInfo.id === user?.uid ? "Cannot delete your own account" : userInfo.isAdmin ? "Cannot delete admin accounts" : "Delete user account"}
+                          >
+                            <FaTrash size={10} /> Delete Account
+                          </button>
                         </td>
                       </tr>
                     );

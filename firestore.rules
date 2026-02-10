@@ -74,8 +74,8 @@ service cloud.firestore {
          request.resource.data.friends is list)
       );
       
-      // Users cannot delete their profile
-      allow delete: if false;
+      // Only admins can delete user profiles (for account deletion)
+      allow delete: if isAdmin();
     }
     
     // Tasks collection

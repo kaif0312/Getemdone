@@ -3,6 +3,7 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getMessaging, isSupported } from 'firebase/messaging';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,6 +19,7 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app);
 
 // Initialize Firebase Cloud Messaging (only on client side)
 let messaging: ReturnType<typeof getMessaging> | null = null;
@@ -55,4 +57,4 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_EMULATOR === 't
   }
 }
 
-export { app, auth, db, storage, messaging };
+export { app, auth, db, storage, messaging, functions };

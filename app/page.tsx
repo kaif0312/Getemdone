@@ -29,6 +29,7 @@ import BugReportModal from '@/components/BugReportModal';
 import NotificationsPanel from '@/components/NotificationsPanel';
 import QuickInfoModal from '@/components/QuickInfoModal';
 import IOSInstallPrompt from '@/components/IOSInstallPrompt';
+import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -41,7 +42,7 @@ import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
-import { needsInstallation } from '@/utils/deviceDetection';
+import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading, signOut, updateStreakData } = useAuth();
@@ -102,6 +103,10 @@ export default function Home() {
   const [showIOSInstallPrompt, setShowIOSInstallPrompt] = useState(false);
   const [isCheckingIOSInstall, setIsCheckingIOSInstall] = useState(true);
 
+  // Android Installation Detection
+  const [showAndroidInstallPrompt, setShowAndroidInstallPrompt] = useState(false);
+  const [isCheckingAndroidInstall, setIsCheckingAndroidInstall] = useState(true);
+
   // Check if iOS user needs to install app
   useEffect(() => {
     // Only check on client-side after mount
@@ -112,6 +117,20 @@ export default function Home() {
       
       if (needsInstall) {
         console.log('🍎 iOS user detected - App must be installed to home screen for full functionality');
+      }
+    }
+  }, []);
+
+  // Check if Android user needs to install app
+  useEffect(() => {
+    // Only check on client-side after mount
+    if (typeof window !== 'undefined') {
+      const needsInstall = needsAndroidInstallation();
+      setShowAndroidInstallPrompt(needsInstall);
+      setIsCheckingAndroidInstall(false);
+      
+      if (needsInstall) {
+        console.log('🤖 Android user detected - App must be installed to home screen for full functionality');
       }
     }
   }, []);
@@ -563,6 +582,16 @@ export default function Home() {
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {
     return <IOSInstallPrompt allowDismiss={false} />;
+  }
+
+  // Show Android installation prompt if needed (blocks access until installed)
+  if (showAndroidInstallPrompt && !isCheckingAndroidInstall) {
+    return (
+      <AndroidInstallPrompt 
+        allowDismiss={false} 
+        onFeedback={() => setShowBugReportModal(true)}
+      />
+    );
   }
 
   return (

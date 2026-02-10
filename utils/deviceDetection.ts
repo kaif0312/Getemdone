@@ -23,6 +23,18 @@ export function isIOS(): boolean {
 }
 
 /**
+ * Detects if the user is on an Android device
+ */
+export function isAndroid(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  
+  // Check for Android devices
+  return /android/.test(userAgent);
+}
+
+/**
  * Detects if the app is running in standalone mode (installed as PWA)
  */
 export function isStandalone(): boolean {
@@ -45,6 +57,13 @@ export function isStandalone(): boolean {
  */
 export function needsInstallation(): boolean {
   return isIOS() && !isStandalone();
+}
+
+/**
+ * Checks if Android user needs to install the app (Android user not in standalone mode)
+ */
+export function needsAndroidInstallation(): boolean {
+  return isAndroid() && !isStandalone();
 }
 
 /**

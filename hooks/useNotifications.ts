@@ -135,10 +135,29 @@ export function useNotifications(userId?: string) {
       setPermission(result);
       
       if (result === 'granted' && messaging) {
+        // Wait for service worker to be ready (with retry logic)
+        let registration;
+        let retries = 0;
+        const maxRetries = 5;
+        
+        while (retries < maxRetries) {
+          try {
+            registration = await navigator.serviceWorker.ready;
+            break;
+          } catch (error) {
+            retries++;
+            if (retries >= maxRetries) {
+              console.warn('[requestPermission] Service worker not ready after', maxRetries, 'attempts');
+              // Still try to get token even if service worker check fails
+              break;
+            }
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * retries));
+          }
+        }
+        
         // Get FCM token for this device
         try {
-          const registration = await navigator.serviceWorker.ready;
-          
           // IMPORTANT: Get your VAPID key from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
           const currentToken = await getToken(messaging, {
             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
@@ -152,14 +171,31 @@ export function useNotifications(userId?: string) {
             // Save FCM token to user's Firestore document for server-side push notifications
             if (userId) {
               try {
-                const { doc, updateDoc } = await import('firebase/firestore');
+                const { doc, updateDoc, getDoc } = await import('firebase/firestore');
                 const { db } = await import('@/lib/firebase');
+                const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
                 
-                await updateDoc(doc(db, 'users', userId), {
+                const userDocRef = doc(db, 'users', userId);
+                const userDoc = await getDoc(userDocRef);
+                const userData = userDoc.data();
+                
+                // Update FCM token and ensure notification settings are enabled
+                const updateData: any = {
                   fcmToken: currentToken,
                   fcmTokenUpdatedAt: Date.now(),
-                });
-                console.log('✅ FCM token saved to Firestore for user:', userId);
+                };
+                
+                // If notification settings don't exist or are disabled, enable them
+                if (!userData?.notificationSettings || !userData.notificationSettings.enabled) {
+                  updateData.notificationSettings = {
+                    ...(userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS),
+                    enabled: true, // Ensure enabled when permission is granted
+                  };
+                  console.log('✅ Enabling notification settings for user');
+                }
+                
+                await updateDoc(userDocRef, updateData);
+                console.log('✅ FCM token and notification settings saved to Firestore for user:', userId);
               } catch (saveError) {
                 console.error('⚠️ Error saving FCM token to Firestore:', saveError);
                 // Don't fail the whole flow if token save fails
@@ -171,9 +207,36 @@ export function useNotifications(userId?: string) {
             console.warn('⚠️ No FCM token available. Request permission first.');
             return false;
           }
-        } catch (tokenError) {
+        } catch (tokenError: any) {
           console.error('❌ Error getting FCM token:', tokenError);
           console.error('💡 Make sure you have set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your .env.local file');
+          console.error('💡 Error details:', tokenError.message);
+          
+          // If it's a service worker error, try again after a delay
+          if (tokenError.message?.includes('service worker') || tokenError.message?.includes('messaging')) {
+            console.log('🔄 Retrying FCM token generation after delay...');
+            setTimeout(async () => {
+              try {
+                const registration = await navigator.serviceWorker.ready;
+                const retryToken = await getToken(messaging, {
+                  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+                  serviceWorkerRegistration: registration,
+                });
+                if (retryToken && userId) {
+                  const { doc, updateDoc } = await import('firebase/firestore');
+                  const { db } = await import('@/lib/firebase');
+                  await updateDoc(doc(db, 'users', userId), {
+                    fcmToken: retryToken,
+                    fcmTokenUpdatedAt: Date.now(),
+                  });
+                  console.log('✅ FCM token saved on retry');
+                }
+              } catch (retryError) {
+                console.error('❌ Retry also failed:', retryError);
+              }
+            }, 2000);
+          }
+          
           return result === 'granted'; // Still return true if permission granted, even if token fails
         }
       }
@@ -183,7 +246,7 @@ export function useNotifications(userId?: string) {
       console.error('Error requesting notification permission:', error);
       return false;
     }
-  }, [isSupported]);
+  }, [isSupported, userId]);
 
   const showNotification = useCallback(
     async (title: string, options?: NotificationOptions & { settings?: NotificationSettings }) => {

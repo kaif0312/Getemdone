@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { FaTimes, FaBug, FaImage, FaSpinner, FaCheck, FaLightbulb } from 'react-icons/fa';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import { compressImage, isImageFile, isFileSizeValid, formatFileSize } from '@/utils/imageCompression';
 
@@ -93,7 +93,7 @@ export default function BugReportModal({
       }
 
       // Save bug report to Firestore
-      await addDoc(collection(db, 'bugReports'), {
+      const bugReportRef = await addDoc(collection(db, 'bugReports'), {
         userId,
         userName,
         userEmail,
@@ -104,6 +104,36 @@ export default function BugReportModal({
         resolvedAt: null,
         adminNotes: null,
       });
+
+      // Notify all admin users
+      try {
+        const adminUsersQuery = query(
+          collection(db, 'users'),
+          where('isAdmin', '==', true)
+        );
+        const adminUsersSnapshot = await getDocs(adminUsersQuery);
+        
+        const notificationPromises = adminUsersSnapshot.docs.map((adminDoc) => {
+          const adminData = adminDoc.data();
+          return addDoc(collection(db, 'notifications'), {
+            userId: adminDoc.id,
+            type: 'bugReport',
+            title: '🐛 New Bug Report / Feature Request',
+            message: `${userName} submitted a new bug report or feature request`,
+            bugReportId: bugReportRef.id,
+            fromUserId: userId,
+            fromUserName: userName,
+            createdAt: Date.now(),
+            read: false,
+          });
+        });
+        
+        await Promise.all(notificationPromises);
+        console.log(`✅ Notified ${adminUsersSnapshot.docs.length} admin(s) about new bug report`);
+      } catch (notifError) {
+        console.error('Error notifying admins:', notifError);
+        // Don't fail the whole operation if notification fails
+      }
 
       // Success
       setSubmitted(true);

@@ -183,8 +183,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         }}
       >
         {/* Mobile: Compact single row with essential buttons */}
-        <div className="max-w-3xl mx-auto px-3 py-2.5 md:p-4">
-          <div className="flex items-center gap-1.5 md:gap-2">
+        <div className="max-w-3xl mx-auto px-3 py-2.5 md:p-4 overflow-x-auto">
+          <div className="flex items-center gap-1.5 md:gap-2 min-w-fit">
             {/* Templates - Hidden on mobile, shown on desktop */}
             <button
               type="button"

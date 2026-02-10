@@ -299,18 +299,21 @@ export default function AdminDashboard() {
       if ((newStatus === 'resolved' || newStatus === 'closed') && bugReportData.userId) {
         try {
           const statusText = newStatus === 'resolved' ? 'resolved' : 'closed';
-          let message = `Your feedback has been ${statusText}!`;
+          const statusEmoji = newStatus === 'resolved' ? '✅' : '🔒';
+          let message = '';
           
           if (reply && reply.trim()) {
-            message = `Your feedback has been ${statusText}.\n\nAdmin reply: ${reply}`;
+            // Beautified message with formatted admin reply
+            const trimmedReply = reply.trim();
+            message = `${statusEmoji} Your feedback has been ${statusText}!\n\n💬 Admin Reply:\n"${trimmedReply}"\n\nThank you for helping us improve! 🙏`;
           } else {
-            message += ' Thank you for helping us improve.';
+            message = `${statusEmoji} Your feedback has been ${statusText}! Thank you for helping us improve. 🙏`;
           }
 
           const notificationData = {
             userId: bugReportData.userId,
             type: 'bugReport',
-            title: `✅ Feedback ${statusText === 'resolved' ? 'Resolved' : 'Closed'}`,
+            title: `${statusEmoji} Feedback ${statusText === 'resolved' ? 'Resolved' : 'Closed'}`,
             message: message,
             bugReportId: bugId,
             createdAt: Date.now(),

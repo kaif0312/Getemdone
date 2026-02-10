@@ -785,6 +785,71 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Admin Reply Modal */}
+      {showReplyModal && replyBugId && replyStatus && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            onClick={() => {
+              setShowReplyModal(false);
+              setReplyBugId(null);
+              setReplyStatus(null);
+              setAdminReply('');
+            }}
+          />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 z-[101] max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {replyStatus === 'resolved' ? '✅ Resolve Feedback' : '🔒 Close Feedback'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowReplyModal(false);
+                  setReplyBugId(null);
+                  setReplyStatus(null);
+                  setAdminReply('');
+                }}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <FaTimes className="text-gray-500 dark:text-gray-400" size={18} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Add a reply to the user (optional). This will be included in the notification sent to them.
+            </p>
+            
+            <textarea
+              value={adminReply}
+              onChange={(e) => setAdminReply(e.target.value)}
+              placeholder="Type your reply here... (optional)"
+              className="w-full px-4 py-3 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none mb-4"
+              rows={4}
+            />
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowReplyModal(false);
+                  setReplyBugId(null);
+                  setReplyStatus(null);
+                  setAdminReply('');
+                }}
+                className="flex-1 px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitReply}
+                className="flex-1 px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                {replyStatus === 'resolved' ? 'Resolve' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Bug Screenshot Lightbox */}
       {selectedBugImage && (
         <>

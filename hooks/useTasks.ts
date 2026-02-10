@@ -762,7 +762,10 @@ export function useTasks() {
       r => r.userId === user.uid && r.emoji === emoji
     );
 
-    if (existingReactionIndex !== -1) {
+    const isRemovingReaction = existingReactionIndex !== -1;
+    const commentOwnerId = comment.userId; // The person who wrote the comment
+
+    if (isRemovingReaction) {
       // Remove reaction if clicking same emoji
       const updatedReactions = reactions.filter(
         (_, index) => index !== existingReactionIndex
@@ -788,6 +791,46 @@ export function useTasks() {
     }
 
     await updateDoc(taskRef, { comments });
+
+    // Create notification for comment owner if reaction was added (not removed) and it's not their own comment
+    if (!isRemovingReaction && commentOwnerId !== user.uid) {
+      try {
+        const commentOwnerRef = doc(db, 'users', commentOwnerId);
+        const commentOwnerDoc = await getDoc(commentOwnerRef);
+        
+        if (commentOwnerDoc.exists()) {
+          const commentOwnerData = commentOwnerDoc.data();
+          
+          // Check if friend comments notifications are enabled (default to true if not set)
+          const friendCommentsEnabled = commentOwnerData.notificationSettings?.friendComments !== false;
+          
+          if (friendCommentsEnabled) {
+            // Create in-app notification
+            const notificationData = {
+              userId: commentOwnerId,
+              type: 'comment',
+              title: `${emoji} ${userData.displayName} reacted to your comment`,
+              message: `${userData.displayName} reacted ${emoji} to your comment on "${task.text.substring(0, 50)}"`,
+              taskId: taskId,
+              taskText: task.text.substring(0, 50),
+              fromUserId: user.uid,
+              fromUserName: userData.displayName,
+              commentText: comment.text.substring(0, 150), // Store the comment text that was reacted to
+              createdAt: Date.now(),
+              read: false,
+            };
+            
+            await addDoc(collection(db, 'notifications'), notificationData);
+            console.log('[addCommentReaction] ✅ Notification created for comment owner');
+          } else {
+            console.log('[addCommentReaction] Notifications disabled for comment owner');
+          }
+        }
+      } catch (notifError) {
+        console.error('[addCommentReaction] ❌ Error creating notification:', notifError);
+        // Don't throw - reaction was already saved, just notification failed
+      }
+    }
   };
 
   const addComment = async (taskId: string, text: string) => {

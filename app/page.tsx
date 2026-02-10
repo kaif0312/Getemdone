@@ -33,10 +33,7 @@ import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
-import ContextualTooltip from '@/components/ContextualTooltip';
-import FeatureBadge from '@/components/FeatureBadge';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { TIPS, FEATURE_BADGES } from '@/lib/tips';
 import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -89,12 +86,10 @@ export default function Home() {
 
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-  const [tooltipTarget, setTooltipTarget] = useState<React.RefObject<HTMLElement> | null>(null);
   
   const onboarding = useOnboarding();
   
-  // Refs for tooltip targets
+  // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
   const friendsButtonRef = useRef<HTMLButtonElement>(null);
   const streakButtonRef = useRef<HTMLButtonElement>(null);
@@ -676,14 +671,6 @@ export default function Home() {
                 title="Manage Friends"
               >
                 <FaUsers size={18} />
-                {onboarding.shouldShowBadge('friends-badge', !onboarding.state.hasSeenFriends && (userData?.friends?.length || 0) === 0) && (
-                  <FeatureBadge
-                    id="friends-badge"
-                    label={FEATURE_BADGES.FRIENDS.label}
-                    show={true}
-                    onDismiss={() => onboarding.dismissFeatureBadge('friends-badge')}
-                  />
-                )}
               </button>
               
               {/* Sign Out */}
@@ -718,14 +705,6 @@ export default function Home() {
                   </div>
                 </div>
                 <FaCalendarAlt size={16} className="opacity-75" />
-                {onboarding.shouldShowBadge('streak-badge', !onboarding.state.hasSeenStreak && userData.streakData.currentStreak === 0) && (
-                  <FeatureBadge
-                    id="streak-badge"
-                    label={FEATURE_BADGES.STREAK.label}
-                    show={true}
-                    onDismiss={() => onboarding.dismissFeatureBadge('streak-badge')}
-                  />
-                )}
               </button>
               
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl px-4 py-3 shadow-md">
@@ -761,7 +740,7 @@ export default function Home() {
           <EmptyState
             type="no-tasks"
             onAction={() => taskInputRef.current?.focus()}
-            showTips={true}
+            showTips={false}
           />
         ) : (
           <>
@@ -1050,22 +1029,6 @@ export default function Home() {
               .map(t => t.text)
           }
         />
-        {/* First task tip below input - Mobile only (hidden on desktop) */}
-        {onboarding.isLoaded && onboarding.shouldShowTip('first-task', !onboarding.state.hasSeenFirstTask && tasks.length === 0) && (
-          <div className="md:hidden absolute -top-12 left-1/2 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-50">
-            <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-2 px-3 text-xs max-w-[200px] text-center relative">
-              {TIPS.FIRST_TASK.message}
-              <button
-                onClick={() => onboarding.dismissTip('first-task')}
-                className="ml-2 text-white/70 hover:text-white"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-900 dark:border-t-gray-800" />
-          </div>
-        )}
       </div>
 
       {/* Friends Modal */}
@@ -1163,36 +1126,6 @@ export default function Home() {
         onClose={() => setShowQuickInfo(false)}
       />
 
-      {/* Contextual Tooltips - Mobile only (desktop has help button) */}
-      {onboarding.isLoaded && onboarding.shouldShowTip('friends', !onboarding.state.hasSeenFriends && (userData?.friends?.length || 0) === 0) && friendsButtonRef.current && (
-        <ContextualTooltip
-          id="friends"
-          message={TIPS.FRIENDS.message}
-          position={TIPS.FRIENDS.position as any}
-          targetRef={friendsButtonRef}
-          show={true}
-          mobileOnly={true}
-          onDismiss={() => {
-            onboarding.dismissTip('friends');
-            setActiveTooltip(null);
-          }}
-        />
-      )}
-
-      {onboarding.isLoaded && onboarding.shouldShowTip('streak', !onboarding.state.hasSeenStreak && (userData?.streakData?.currentStreak || 0) === 0) && streakButtonRef.current && (
-        <ContextualTooltip
-          id="streak"
-          message={TIPS.STREAK.message}
-          position={TIPS.STREAK.position as any}
-          targetRef={streakButtonRef}
-          show={true}
-          mobileOnly={true}
-          onDismiss={() => {
-            onboarding.dismissTip('streak');
-            setActiveTooltip(null);
-          }}
-        />
-      )}
 
       {/* Profile Settings Modal */}
       {userData && (

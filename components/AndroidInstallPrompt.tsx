@@ -171,6 +171,7 @@ export default function AndroidInstallPrompt({ onDismiss, allowDismiss = false, 
               <span>Having trouble? Send feedback</span>
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>

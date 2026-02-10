@@ -171,6 +171,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFe
               <span>Having trouble? Send feedback</span>
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>

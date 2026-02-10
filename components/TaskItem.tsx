@@ -791,17 +791,38 @@ export default function TaskItem({
                 const isScheduled = createdDate === todayStr && deferredDate > todayStr;
                 
                 // Parse datetime for display
-                let displayDate: string;
+                let displayText: string;
                 try {
                   const dateTime = task.deferredTo.includes('T') 
                     ? new Date(task.deferredTo) 
                     : new Date(task.deferredTo + 'T00:00:00');
                   
                   // Check if time is set (not midnight)
-                  const hasTime = task.deferredTo.includes('T') && !task.deferredTo.endsWith('T00:00');
+                  const hasTime = task.deferredTo.includes('T') && !task.deferredTo.endsWith('T00:00') && !task.deferredTo.endsWith('T00:00:00');
                   
-                  if (hasTime) {
-                    displayDate = dateTime.toLocaleDateString('en-US', { 
+                  if (isScheduled && hasTime) {
+                    // For scheduled tasks with time, show "Scheduled for 4:30 PM" or "Scheduled for Jan 15, 4:30 PM"
+                    const scheduledDate = dateTime.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric'
+                    });
+                    const scheduledTime = dateTime.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                    const today = new Date();
+                    const isToday = dateTime.toDateString() === today.toDateString();
+                    displayText = isToday ? scheduledTime : `${scheduledDate}, ${scheduledTime}`;
+                  } else if (isScheduled) {
+                    // Scheduled without time
+                    displayText = dateTime.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric'
+                    });
+                  } else if (hasTime) {
+                    // Deferred with time
+                    displayText = dateTime.toLocaleDateString('en-US', { 
                       month: 'short', 
                       day: 'numeric',
                       hour: 'numeric',
@@ -809,13 +830,14 @@ export default function TaskItem({
                       hour12: true
                     });
                   } else {
-                    displayDate = dateTime.toLocaleDateString('en-US', { 
+                    // Deferred without time
+                    displayText = dateTime.toLocaleDateString('en-US', { 
                       month: 'short', 
                       day: 'numeric'
                     });
                   }
                 } catch {
-                  displayDate = task.deferredTo;
+                  displayText = task.deferredTo;
                 }
                 
                 return (
@@ -826,7 +848,7 @@ export default function TaskItem({
                   }`}>
                     <FaCalendarPlus size={8} />
                     <span>
-                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {displayDate}
+                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {displayText}
                     </span>
                   </div>
                 );

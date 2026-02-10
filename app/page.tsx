@@ -349,6 +349,66 @@ export default function Home() {
     return () => timeoutIds.forEach(clearTimeout);
   }, [user?.uid, tasks, userData?.notificationSettings, notifications]);
 
+  // Schedule notifications for scheduled tasks (tasks scheduled for future date/time)
+  useEffect(() => {
+    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    
+    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    if (!settings.enabled) return;
+
+    const todayStr = getTodayString();
+    const myTasks = tasks.filter(t => {
+      if (t.userId !== user.uid || t.completed || t.deleted || !t.deferredTo) return false;
+      
+      // Only schedule notifications for tasks created today and scheduled for future
+      const createdDate = new Date(t.createdAt).toISOString().split('T')[0];
+      const deferredDate = t.deferredTo.includes('T') ? t.deferredTo.split('T')[0] : t.deferredTo;
+      return createdDate === todayStr && deferredDate > todayStr && t.deferredTo.includes('T');
+    });
+
+    const timeoutIds: NodeJS.Timeout[] = [];
+    const reminderMinutesBefore = 15; // Notify 15 minutes before scheduled time
+
+    myTasks.forEach(task => {
+      if (!task.deferredTo || !task.deferredTo.includes('T')) return;
+      
+      try {
+        const scheduledDateTime = new Date(task.deferredTo);
+        const now = Date.now();
+        const scheduledTime = scheduledDateTime.getTime();
+        const reminderTime = scheduledTime - reminderMinutesBefore * 60 * 1000;
+
+        // Only schedule if reminder time is in the future and within next 7 days
+        if (reminderTime > now && scheduledTime - now < 7 * 24 * 60 * 60 * 1000) {
+          const delay = reminderTime - now;
+          const timeoutId = setTimeout(() => {
+            const timeStr = scheduledDateTime.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+            addToastNotification({
+              type: 'deadline',
+              title: '📅 Scheduled Task Reminder',
+              message: `"${task.text}" is scheduled for ${timeStr}`,
+              duration: 8000,
+            });
+            notifications.showNotification('📅 Scheduled Task Reminder', {
+              body: `"${task.text}" is scheduled for ${timeStr}`,
+              tag: `scheduled-${task.id}`,
+              settings,
+            });
+          }, delay);
+          timeoutIds.push(timeoutId);
+        }
+      } catch (error) {
+        console.error('Error scheduling notification for task:', task.id, error);
+      }
+    });
+
+    return () => timeoutIds.forEach(clearTimeout);
+  }, [user?.uid, tasks, userData?.notificationSettings, notifications]);
+
   // Schedule noon check-in
   useEffect(() => {
     if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported || noonCheckScheduled) return;

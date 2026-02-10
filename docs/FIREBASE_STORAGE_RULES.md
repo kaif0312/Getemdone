@@ -32,6 +32,16 @@ service firebase.storage {
       allow write, delete: if request.auth != null;
     }
     
+    // Bug report screenshots: users can upload their own, admins can read all
+    match /bugReports/{userId}/{imageId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && (request.auth.uid == userId || 
+        // Admin can delete any bug report image
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+    }
+    
     // Deny all other paths
     match /{allPaths=**} {
       allow read, write: if false;
@@ -52,6 +62,11 @@ service firebase.storage {
 - ✅ **Write**: Any authenticated user can upload attachments to tasks
 - ✅ **Delete**: Any authenticated user can delete attachments (app-level logic handles ownership)
 - ℹ️ **Note**: The app ensures users can only modify their own tasks, so attachment deletion is controlled at the application level
+
+#### Bug Report Screenshots (`bugReports/{userId}/{imageId}`)
+- ✅ **Read**: Any authenticated user can view bug report screenshots
+- ✅ **Write**: Users can only upload screenshots to their own bug reports
+- ✅ **Delete**: Users can delete their own screenshots, admins can delete any
 
 #### Security Features:
 - 🔒 All access requires authentication

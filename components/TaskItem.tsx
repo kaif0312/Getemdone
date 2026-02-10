@@ -784,7 +784,8 @@ export default function TaskItem({
           {/* Badges row - Ultra-compact inline layout */}
           {(task.deferredTo || task.dueDate) && (
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              {task.deferredTo && (() => {
+              {/* Only show scheduled/deferred badge if there's no deadline */}
+              {task.deferredTo && !task.dueDate && (() => {
                 const todayStr = getTodayString();
                 // Use getDateString to ensure consistent date comparison (local time)
                 const createdDate = getDateString(task.createdAt);

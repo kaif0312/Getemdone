@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FaTimes, FaMobileAlt, FaBell, FaCheck, FaMenu, FaCommentDots } from 'react-icons/fa';
+import { FaTimes, FaMobileAlt, FaBell, FaCheck, FaBars, FaCommentDots } from 'react-icons/fa';
 
 interface AndroidInstallPromptProps {
   onDismiss?: () => void;
@@ -71,7 +71,7 @@ export default function AndroidInstallPrompt({ onDismiss, allowDismiss = false, 
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <span>Look for</span>
                   <div className="bg-green-500 rounded-lg p-2">
-                    <FaMenu className="w-5 h-5 text-white" />
+                    <FaBars className="w-5 h-5 text-white" />
                   </div>
                   <span>in the browser toolbar</span>
                 </div>

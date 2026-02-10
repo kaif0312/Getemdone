@@ -175,16 +175,17 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     <>
       <form 
         onSubmit={handleSubmit} 
-        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg safe-area-inset-bottom z-50"
+        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50"
         style={{ 
-          paddingBottom: 'max(env(safe-area-inset-bottom, 0), 8px)',
-          paddingLeft: 'env(safe-area-inset-left, 0)',
-          paddingRight: 'env(safe-area-inset-right, 0)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+          paddingLeft: 'max(env(safe-area-inset-left, 0px), 0px)',
+          paddingRight: 'max(env(safe-area-inset-right, 0px), 0px)',
+          maxHeight: 'calc(100vh - env(safe-area-inset-top, 0px))',
         }}
       >
         {/* Mobile: Compact single row with essential buttons */}
-        <div className="max-w-3xl mx-auto px-3 py-2.5 md:p-4 overflow-x-auto">
-          <div className="flex items-center gap-1.5 md:gap-2 min-w-fit">
+        <div className="max-w-3xl mx-auto px-3 py-2.5 md:p-4 overflow-x-auto overflow-y-hidden">
+          <div className="flex items-center gap-1.5 md:gap-2 min-w-fit flex-nowrap">
             {/* Templates - Hidden on mobile, shown on desktop */}
             <button
               type="button"
@@ -215,7 +216,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               onChange={(e) => setText(e.target.value)}
               placeholder="Type or speak a task..."
               disabled={disabled}
-              className="flex-1 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+              className="flex-1 min-w-0 px-3 py-2.5 md:px-4 md:py-3 text-sm md:text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
             />
           
             {/* Unified Date & Schedule Button - Always visible */}

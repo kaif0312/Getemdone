@@ -185,6 +185,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                     ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/70'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={{ display: 'flex' }}
                 title={
                   scheduledFor && dueDate
                     ? 'Schedule & Deadline'

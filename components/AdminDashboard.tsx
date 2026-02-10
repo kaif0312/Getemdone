@@ -44,6 +44,10 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedBugImage, setSelectedBugImage] = useState<string | null>(null);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyBugId, setReplyBugId] = useState<string | null>(null);
+  const [replyStatus, setReplyStatus] = useState<BugReport['status'] | null>(null);
+  const [adminReply, setAdminReply] = useState('');
 
   // Check if user is admin
   const isAdmin = userData?.isAdmin === true;
@@ -271,7 +275,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateBugStatus = async (bugId: string, newStatus: BugReport['status']) => {
+  const handleUpdateBugStatus = async (bugId: string, newStatus: BugReport['status'], reply?: string) => {
     try {
       // Get the bug report data first to access userId and other info
       const bugReportRef = doc(db, 'bugReports', bugId);
@@ -288,18 +292,26 @@ export default function AdminDashboard() {
       await updateDoc(bugReportRef, {
         status: newStatus,
         ...(newStatus === 'resolved' || newStatus === 'closed' ? { resolvedAt: Date.now() } : {}),
+        ...(reply ? { adminNotes: reply } : {}),
       });
 
       // Send notification to user when bug is resolved or closed
       if ((newStatus === 'resolved' || newStatus === 'closed') && bugReportData.userId) {
         try {
+          const statusText = newStatus === 'resolved' ? 'resolved' : 'closed';
+          let message = `Your feedback has been ${statusText}!`;
+          
+          if (reply && reply.trim()) {
+            message = `Your feedback has been ${statusText}.\n\nAdmin reply: ${reply}`;
+          } else {
+            message += ' Thank you for helping us improve.';
+          }
+
           const notificationData = {
             userId: bugReportData.userId,
             type: 'bugReport',
-            title: '✅ Feedback Resolved',
-            message: newStatus === 'resolved' 
-              ? 'Your feedback has been resolved! Thank you for helping us improve.'
-              : 'Your feedback has been closed.',
+            title: `✅ Feedback ${statusText === 'resolved' ? 'Resolved' : 'Closed'}`,
+            message: message,
             bugReportId: bugId,
             createdAt: Date.now(),
             read: false,
@@ -319,6 +331,23 @@ export default function AdminDashboard() {
       console.error('Error updating bug status:', err);
       setError(err.message || 'Failed to update bug status');
     }
+  };
+
+  const handleResolveWithReply = (bugId: string, status: 'resolved' | 'closed') => {
+    setReplyBugId(bugId);
+    setReplyStatus(status);
+    setAdminReply('');
+    setShowReplyModal(true);
+  };
+
+  const handleSubmitReply = async () => {
+    if (!replyBugId || !replyStatus) return;
+    
+    await handleUpdateBugStatus(replyBugId, replyStatus, adminReply.trim() || undefined);
+    setShowReplyModal(false);
+    setReplyBugId(null);
+    setReplyStatus(null);
+    setAdminReply('');
   };
 
   const handleDeleteBugReport = async (bugId: string) => {

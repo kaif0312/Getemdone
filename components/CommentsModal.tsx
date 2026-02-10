@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
 import { FaTimes, FaPaperPlane, FaComment } from 'react-icons/fa';
+import CommentReactionPicker from './CommentReactionPicker';
 
 interface CommentsModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface CommentsModalProps {
   currentUserName: string;
   onClose: () => void;
   onAddComment: (taskId: string, text: string) => void;
+  onAddCommentReaction: (taskId: string, commentId: string, emoji: string) => void;
 }
 
 export default function CommentsModal({
@@ -20,12 +22,18 @@ export default function CommentsModal({
   currentUserName,
   onClose,
   onAddComment,
+  onAddCommentReaction,
 }: CommentsModalProps) {
   const [commentText, setCommentText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 });
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const commentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Smart auto-scroll: only scroll if user is already near the bottom
   useEffect(() => {
@@ -54,6 +62,47 @@ export default function CommentsModal({
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
+
+  // Handle long press for emoji picker
+  const handleLongPressStart = (commentId: string, e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    longPressTimerRef.current = setTimeout(() => {
+      setReactionPickerPosition({ x: clientX, y: clientY });
+      setSelectedCommentId(commentId);
+      setShowReactionPicker(true);
+      
+      // Haptic feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    }, 300); // 300ms long press
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    if (selectedCommentId) {
+      onAddCommentReaction(task.id, selectedCommentId, emoji);
+      setShowReactionPicker(false);
+      setSelectedCommentId(null);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,10 +202,24 @@ export default function CommentsModal({
                 {comments.map((comment) => {
                   const isOwnComment = comment.userId === currentUserId;
                   const isTaskOwnerComment = comment.userId === task.userId;
+                  const reactions = comment.reactions || [];
+                  
+                  // Group reactions by emoji
+                  const reactionGroups = reactions.reduce((acc, reaction) => {
+                    if (!acc[reaction.emoji]) {
+                      acc[reaction.emoji] = [];
+                    }
+                    acc[reaction.emoji].push(reaction);
+                    return acc;
+                  }, {} as Record<string, typeof reactions>);
 
                   return (
                     <div
                       key={comment.id}
+                      ref={(el) => {
+                        if (el) commentRefs.current.set(comment.id, el);
+                        else commentRefs.current.delete(comment.id);
+                      }}
                       className={`flex gap-3 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom duration-200`}
                     >
                       {/* Avatar */}
@@ -170,13 +233,20 @@ export default function CommentsModal({
 
                       {/* Comment Bubble */}
                       <div className={`flex-1 max-w-[75%] ${isOwnComment ? 'items-end' : 'items-start'} flex flex-col`}>
-                        <div className={`rounded-2xl px-4 py-2.5 ${
-                          isOwnComment
-                            ? 'bg-blue-500 text-white rounded-br-sm'
-                            : isTaskOwnerComment
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border border-blue-200 dark:border-blue-800 rounded-bl-sm'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
-                        }`}>
+                        <div 
+                          className={`rounded-2xl px-4 py-2.5 select-none ${
+                            isOwnComment
+                              ? 'bg-blue-500 text-white rounded-br-sm'
+                              : isTaskOwnerComment
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border border-blue-200 dark:border-blue-800 rounded-bl-sm'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
+                          }`}
+                          onTouchStart={(e) => handleLongPressStart(comment.id, e)}
+                          onTouchEnd={handleLongPressEnd}
+                          onMouseDown={(e) => handleLongPressStart(comment.id, e)}
+                          onMouseUp={handleLongPressEnd}
+                          onMouseLeave={handleLongPressEnd}
+                        >
                           {!isOwnComment && (
                             <div className={`text-xs font-semibold mb-1 ${
                               isTaskOwnerComment
@@ -191,6 +261,32 @@ export default function CommentsModal({
                             {comment.text}
                           </p>
                         </div>
+                        
+                        {/* Reactions */}
+                        {Object.keys(reactionGroups).length > 0 && (
+                          <div className={`flex items-center gap-1.5 mt-1.5 flex-wrap ${isOwnComment ? 'justify-end' : 'justify-start'}`}>
+                            {Object.entries(reactionGroups).map(([emoji, emojiReactions]) => {
+                              const hasUserReaction = emojiReactions.some(r => r.userId === currentUserId);
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={() => onAddCommentReaction(task.id, comment.id, emoji)}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
+                                    hasUserReaction
+                                      ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+                                      : 'bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                  }`}
+                                >
+                                  <span className="text-sm">{emoji}</span>
+                                  <span className="text-gray-600 dark:text-gray-400 font-medium">
+                                    {emojiReactions.length}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        
                         <span className={`text-xs text-gray-500 dark:text-gray-400 mt-1 px-1 ${
                           isOwnComment ? 'text-right' : 'text-left'
                         }`}>
@@ -252,6 +348,17 @@ export default function CommentsModal({
           </form>
         </div>
       </div>
+
+      {/* Emoji Reaction Picker */}
+      <CommentReactionPicker
+        isOpen={showReactionPicker}
+        position={reactionPickerPosition}
+        onSelectEmoji={handleEmojiSelect}
+        onClose={() => {
+          setShowReactionPicker(false);
+          setSelectedCommentId(null);
+        }}
+      />
     </>
   );
 }

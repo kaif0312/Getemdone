@@ -65,6 +65,7 @@ export interface Comment {
   userName: string;
   text: string;
   timestamp: number;
+  reactions?: Reaction[]; // Emoji reactions to the comment
 }
 
 export interface Attachment {

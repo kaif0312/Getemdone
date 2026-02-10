@@ -51,7 +51,7 @@ export default function Home() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(user?.uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -1120,6 +1120,7 @@ export default function Home() {
             currentUserName={userData.displayName}
             onClose={() => setSelectedTaskForComments(null)}
             onAddComment={addComment}
+            onAddCommentReaction={addCommentReaction}
           />
         );
       })()}

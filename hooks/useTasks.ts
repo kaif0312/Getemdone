@@ -739,6 +739,57 @@ export function useTasks() {
     }
   };
 
+  const addCommentReaction = async (taskId: string, commentId: string, emoji: string) => {
+    if (!user || !userData) return;
+
+    const taskRef = doc(db, 'tasks', taskId);
+    const taskDoc = await getDoc(taskRef);
+    
+    if (!taskDoc.exists()) return;
+
+    const task = taskDoc.data() as Task;
+    const comments = task.comments || [];
+    
+    // Find the comment
+    const commentIndex = comments.findIndex(c => c.id === commentId);
+    if (commentIndex === -1) return;
+
+    const comment = comments[commentIndex];
+    const reactions = comment.reactions || [];
+    
+    // Check if user already reacted with this emoji
+    const existingReactionIndex = reactions.findIndex(
+      r => r.userId === user.uid && r.emoji === emoji
+    );
+
+    if (existingReactionIndex !== -1) {
+      // Remove reaction if clicking same emoji
+      const updatedReactions = reactions.filter(
+        (_, index) => index !== existingReactionIndex
+      );
+      comments[commentIndex] = {
+        ...comment,
+        reactions: updatedReactions.length > 0 ? updatedReactions : undefined,
+      };
+    } else {
+      // Remove any previous reaction from this user for this comment and add new one
+      const updatedReactions = reactions.filter(r => r.userId !== user.uid);
+      const newReaction: Reaction = {
+        userId: user.uid,
+        emoji,
+        userName: userData.displayName,
+        timestamp: Date.now(),
+      };
+      updatedReactions.push(newReaction);
+      comments[commentIndex] = {
+        ...comment,
+        reactions: updatedReactions,
+      };
+    }
+
+    await updateDoc(taskRef, { comments });
+  };
+
   const addComment = async (taskId: string, text: string) => {
     if (!user || !userData) {
       console.error('[addComment] No user or userData');
@@ -979,6 +1030,7 @@ export function useTasks() {
     getDeletedTasks,
     addReaction,
     addComment,
+    addCommentReaction,
     deferTask,
     reorderTasks,
     addAttachment,

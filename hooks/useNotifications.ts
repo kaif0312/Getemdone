@@ -157,14 +157,32 @@ export function useNotifications(userId?: string) {
       setPermission(result);
       
       if (result === 'granted' && messaging) {
+        // Ensure service worker is registered first
+        if ('serviceWorker' in navigator) {
+          try {
+            // Check if service worker is registered
+            let registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) {
+              console.log('[requestPermission] Service worker not registered, registering now...');
+              registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                scope: '/',
+              });
+              console.log('[requestPermission] Service worker registered');
+            }
+          } catch (swError) {
+            console.warn('[requestPermission] Service worker registration error:', swError);
+          }
+        }
+        
         // Wait for service worker to be ready (with retry logic)
         let registration;
         let retries = 0;
-        const maxRetries = 5;
+        const maxRetries = 10; // Increased retries for new users
         
         while (retries < maxRetries) {
           try {
             registration = await navigator.serviceWorker.ready;
+            console.log('[requestPermission] Service worker ready on attempt', retries + 1);
             break;
           } catch (error) {
             retries++;

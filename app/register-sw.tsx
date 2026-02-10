@@ -4,28 +4,59 @@ import { useEffect } from 'react';
 
 export default function RegisterServiceWorker() {
   useEffect(() => {
-    // Always register service worker (needed for push notifications on iOS)
+    // Always register service worker immediately (needed for push notifications on iOS)
     // Use firebase-messaging-sw.js which handles both messaging and caching
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker
-          .register('/firebase-messaging-sw.js')
-          .then((registration) => {
-            console.log('✅ Firebase Messaging Service Worker registered:', registration);
-            
-            // Check if service worker is active
-            if (registration.active) {
-              console.log('✅ Service Worker is active and ready');
-            } else if (registration.installing) {
-              console.log('⏳ Service Worker is installing...');
-            } else if (registration.waiting) {
-              console.log('⏸️ Service Worker is waiting...');
+      // Register immediately, don't wait for window.load
+      const registerSW = async () => {
+        try {
+          // Check if already registered
+          const existingRegistration = await navigator.serviceWorker.getRegistration();
+          if (existingRegistration) {
+            console.log('✅ Service Worker already registered');
+            // Activate it if it's waiting
+            if (existingRegistration.waiting) {
+              existingRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
             }
-          })
-          .catch((error) => {
-            console.error('❌ Service Worker registration failed:', error);
+            return;
+          }
+
+          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/',
           });
-      });
+          
+          console.log('✅ Firebase Messaging Service Worker registered:', registration);
+          
+          // Wait for service worker to be ready
+          if (registration.installing) {
+            console.log('⏳ Service Worker is installing...');
+            registration.installing.addEventListener('statechange', (e: any) => {
+              if (e.target.state === 'activated') {
+                console.log('✅ Service Worker activated and ready');
+              }
+            });
+          } else if (registration.waiting) {
+            console.log('⏸️ Service Worker is waiting, activating...');
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } else if (registration.active) {
+            console.log('✅ Service Worker is active and ready');
+          }
+          
+          // Ensure service worker is controlling the page
+          if (registration.active && !navigator.serviceWorker.controller) {
+            console.log('🔄 Service Worker active but not controlling, reloading...');
+            window.location.reload();
+          }
+        } catch (error) {
+          console.error('❌ Service Worker registration failed:', error);
+        }
+      };
+
+      // Register immediately
+      registerSW();
+
+      // Also register on load as fallback
+      window.addEventListener('load', registerSW);
 
       // Listen for service worker updates
       navigator.serviceWorker.addEventListener('controllerchange', () => {

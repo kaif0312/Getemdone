@@ -10,7 +10,7 @@ import TaskContextMenu from './TaskContextMenu';
 import AttachmentUpload from './AttachmentUpload';
 import AttachmentGallery from './AttachmentGallery';
 import { playSound } from '@/utils/sounds';
-import { isRolledOver, getTodayString } from '@/utils/taskFilter';
+import { isRolledOver, getTodayString, getDateString } from '@/utils/taskFilter';
 
 interface DragHandleProps {
   ref: (element: HTMLElement | null) => void;

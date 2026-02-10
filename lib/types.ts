@@ -22,7 +22,7 @@ export interface NotificationSettings {
 export interface InAppNotification {
   id: string;
   userId: string; // Who receives the notification
-  type: 'comment' | 'completion' | 'deadline' | 'commitment' | 'encouragement';
+  type: 'comment' | 'completion' | 'deadline' | 'commitment' | 'encouragement' | 'bugReport';
   title: string;
   message: string;
   taskId?: string;
@@ -30,6 +30,7 @@ export interface InAppNotification {
   fromUserId?: string;
   fromUserName?: string;
   commentText?: string;
+  bugReportId?: string; // ID of the bug report for bugReport type notifications
   createdAt: number;
   read: boolean;
 }

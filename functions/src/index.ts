@@ -64,6 +64,7 @@ export const sendPushNotification = functions.firestore
           fromUserId: notification.fromUserId || '',
           fromUserName: notification.fromUserName || '',
           commentText: notification.commentText || '',
+          bugReportId: (notification as any).bugReportId || '',
         },
         webpush: {
           notification: {

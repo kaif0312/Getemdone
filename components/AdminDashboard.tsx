@@ -269,10 +269,46 @@ export default function AdminDashboard() {
 
   const handleUpdateBugStatus = async (bugId: string, newStatus: BugReport['status']) => {
     try {
-      await updateDoc(doc(db, 'bugReports', bugId), {
+      // Get the bug report data first to access userId and other info
+      const bugReportRef = doc(db, 'bugReports', bugId);
+      const bugReportDoc = await getDoc(bugReportRef);
+      
+      if (!bugReportDoc.exists()) {
+        setError('Bug report not found');
+        return;
+      }
+
+      const bugReportData = bugReportDoc.data() as BugReport;
+      
+      // Update bug report status
+      await updateDoc(bugReportRef, {
         status: newStatus,
         ...(newStatus === 'resolved' || newStatus === 'closed' ? { resolvedAt: Date.now() } : {}),
       });
+
+      // Send notification to user when bug is resolved or closed
+      if ((newStatus === 'resolved' || newStatus === 'closed') && bugReportData.userId) {
+        try {
+          const notificationData = {
+            userId: bugReportData.userId,
+            type: 'bugReport',
+            title: '✅ Feedback Resolved',
+            message: newStatus === 'resolved' 
+              ? 'Your feedback has been resolved! Thank you for helping us improve.'
+              : 'Your feedback has been closed.',
+            bugReportId: bugId,
+            createdAt: Date.now(),
+            read: false,
+          };
+
+          await addDoc(collection(db, 'notifications'), notificationData);
+          console.log('✅ Notification sent to user for resolved bug report');
+        } catch (notifError) {
+          console.error('Error sending notification:', notifError);
+          // Don't fail the whole operation if notification fails
+        }
+      }
+
       setSuccess(`Bug report ${newStatus}`);
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {

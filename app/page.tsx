@@ -679,7 +679,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-3 gap-1 sm:gap-2">
             <button
               onClick={() => setShowQuickInfo(true)}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0 min-w-0"
               title="About & Updates"
             >
               {/* App Icon/Logo */}

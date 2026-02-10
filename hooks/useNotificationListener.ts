@@ -30,7 +30,9 @@ export function useNotificationListener({
     if (!userId || !isSupported) return;
 
     const settings = notificationSettings;
-    if (!settings?.enabled || !settings?.friendComments) {
+    // Default to enabled if settings are not set (for new users)
+    // This ensures notifications work for new accounts even if settings haven't been initialized yet
+    if (settings && (!settings.enabled || !settings.friendComments)) {
       console.log('[NotificationListener] Notifications disabled in settings');
       return;
     }

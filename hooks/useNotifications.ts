@@ -41,8 +41,30 @@ export function useNotifications(userId?: string) {
       try {
         console.log('[useNotifications] Auto-generating FCM token for logged-in user...');
         
-        // Wait for service worker to be ready
-        const registration = await navigator.serviceWorker.ready;
+        // Wait for service worker to be ready (with retry logic for new users)
+        let registration;
+        let retries = 0;
+        const maxRetries = 5;
+        
+        while (retries < maxRetries) {
+          try {
+            registration = await navigator.serviceWorker.ready;
+            break;
+          } catch (error) {
+            retries++;
+            if (retries >= maxRetries) {
+              console.warn('[useNotifications] Service worker not ready after', maxRetries, 'attempts');
+              return;
+            }
+            // Wait a bit longer before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+          }
+        }
+        
+        if (!registration) {
+          console.warn('[useNotifications] Service worker registration not available');
+          return;
+        }
         
         // Get FCM token
         const currentToken = await getToken(messaging, {
@@ -80,8 +102,9 @@ export function useNotifications(userId?: string) {
       }
     };
 
-    // Run after a short delay to ensure service worker is registered
-    const timer = setTimeout(initializeFCMToken, 1000);
+    // Run after a delay to ensure service worker is registered
+    // Longer delay for new users to ensure service worker is fully ready
+    const timer = setTimeout(initializeFCMToken, 2000);
     return () => clearTimeout(timer);
   }, [userId, isSupported]);
 

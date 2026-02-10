@@ -77,6 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('[AuthContext] ❌ User document does NOT exist in Firestore!');
             console.error('[AuthContext] Creating user document now...');
             
+            // Import DEFAULT_NOTIFICATION_SETTINGS
+            const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
+            
             // Create user document if it doesn't exist
             const newUserData: User = {
               id: firebaseUser.uid,
@@ -100,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 completionHistory: {},
                 missedCommitments: {},
               },
+              notificationSettings: DEFAULT_NOTIFICATION_SETTINGS, // Initialize with default settings
             };
             
             try {
@@ -287,6 +291,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Auto-add to whitelist on first signup (after authentication)
     await addToWhitelist(email);
 
+    // Import DEFAULT_NOTIFICATION_SETTINGS
+    const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
+
     // Create user document
     const newUser: User = {
       id: userId,
@@ -296,6 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       friendCode: generateFriendCode(),
       friends: [],
       createdAt: Date.now(),
+      notificationSettings: DEFAULT_NOTIFICATION_SETTINGS, // Initialize with default settings
     };
 
       // Use merge: true to preserve any existing fields (like isAdmin, friends, etc.)
@@ -375,6 +383,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       
+      // Import DEFAULT_NOTIFICATION_SETTINGS
+      const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
+      
       // Create new user document
       const newUser: User = {
         id: userId,
@@ -384,6 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         friendCode: friendCode,
         friends: [],
         createdAt: Date.now(),
+        notificationSettings: DEFAULT_NOTIFICATION_SETTINGS, // Initialize with default settings
       };
 
       // Use merge: true to preserve any existing fields (like isAdmin, friends, etc.)

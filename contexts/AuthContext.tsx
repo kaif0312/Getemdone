@@ -121,11 +121,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userEmail) {
             const whitelistStatus = await checkBetaWhitelist(userEmail);
             
-            // Only update isWhitelisted if it's not already set (to avoid race conditions)
-            // signIn/signInWithGoogle functions will set it explicitly, so we only update here
-            // if it's still null (initial state) or if it needs to be corrected
-            if (isWhitelisted === null || isWhitelisted !== whitelistStatus) {
-              setIsWhitelisted(whitelistStatus);
+            // Always update isWhitelisted based on current whitelist status
+            // This ensures the state is correct even if signIn/signInWithGoogle hasn't set it yet
+            // or if the whitelist status changes after sign-in
+            setIsWhitelisted(whitelistStatus);
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[AuthContext] Whitelist check:', {
+                email: userEmail,
+                whitelisted: whitelistStatus,
+                currentState: isWhitelisted
+              });
             }
             
             // If user is not whitelisted, don't sign them out immediately
@@ -137,10 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // AccessRemovedScreen will be shown in app/page.tsx
             }
           } else {
-            // No email available - only set to false if not already set
-            if (isWhitelisted === null) {
-              setIsWhitelisted(false);
-            }
+            // No email available - set to false
+            setIsWhitelisted(false);
           }
           
           setLoading(false);

@@ -316,13 +316,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await firebaseSignOut(auth);
           throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
         }
+        // User is now whitelisted (auto-added)
+        setIsWhitelisted(true);
       } else {
         // User was previously whitelisted but now removed - don't auto-add
         // Don't sign out - let them stay authenticated so AccessRemovedScreen can be shown
         // The auth state listener will set isWhitelisted to false, which will trigger the screen
         // Just return without throwing error - the screen will be shown automatically
+        setIsWhitelisted(false);
         return;
       }
+    } else {
+      // User is whitelisted - explicitly set the state
+      setIsWhitelisted(true);
     }
     
     // Check if user document exists
@@ -361,9 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    // Set whitelist status
-    const finalWhitelistStatus = await checkBetaWhitelist(email);
-    setIsWhitelisted(finalWhitelistStatus);
+    // Whitelist status already set above, no need to check again
   };
 
   const signOut = async () => {

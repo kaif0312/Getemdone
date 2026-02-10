@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: firebaseUser.uid,
               displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
               email: firebaseUser.email || '',
-              photoURL: firebaseUser.photoURL || undefined,
+              ...(firebaseUser.photoURL && { photoURL: firebaseUser.photoURL }),
               friendCode: (() => {
                 const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
                 let code = '';
@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       id: userId,
       displayName,
       email,
-      photoURL: undefined, // No photo for email/password sign-up initially
+      // No photo for email/password sign-up initially - omit photoURL field
       friendCode: generateFriendCode(),
       friends: [],
       createdAt: Date.now(),
@@ -270,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         displayName: result.user.displayName || 'User',
         email: email,
-        photoURL: result.user.photoURL || undefined, // Store Google profile picture
+        ...(result.user.photoURL && { photoURL: result.user.photoURL }), // Store Google profile picture if available
         friendCode: friendCode,
         friends: [],
         createdAt: Date.now(),

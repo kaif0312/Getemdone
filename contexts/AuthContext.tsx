@@ -120,7 +120,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userEmail = currentUserData?.email || firebaseUser.email;
           if (userEmail) {
             const whitelistStatus = await checkBetaWhitelist(userEmail);
-            setIsWhitelisted(whitelistStatus);
+            
+            // Only update isWhitelisted if it's not already set (to avoid race conditions)
+            // signIn/signInWithGoogle functions will set it explicitly, so we only update here
+            // if it's still null (initial state) or if it needs to be corrected
+            if (isWhitelisted === null || isWhitelisted !== whitelistStatus) {
+              setIsWhitelisted(whitelistStatus);
+            }
             
             // If user is not whitelisted, don't sign them out immediately
             // Instead, set isWhitelisted to false so AccessRemovedScreen can be shown
@@ -131,7 +137,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               // AccessRemovedScreen will be shown in app/page.tsx
             }
           } else {
-            setIsWhitelisted(false);
+            // No email available - only set to false if not already set
+            if (isWhitelisted === null) {
+              setIsWhitelisted(false);
+            }
           }
           
           setLoading(false);

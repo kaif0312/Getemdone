@@ -786,7 +786,8 @@ export default function TaskItem({
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {task.deferredTo && (() => {
                 const todayStr = getTodayString();
-                const createdDate = new Date(task.createdAt).toISOString().split('T')[0];
+                // Use getDateString to ensure consistent date comparison (local time)
+                const createdDate = getDateString(task.createdAt);
                 const deferredDate = task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo;
                 // A task is "scheduled" if it was created today and deferred/scheduled to today or future
                 // A task is "deferred" if it was created before today and moved to today or future

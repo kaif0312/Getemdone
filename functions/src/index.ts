@@ -73,9 +73,27 @@ export const sendPushNotification = functions.firestore
             tag: `${notification.type}-${notificationId}`,
             requireInteraction: false,
             vibrate: [100, 50, 100],
+            renotify: false, // Prevent duplicate notifications
           },
           fcmOptions: {
             link: '/', // Open app when clicked
+          },
+          headers: {
+            // Prevent iOS from showing duplicate notifications
+            'apns-collapse-id': `${notification.type}-${notificationId}`,
+          },
+        },
+        apns: {
+          headers: {
+            // iOS-specific: Use collapse ID to prevent duplicates
+            'apns-collapse-id': `${notification.type}-${notificationId}`,
+          },
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+              'content-available': 1,
+            },
           },
         },
       };

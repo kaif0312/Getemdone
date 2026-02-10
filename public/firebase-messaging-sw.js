@@ -16,6 +16,9 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Track shown notifications to prevent duplicates
+const shownNotifications = new Set();
+
 // Handle background push notifications
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
@@ -26,6 +29,24 @@ messaging.onBackgroundMessage((payload) => {
   const notificationId = payload.data?.notificationId || '';
   const type = payload.data?.type || 'default';
   
+  // Create unique tag for this notification
+  const tag = notificationId ? `${type}-${notificationId}` : `${type}-${Date.now()}`;
+  
+  // Check if we've already shown this notification (prevent duplicates)
+  if (shownNotifications.has(tag)) {
+    console.log('[firebase-messaging-sw.js] Notification already shown, skipping duplicate:', tag);
+    return;
+  }
+  
+  // Mark as shown
+  shownNotifications.add(tag);
+  
+  // Clean up old tags (keep only last 100 to prevent memory issues)
+  if (shownNotifications.size > 100) {
+    const firstTag = shownNotifications.values().next().value;
+    shownNotifications.delete(firstTag);
+  }
+  
   // Format notification body to show actual comment text
   let notificationBody = payload.notification?.body || 'You have a new update';
   if (commentText && fromUserName) {
@@ -33,9 +54,6 @@ messaging.onBackgroundMessage((payload) => {
   }
   
   const notificationTitle = payload.notification?.title || 'New Notification';
-  
-  // Use notification ID as tag to prevent duplicates across tabs/windows
-  const tag = notificationId ? `${type}-${notificationId}` : payload.data?.tag || 'default';
   
   console.log('[firebase-messaging-sw.js] Showing notification with tag:', tag);
   
@@ -48,9 +66,19 @@ messaging.onBackgroundMessage((payload) => {
     requireInteraction: false,
     vibrate: [100, 50, 100],
     renotify: false, // Don't re-alert if notification with same tag already exists
+    silent: false, // Ensure notification is shown
   };
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  // Show notification and handle any errors
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .then(() => {
+      console.log('[firebase-messaging-sw.js] ✅ Notification shown successfully');
+    })
+    .catch((error) => {
+      console.error('[firebase-messaging-sw.js] ❌ Error showing notification:', error);
+      // Remove from set if showing failed so it can be retried
+      shownNotifications.delete(tag);
+    });
 });
 
 // Handle notification clicks

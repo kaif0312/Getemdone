@@ -316,6 +316,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Check whitelist again after getting userId
     const isWhitelisted = await checkBetaWhitelist(email);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AuthContext] signInWithGoogle whitelist check:', {
+        email,
+        emailLower: email.toLowerCase(),
+        isWhitelisted,
+        isWhitelistedBefore,
+        userId
+      });
+    }
+    
     if (!isWhitelisted) {
       // Only auto-add if user was not previously whitelisted (new user)
       // If they were whitelisted before and now removed, don't auto-add them back

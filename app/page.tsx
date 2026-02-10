@@ -574,8 +574,21 @@ export default function Home() {
   }
 
   // Show access removed screen if user is authenticated but not whitelisted
-  if (isWhitelisted === false) {
+  // Check both false and null (null means whitelist check hasn't completed yet, but user is authenticated)
+  if (user && userData && isWhitelisted === false) {
     return <AccessRemovedScreen />;
+  }
+  
+  // If whitelist check is still loading, wait before showing main app
+  if (user && userData && isWhitelisted === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Verifying access...</p>
+        </div>
+      </div>
+    );
   }
 
   // Show iOS installation prompt if needed (blocks access until installed)

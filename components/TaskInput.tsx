@@ -301,14 +301,23 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                           )}
                         </div>
                         
-                        {/* Quick "Tomorrow" button */}
-                        <button
-                          type="button"
-                          onClick={scheduleForTomorrow}
-                          className="w-full px-3 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg transition-all font-medium text-sm shadow-sm active:scale-[0.98]"
-                        >
-                          📅 Schedule for Tomorrow (9:00 AM)
-                        </button>
+                        {/* Quick action buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={scheduleForLaterToday}
+                            className="flex-1 px-3 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg transition-all font-medium text-sm shadow-sm active:scale-[0.98]"
+                          >
+                            📅 Later Today
+                          </button>
+                          <button
+                            type="button"
+                            onClick={scheduleForTomorrow}
+                            className="flex-1 px-3 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg transition-all font-medium text-sm shadow-sm active:scale-[0.98]"
+                          >
+                            🌅 Tomorrow
+                          </button>
+                        </div>
                         
                         <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date & time</div>
                         
@@ -316,7 +325,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                           ref={scheduleInputRef}
                           type="datetime-local"
                           onChange={handleScheduleChange}
-                          min={getTomorrowDateTime()}
+                          min={getMinDateTime()}
                           defaultValue={scheduledFor || ''}
                           className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
                         />

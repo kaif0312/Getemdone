@@ -236,10 +236,22 @@ export function useNotifications(userId?: string) {
                 
                 await updateDoc(userDocRef, updateData);
                 console.log('✅ FCM token and notification settings saved to Firestore for user:', userId);
+                
+                // Verify the token was saved by reading it back
+                const verifyDoc = await getDoc(userDocRef);
+                const savedToken = verifyDoc.data()?.fcmToken;
+                if (savedToken === currentToken) {
+                  console.log('✅ Verified: FCM token successfully saved to Firestore');
+                } else {
+                  console.warn('⚠️ Warning: FCM token verification failed. Saved:', savedToken, 'Expected:', currentToken);
+                }
               } catch (saveError) {
                 console.error('⚠️ Error saving FCM token to Firestore:', saveError);
-                // Don't fail the whole flow if token save fails
+                // Don't fail the whole flow if token save fails, but log it
+                console.error('💡 This may prevent background notifications from working');
               }
+            } else {
+              console.warn('⚠️ No userId available, cannot save FCM token to Firestore');
             }
             
             return true;

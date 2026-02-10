@@ -30,6 +30,7 @@ import NotificationsPanel from '@/components/NotificationsPanel';
 import QuickInfoModal from '@/components/QuickInfoModal';
 import IOSInstallPrompt from '@/components/IOSInstallPrompt';
 import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
+import AccessRemovedScreen from '@/components/AccessRemovedScreen';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
@@ -572,7 +573,10 @@ export default function Home() {
     return <AuthModal />;
   }
 
-  // Whitelist verification disabled - no pending approval screen needed
+  // Show access removed screen if user is authenticated but not whitelisted
+  if (isWhitelisted === false) {
+    return <AccessRemovedScreen />;
+  }
 
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {

@@ -32,6 +32,11 @@ export default function AuthModal() {
         await signIn(email, password);
       }
     } catch (err: any) {
+      // Don't show error for ACCESS_REMOVED - it will be handled by AccessRemovedScreen
+      if (err.message === 'ACCESS_REMOVED') {
+        // Error will be handled by the AccessRemovedScreen component
+        return;
+      }
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
@@ -46,6 +51,11 @@ export default function AuthModal() {
       await signInWithGoogle();
       // If signup succeeds, user will see pending approval screen (handled in page.tsx)
     } catch (err: any) {
+      // Don't show error for ACCESS_REMOVED - it will be handled by AccessRemovedScreen
+      if (err.message === 'ACCESS_REMOVED') {
+        // Error will be handled by the AccessRemovedScreen component
+        return;
+      }
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);

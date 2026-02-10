@@ -122,14 +122,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const whitelistStatus = await checkBetaWhitelist(userEmail);
             setIsWhitelisted(whitelistStatus);
             
-            // If user is not whitelisted, sign them out
+            // If user is not whitelisted, don't sign them out immediately
+            // Instead, set isWhitelisted to false so AccessRemovedScreen can be shown
+            // The user will be signed out when they click "Return to Sign In" on that screen
             if (!whitelistStatus) {
-              console.log('[AuthContext] ⚠️ User not whitelisted, signing out:', userEmail);
-              await firebaseSignOut(auth);
-              setUserData(null);
-              setIsWhitelisted(false);
-              setLoading(false);
-              return;
+              console.log('[AuthContext] ⚠️ User not whitelisted:', userEmail);
+              // Keep user authenticated but mark as not whitelisted
+              // AccessRemovedScreen will be shown in app/page.tsx
             }
           } else {
             setIsWhitelisted(false);
@@ -177,8 +176,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Auto-add user to whitelist (for first-time login)
-  const addToWhitelist = async (email: string): Promise<void> => {
+  // Auto-add user to whitelist (for first-time login only)
+  // This should NOT be called for existing users who were removed from whitelist
+  const addToWhitelist = async (email: string, userId?: string): Promise<void> => {
     if (!email) return;
     const emailLower = email.toLowerCase();
     try {
@@ -187,12 +187,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Only add if not already whitelisted
       if (!whitelistDoc.exists()) {
+        // Check if user document exists - if it does, this is NOT a first-time user
+        // and they should NOT be auto-whitelisted (they were likely removed)
+        if (userId) {
+          const userDocRef = doc(db, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          // If user document exists, this is an existing user who was removed
+          // Don't auto-add them back
+          if (userDoc.exists()) {
+            console.log('[AuthContext] ⚠️ Existing user removed from whitelist - not auto-adding:', emailLower);
+            return;
+          }
+        }
+        
+        // Only auto-add if this is a truly new user (no user document exists)
         await setDoc(whitelistDocRef, {
           email: emailLower,
           addedAt: Date.now(),
           autoAdded: true, // Flag to indicate auto-whitelisting
         });
-        console.log('[AuthContext] ✅ Auto-added user to whitelist:', emailLower);
+        console.log('[AuthContext] ✅ Auto-added new user to whitelist:', emailLower);
       }
     } catch (error) {
       console.error('[AuthContext] Error adding to whitelist:', error);
@@ -201,20 +216,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // First authenticate the user
-    await signInWithEmailAndPassword(auth, email, password);
+    // Check whitelist BEFORE authentication
+    const isWhitelistedBefore = await checkBetaWhitelist(email);
     
-    // After authentication, check whitelist and auto-add if needed
+    // First authenticate the user
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const userId = userCredential.user.uid;
+    
+    // After authentication, check whitelist again and auto-add if needed (only for new users)
     const isWhitelisted = await checkBetaWhitelist(email);
     if (!isWhitelisted) {
-      // Auto-add to whitelist on first login attempt
-      await addToWhitelist(email);
-      // Re-check after adding
-      const isWhitelistedAfter = await checkBetaWhitelist(email);
-      if (!isWhitelistedAfter) {
-        // Sign out if still not whitelisted
+      // Only auto-add if user was not previously whitelisted (new user)
+      // If they were whitelisted before and now removed, don't auto-add them back
+      if (!isWhitelistedBefore) {
+        // This is a new user - auto-add to whitelist
+        await addToWhitelist(email, userId);
+        // Re-check after adding
+        const isWhitelistedAfter = await checkBetaWhitelist(email);
+        if (!isWhitelistedAfter) {
+          // Sign out if still not whitelisted (shouldn't happen for new users)
+          await firebaseSignOut(auth);
+          throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
+        }
+      } else {
+        // User was previously whitelisted but now removed - don't auto-add, show error
         await firebaseSignOut(auth);
-        throw new Error('Access denied. Your account has been removed from the whitelist. Please contact an administrator.');
+        throw new Error('ACCESS_REMOVED'); // Special error code for access removed screen
       }
     }
   };
@@ -267,20 +294,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Unable to get email from Google account. Please try again.');
     }
     
-    // Check whitelist before proceeding
-    const isWhitelisted = await checkBetaWhitelist(email);
-    if (!isWhitelisted) {
-      // Auto-add to whitelist on first login attempt
-      await addToWhitelist(email);
-      // Re-check after adding
-      const isWhitelistedAfter = await checkBetaWhitelist(email);
-      if (!isWhitelistedAfter) {
-        await firebaseSignOut(auth);
-        throw new Error('Access denied. Your account has been removed from the whitelist. Please contact an administrator.');
-      }
-    }
+    // Check whitelist BEFORE proceeding
+    const isWhitelistedBefore = await checkBetaWhitelist(email);
     
     const userId = result.user.uid;
+    
+    // Check whitelist again after getting userId
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      // Only auto-add if user was not previously whitelisted (new user)
+      // If they were whitelisted before and now removed, don't auto-add them back
+      if (!isWhitelistedBefore) {
+        // This is a new user - auto-add to whitelist
+        await addToWhitelist(email, userId);
+        // Re-check after adding
+        const isWhitelistedAfter = await checkBetaWhitelist(email);
+        if (!isWhitelistedAfter) {
+          // Sign out if still not whitelisted (shouldn't happen for new users)
+          await firebaseSignOut(auth);
+          throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
+        }
+      } else {
+        // User was previously whitelisted but now removed - don't auto-add, show error
+        await firebaseSignOut(auth);
+        throw new Error('ACCESS_REMOVED'); // Special error code for access removed screen
+      }
+    }
     
     // Check if user document exists
     const userDocRef = doc(db, 'users', userId);

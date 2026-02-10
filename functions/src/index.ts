@@ -68,8 +68,8 @@ export const sendPushNotification = functions.firestore
         },
         webpush: {
           notification: {
-            icon: '/icon-192.png',
-            badge: '/icon-192.png',
+            icon: '/icon.svg',
+            badge: '/icon.svg',
             tag: `${notification.type}-${notificationId}`,
             requireInteraction: false,
             vibrate: [100, 50, 100],

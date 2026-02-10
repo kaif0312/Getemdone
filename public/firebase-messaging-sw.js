@@ -41,8 +41,8 @@ messaging.onBackgroundMessage((payload) => {
   
   const notificationOptions = {
     body: notificationBody,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     tag: tag, // Same tag = replaces previous notification instead of showing duplicate
     data: payload.data,
     requireInteraction: false,
@@ -84,8 +84,7 @@ const CACHE_NAME = 'task-accountability-v1';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/icon.svg',
 ];
 
 self.addEventListener('install', (event) => {

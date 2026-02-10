@@ -181,15 +181,15 @@ export function useNotifications(userId?: string) {
         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
           const registration = await navigator.serviceWorker.ready;
           return await registration.showNotification(title, {
-            badge: '/icon-192.png',
-            icon: '/icon-192.png',
+            badge: '/icon.svg',
+            icon: '/icon.svg',
             ...options,
           });
         } else {
           // Fallback to regular notification
           return new Notification(title, {
-            badge: '/icon-192.png',
-            icon: '/icon-192.png',
+            badge: '/icon.svg',
+            icon: '/icon.svg',
             ...options,
           });
         }

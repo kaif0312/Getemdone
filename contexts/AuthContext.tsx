@@ -117,22 +117,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Check whitelist status
           const currentUserData = docSnapshot.exists() ? docSnapshot.data() as User : null;
+          // Use email from user document if available, otherwise fall back to Firebase auth email
+          // Both should be the same, but user document email is more reliable
           const userEmail = currentUserData?.email || firebaseUser.email;
+          
           if (userEmail) {
             const whitelistStatus = await checkBetaWhitelist(userEmail);
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[AuthContext] Auth listener whitelist check:', {
+                email: userEmail,
+                emailLower: userEmail.toLowerCase(),
+                whitelisted: whitelistStatus,
+                hasUserData: !!currentUserData,
+                userDataEmail: currentUserData?.email,
+                firebaseEmail: firebaseUser.email,
+                currentIsWhitelisted: isWhitelisted
+              });
+            }
             
             // Always update isWhitelisted based on current whitelist status
             // This ensures the state is correct even if signIn/signInWithGoogle hasn't set it yet
             // or if the whitelist status changes after sign-in
             setIsWhitelisted(whitelistStatus);
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[AuthContext] Whitelist check:', {
-                email: userEmail,
-                whitelisted: whitelistStatus,
-                currentState: isWhitelisted
-              });
-            }
             
             // If user is not whitelisted, don't sign them out immediately
             // Instead, set isWhitelisted to false so AccessRemovedScreen can be shown
@@ -144,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             // No email available - set to false
+            console.warn('[AuthContext] ⚠️ No email available for whitelist check');
             setIsWhitelisted(false);
           }
           

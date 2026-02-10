@@ -66,11 +66,6 @@ export default function AuthModal() {
             <span>🔒</span>
             <span>Beta Testing</span>
           </div>
-          {isSignUp && (
-            <div className="mt-3 bg-blue-50 border border-blue-200 text-blue-800 px-3 py-2 rounded-lg text-xs">
-              <p>New users require admin approval. Your request will be reviewed.</p>
-            </div>
-          )}
         </div>
 
         {error && (

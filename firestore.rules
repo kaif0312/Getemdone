@@ -30,8 +30,15 @@ service cloud.firestore {
       // Allow anyone to read (needed for pre-auth whitelist check during sign-in)
       // This is safe because we only expose email addresses, not sensitive data
       allow read: if true;
-      // Only admins can write (add/remove emails)
-      allow write: if isAdmin();
+      // Users can create their own whitelist entry (auto-whitelist on first login)
+      // Only if the document doesn't exist yet (first time)
+      // Note: email in document ID should already be lowercase (enforced by client)
+      allow create: if isAuthenticated() && 
+        !exists(/databases/$(database)/documents/betaWhitelist/$(email)) &&
+        request.resource.data.email == email &&
+        request.resource.data.email == request.auth.token.email;
+      // Only admins can update or delete (remove from whitelist)
+      allow update, delete: if isAdmin();
     }
     
     // Pending Signups collection

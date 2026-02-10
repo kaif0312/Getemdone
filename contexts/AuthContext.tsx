@@ -113,8 +113,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
           
-          // Whitelist check disabled - always set to true
-          setIsWhitelisted(true);
+          // Check whitelist status
+          const currentUserData = docSnapshot.exists() ? docSnapshot.data() as User : null;
+          const userEmail = currentUserData?.email || firebaseUser.email;
+          if (userEmail) {
+            const whitelistStatus = await checkBetaWhitelist(userEmail);
+            setIsWhitelisted(whitelistStatus);
+            
+            // If user is not whitelisted, sign them out
+            if (!whitelistStatus) {
+              console.log('[AuthContext] ⚠️ User not whitelisted, signing out:', userEmail);
+              await firebaseSignOut(auth);
+              setUserData(null);
+              setIsWhitelisted(false);
+              setLoading(false);
+              return;
+            }
+          } else {
+            setIsWhitelisted(false);
+          }
           
           setLoading(false);
         }, (error) => {
@@ -145,14 +162,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Check if user email is in beta whitelist
-  // DISABLED: Whitelist verification is disabled - all users can sign up
   const checkBetaWhitelist = async (email: string): Promise<boolean> => {
-    // Always return true - whitelist verification is disabled
-    return true;
+    if (!email) return false;
+    const emailLower = email.toLowerCase();
+    try {
+      const whitelistDocRef = doc(db, 'betaWhitelist', emailLower);
+      const whitelistDoc = await getDoc(whitelistDocRef);
+      return whitelistDoc.exists();
+    } catch (error) {
+      console.error('[AuthContext] Error checking whitelist:', error);
+      return false;
+    }
+  };
+
+  // Auto-add user to whitelist (for first-time login)
+  const addToWhitelist = async (email: string): Promise<void> => {
+    if (!email) return;
+    const emailLower = email.toLowerCase();
+    try {
+      const whitelistDocRef = doc(db, 'betaWhitelist', emailLower);
+      const whitelistDoc = await getDoc(whitelistDocRef);
+      
+      // Only add if not already whitelisted
+      if (!whitelistDoc.exists()) {
+        await setDoc(whitelistDocRef, {
+          email: emailLower,
+          addedAt: Date.now(),
+          autoAdded: true, // Flag to indicate auto-whitelisting
+        });
+        console.log('[AuthContext] ✅ Auto-added user to whitelist:', emailLower);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error adding to whitelist:', error);
+      // Don't throw - allow login to proceed even if whitelist add fails
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    // Whitelist check disabled - allow all users to sign in
+    // Check whitelist before signing in
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      // Auto-add to whitelist on first login attempt
+      await addToWhitelist(email);
+      // Re-check after adding
+      const isWhitelistedAfter = await checkBetaWhitelist(email);
+      if (!isWhitelistedAfter) {
+        throw new Error('Access denied. Your account has been removed from the whitelist. Please contact an administrator.');
+      }
+    }
+    
     await signInWithEmailAndPassword(auth, email, password);
   };
 
@@ -167,7 +225,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    // Whitelist check disabled - allow all users to sign up
+    // Auto-add to whitelist on first signup
+    await addToWhitelist(email);
     
     // Create Firebase Auth account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -186,23 +245,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await setDoc(doc(db, 'users', userId), newUser);
     setUserData(newUser);
-    setIsWhitelisted(true); // Always set to true since whitelist is disabled
+    
+    // Check whitelist status
+    const isWhitelisted = await checkBetaWhitelist(email);
+    setIsWhitelisted(isWhitelisted);
   };
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Whitelist check disabled - allow all users to sign in
     const email = result.user.email;
     if (!email) {
       await firebaseSignOut(auth);
       throw new Error('Unable to get email from Google account. Please try again.');
     }
     
+    // Check whitelist before proceeding
+    const isWhitelisted = await checkBetaWhitelist(email);
+    if (!isWhitelisted) {
+      // Auto-add to whitelist on first login attempt
+      await addToWhitelist(email);
+      // Re-check after adding
+      const isWhitelistedAfter = await checkBetaWhitelist(email);
+      if (!isWhitelistedAfter) {
+        await firebaseSignOut(auth);
+        throw new Error('Access denied. Your account has been removed from the whitelist. Please contact an administrator.');
+      }
+    }
+    
     const userId = result.user.uid;
-    setIsWhitelisted(true); // Always set to true since whitelist is disabled
-
+    
     // Check if user document exists
     const userDocRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userDocRef);
@@ -237,6 +310,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, { merge: true });
       }
     }
+    
+    // Set whitelist status
+    const finalWhitelistStatus = await checkBetaWhitelist(email);
+    setIsWhitelisted(finalWhitelistStatus);
   };
 
   const signOut = async () => {

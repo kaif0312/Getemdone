@@ -103,7 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             
             try {
-              await setDoc(userDocRef, newUserData);
+              // Use merge: true to preserve any existing fields (like isAdmin, friends, etc.)
+              // This is a safety measure in case the document was partially created or has additional fields
+              await setDoc(userDocRef, newUserData, { merge: true });
               setUserData(newUserData);
               if (process.env.NODE_ENV === 'development') {
                 console.log('[AuthContext] ✅ User document created successfully:', newUserData);
@@ -246,8 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createdAt: Date.now(),
     };
 
-    await setDoc(doc(db, 'users', userId), newUser);
-    setUserData(newUser);
+      // Use merge: true to preserve any existing fields (like isAdmin, friends, etc.)
+      await setDoc(doc(db, 'users', userId), newUser, { merge: true });
+      setUserData(newUser);
     
     // Check whitelist status
     const isWhitelisted = await checkBetaWhitelist(email);
@@ -302,7 +305,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: Date.now(),
       };
 
-      await setDoc(userDocRef, newUser);
+      // Use merge: true to preserve any existing fields (like isAdmin, friends, etc.)
+      await setDoc(userDocRef, newUser, { merge: true });
       setUserData(newUser);
     } else {
       // Update existing user's photo URL if they signed in with Google

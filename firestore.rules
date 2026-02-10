@@ -33,10 +33,14 @@ service cloud.firestore {
       // Users can create their own whitelist entry (auto-whitelist on first login)
       // Only if the document doesn't exist yet (first time)
       // Note: email in document ID should already be lowercase (enforced by client)
+      // We verify the email matches the authenticated user's email
       allow create: if isAuthenticated() && 
         !exists(/databases/$(database)/documents/betaWhitelist/$(email)) &&
         request.resource.data.email == email &&
-        request.resource.data.email == request.auth.token.email;
+        // Verify email matches the authenticated user's email (from token or user document)
+        (request.resource.data.email == request.auth.token.email ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          request.resource.data.email == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email));
       // Only admins can update or delete (remove from whitelist)
       allow update, delete: if isAdmin();
     }

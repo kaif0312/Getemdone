@@ -199,7 +199,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Check whitelist before signing in
+    // First authenticate the user
+    await signInWithEmailAndPassword(auth, email, password);
+    
+    // After authentication, check whitelist and auto-add if needed
     const isWhitelisted = await checkBetaWhitelist(email);
     if (!isWhitelisted) {
       // Auto-add to whitelist on first login attempt
@@ -207,11 +210,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Re-check after adding
       const isWhitelistedAfter = await checkBetaWhitelist(email);
       if (!isWhitelistedAfter) {
+        // Sign out if still not whitelisted
+        await firebaseSignOut(auth);
         throw new Error('Access denied. Your account has been removed from the whitelist. Please contact an administrator.');
       }
     }
-    
-    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const generateFriendCode = () => {
@@ -225,12 +228,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    // Auto-add to whitelist on first signup
-    await addToWhitelist(email);
-    
-    // Create Firebase Auth account
+    // Create Firebase Auth account first
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const userId = userCredential.user.uid;
+
+    // Auto-add to whitelist on first signup (after authentication)
+    await addToWhitelist(email);
 
     // Create user document
     const newUser: User = {

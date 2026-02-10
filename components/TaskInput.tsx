@@ -181,6 +181,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
           paddingLeft: 'max(env(safe-area-inset-left, 0px), 0px)',
           paddingRight: 'max(env(safe-area-inset-right, 0px), 0px)',
           maxHeight: 'calc(100vh - env(safe-area-inset-top, 0px))',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         {/* Mobile: Compact single row with essential buttons */}

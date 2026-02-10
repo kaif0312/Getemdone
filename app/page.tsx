@@ -674,9 +674,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-[80px] md:pb-24 safe-area-inset-bottom" style={{ paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px) + 80px)' }}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="max-w-3xl mx-auto px-2 sm:px-3 md:px-4 py-3 md:py-4" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 0.5rem)', paddingRight: 'max(env(safe-area-inset-right, 0px), 0.5rem)' }}>
+          <div className="flex items-center justify-between mb-3 gap-1 sm:gap-2">
             <button
               onClick={() => setShowQuickInfo(true)}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -694,11 +694,11 @@ export default function Home() {
               </div>
             </button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
               {/* Notifications Button */}
               <button
                 onClick={() => setShowNotificationsPanel(true)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative flex-shrink-0"
                 title={unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications !== 1 ? 's' : ''}` : 'Notifications'}
               >
                 <FaBell className={`${unreadNotifications > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'} transition-colors`} size={18} />
@@ -729,7 +729,7 @@ export default function Home() {
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} />}
@@ -744,7 +744,7 @@ export default function Home() {
                     onboarding.markFeatureSeen('hasSeenFriends');
                   }
                 }}
-                className="relative bg-blue-600 dark:bg-blue-500 text-white p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                className="relative bg-blue-600 dark:bg-blue-500 text-white p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors flex-shrink-0"
                 title="Manage Friends"
               >
                 <FaUsers size={18} />
@@ -753,7 +753,7 @@ export default function Home() {
               {/* Sign Out */}
               <button
                 onClick={signOut}
-                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
                 title="Sign Out"
               >
                 <FaSignOutAlt size={18} />

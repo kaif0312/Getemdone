@@ -184,7 +184,15 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         }}
       >
         {/* Mobile: Compact single row with essential buttons */}
-        <div className="max-w-3xl mx-auto px-2 sm:px-3 py-2.5 md:p-4" style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+        <div className="max-w-3xl mx-auto px-2 sm:px-3 py-2.5 md:p-4" style={{ 
+          width: '100%', 
+          maxWidth: '100%',
+          paddingLeft: 'max(env(safe-area-inset-left, 0px), 0.5rem)',
+          paddingRight: 'max(env(safe-area-inset-right, 0px), 0.5rem)',
+          overflowX: 'auto', 
+          overflowY: 'hidden', 
+          WebkitOverflowScrolling: 'touch' 
+        }}>
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-nowrap" style={{ minWidth: 'fit-content' }}>
             {/* Templates - Hidden on mobile, shown on desktop */}
             <button

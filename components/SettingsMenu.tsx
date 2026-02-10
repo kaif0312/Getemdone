@@ -63,7 +63,7 @@ export default function SettingsMenu({
       {/* Settings Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors relative"
+        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors relative flex-shrink-0"
         title="Settings & More"
       >
         <FaCog size={18} className={isOpen ? 'animate-spin-slow' : ''} />

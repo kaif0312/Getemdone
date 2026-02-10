@@ -279,13 +279,23 @@ export function useNotifications(userId?: string) {
                   serviceWorkerRegistration: registration,
                 });
                 if (retryToken && userId) {
-                  const { doc, updateDoc } = await import('firebase/firestore');
+                  const { doc, updateDoc, getDoc } = await import('firebase/firestore');
                   const { db } = await import('@/lib/firebase');
-                  await updateDoc(doc(db, 'users', userId), {
+                  const userDocRef = doc(db, 'users', userId);
+                  await updateDoc(userDocRef, {
                     fcmToken: retryToken,
                     fcmTokenUpdatedAt: Date.now(),
                   });
-                  console.log('✅ FCM token saved on retry');
+                  
+                  // Verify the token was saved
+                  const verifyDoc = await getDoc(userDocRef);
+                  const savedToken = verifyDoc.data()?.fcmToken;
+                  if (savedToken === retryToken) {
+                    console.log('✅ FCM token saved and verified on retry');
+                    setFcmToken(retryToken);
+                  } else {
+                    console.warn('⚠️ FCM token retry verification failed');
+                  }
                 }
               } catch (retryError) {
                 console.error('❌ Retry also failed:', retryError);

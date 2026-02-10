@@ -34,6 +34,7 @@ import AccessRemovedScreen from '@/components/AccessRemovedScreen';
 import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
+import NotificationPrompt from '@/components/NotificationPrompt';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
@@ -754,11 +755,23 @@ export default function Home() {
             <p className="text-gray-600 dark:text-gray-400">Loading tasks...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <EmptyState
-            type="no-tasks"
-            onAction={() => taskInputRef.current?.focus()}
-            showTips={false}
-          />
+          <div className="space-y-6">
+            <EmptyState
+              type="no-tasks"
+              onAction={() => taskInputRef.current?.focus()}
+              showTips={false}
+            />
+            {/* Notification Prompt for New Users */}
+            {notifications.permission === 'default' && notifications.isSupported && (
+              <div className="max-w-md mx-auto px-4">
+                <NotificationPrompt
+                  onEnable={notifications.requestPermission}
+                  permission={notifications.permission}
+                  isSupported={notifications.isSupported}
+                />
+              </div>
+            )}
+          </div>
         ) : (
           <>
             {/* Your Tasks */}

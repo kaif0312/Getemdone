@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { FaTimes, FaCamera, FaUserCircle } from 'react-icons/fa';
+import { useState, useRef, useEffect } from 'react';
+import { FaTimes, FaCamera, FaUserCircle, FaEdit, FaCheck, FaTimes as FaCancel } from 'react-icons/fa';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
@@ -22,7 +22,16 @@ export default function ProfileSettings({
 }: ProfileSettingsProps) {
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Update displayName when currentUser changes
+  useEffect(() => {
+    setDisplayName(currentUser.displayName);
+  }, [currentUser.displayName]);
 
   if (!isOpen) return null;
 
@@ -126,6 +135,71 @@ export default function ProfileSettings({
     }
   };
 
+  const handleStartEditName = () => {
+    setIsEditingName(true);
+    // Focus input after state update
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }, 0);
+  };
+
+  const handleCancelEditName = () => {
+    setDisplayName(currentUser.displayName);
+    setIsEditingName(false);
+  };
+
+  const handleSaveName = async () => {
+    const trimmedName = displayName.trim();
+    
+    // Validate name
+    if (!trimmedName || trimmedName.length === 0) {
+      alert('Name cannot be empty');
+      return;
+    }
+    
+    if (trimmedName.length > 50) {
+      alert('Name must be 50 characters or less');
+      return;
+    }
+
+    // If name hasn't changed, just cancel edit
+    if (trimmedName === currentUser.displayName) {
+      setIsEditingName(false);
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      // Update user document in Firestore
+      const userDocRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userDocRef, { displayName: trimmedName });
+      
+      // Update local state
+      onUpdateUser({ displayName: trimmedName });
+      
+      setIsEditingName(false);
+      
+      // Vibrate feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    } catch (error) {
+      console.error('Error updating display name:', error);
+      alert('Failed to update name. Please try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
+    } else if (e.key === 'Escape') {
+      handleCancelEditName();
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -178,10 +252,55 @@ export default function ProfileSettings({
               onChange={handleFileSelect}
               className="hidden"
             />
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 text-center">
-              {currentUser.displayName}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {/* Name Section */}
+            <div className="w-full mt-3">
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    onKeyDown={handleNameKeyDown}
+                    disabled={savingName}
+                    maxLength={50}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    placeholder="Enter your name"
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={savingName}
+                    className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                    title="Save name"
+                  >
+                    <FaCheck size={16} />
+                  </button>
+                  <button
+                    onClick={handleCancelEditName}
+                    disabled={savingName}
+                    className="p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                    title="Cancel"
+                  >
+                    <FaCancel size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                    {currentUser.displayName}
+                  </p>
+                  <button
+                    onClick={handleStartEditName}
+                    disabled={uploading || savingName}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors disabled:opacity-50"
+                    title="Edit name"
+                  >
+                    <FaEdit size={14} className="text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center">
               {currentUser.email}
             </p>
           </div>

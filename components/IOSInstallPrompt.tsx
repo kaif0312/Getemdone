@@ -12,10 +12,28 @@ interface IOSInstallPromptProps {
 export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFeedback }: IOSInstallPromptProps) {
   const [currentStep, setCurrentStep] = useState(1);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 overflow-y-auto">
-      <div className="min-h-full flex items-center justify-center p-4 py-8">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 relative overflow-hidden my-auto">
+    <div 
+      className="fixed inset-0 z-[9999] bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600"
+      style={{ 
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        height: '100dvh', // Dynamic viewport height for mobile
+      }}
+    >
+      <div className="min-h-full flex items-start justify-center p-4 py-8">
+        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 relative overflow-hidden my-8">
           {/* Decorative background */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
           

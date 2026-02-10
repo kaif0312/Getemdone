@@ -114,7 +114,6 @@ export default function BugReportModal({
         const adminUsersSnapshot = await getDocs(adminUsersQuery);
         
         const notificationPromises = adminUsersSnapshot.docs.map((adminDoc) => {
-          const adminData = adminDoc.data();
           return addDoc(collection(db, 'notifications'), {
             userId: adminDoc.id,
             type: 'bugReport',

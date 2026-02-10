@@ -581,7 +581,12 @@ export default function Home() {
 
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {
-    return <IOSInstallPrompt allowDismiss={false} />;
+    return (
+      <IOSInstallPrompt 
+        allowDismiss={false} 
+        onFeedback={() => setShowBugReportModal(true)}
+      />
+    );
   }
 
   // Show Android installation prompt if needed (blocks access until installed)

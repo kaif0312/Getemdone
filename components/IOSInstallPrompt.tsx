@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaShare, FaTimes, FaMobileAlt, FaBell, FaCheck } from 'react-icons/fa';
+import { FaShare, FaTimes, FaMobileAlt, FaBell, FaCheck, FaCommentDots } from 'react-icons/fa';
 
 interface IOSInstallPromptProps {
   onDismiss?: () => void;
   allowDismiss?: boolean; // If false, user MUST install to continue
+  onFeedback?: () => void; // Callback to open feedback modal
 }
 
-export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IOSInstallPromptProps) {
+export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFeedback }: IOSInstallPromptProps) {
   const [currentStep, setCurrentStep] = useState(1);
 
   return (
@@ -137,9 +138,20 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false }: IO
 
           {/* Footer note */}
           {!allowDismiss && (
-            <p className="text-xs text-center text-gray-500">
+            <p className="text-xs text-center text-gray-500 mb-4">
               This is required for iOS users to receive push notifications
             </p>
+          )}
+
+          {/* Feedback button */}
+          {onFeedback && (
+            <button
+              onClick={onFeedback}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-700 font-medium transition-colors"
+            >
+              <FaCommentDots className="w-4 h-4" />
+              <span>Having trouble? Send feedback</span>
+            </button>
           )}
         </div>
       </div>

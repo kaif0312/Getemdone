@@ -129,7 +129,7 @@ export function useEncryption() {
         retryTimeoutRef.current = window.setTimeout(() => {
           retryTimeoutRef.current = null;
           initializeKeys(true);
-        }, delay);
+        }, delay) as ReturnType<typeof setTimeout>;
       }
     } finally {
       setIsLoading(false);

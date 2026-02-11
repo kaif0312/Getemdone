@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb } from 'react-icons/fa';
+import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
 import StorageUsage from './StorageUsage';
+import { useEncryption } from '@/hooks/useEncryption';
 
 interface SettingsMenuProps {
   onNotificationSettings: () => void;
@@ -35,6 +36,7 @@ export default function SettingsMenu({
 }: SettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { isInitialized: encryptionInitialized, masterKey } = useEncryption();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -79,6 +81,53 @@ export default function SettingsMenu({
       {isOpen && (
         <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 animate-in fade-in slide-in-from-top-2 duration-200" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', overflowX: 'hidden' }}>
           <div className="py-2">
+            {/* Security & Privacy - E2EE Status */}
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="relative">
+                    <FaLock size={20} className="text-green-600 dark:text-green-400" />
+                    {encryptionInitialized && masterKey && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      End-to-End Encrypted
+                    </span>
+                    {encryptionInitialized && masterKey ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                        Initializing...
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                    Your tasks, comments, and messages are encrypted. Only you and your friends can read them.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                      <FaLock size={8} />
+                      AES-256-GCM
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                      <FaShieldAlt size={8} />
+                      E2EE
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                      <FaDatabase size={8} />
+                      Encrypted at rest
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Storage Usage - Non-clickable display */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <StorageUsage

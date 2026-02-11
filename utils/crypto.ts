@@ -41,10 +41,13 @@ export async function deriveKeyFromPassword(
     ['deriveBits', 'deriveKey']
   );
 
+  // Ensure salt is a proper BufferSource by creating a new Uint8Array from the buffer
+  const saltBuffer = new Uint8Array(salt.buffer, salt.byteOffset, salt.byteLength);
+
   return await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt,
+      salt: saltBuffer as BufferSource,
       iterations: 100000,
       hash: 'SHA-256',
     },

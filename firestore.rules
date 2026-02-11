@@ -213,5 +213,11 @@ service cloud.firestore {
       // Users can delete their own notifications
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+    
+    // Migration status collection (tracks encryption migration)
+    match /migrationStatus/{userId} {
+      // Users can read and update their own migration status
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
   }
 }

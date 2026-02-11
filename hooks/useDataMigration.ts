@@ -1,0 +1,284 @@
+/**
+ * Data Migration Hook
+ * 
+ * Migrates existing unencrypted data to encrypted format
+ * Runs once per user automatically
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { collection, query, where, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useEncryption } from './useEncryption';
+import { useAuth } from '@/contexts/AuthContext';
+import { isEncrypted } from '@/utils/crypto';
+import { Task, Comment } from '@/lib/types';
+
+interface MigrationStatus {
+  completed: boolean;
+  migratedAt?: number;
+  tasksMigrated: number;
+  notificationsMigrated: number;
+}
+
+export function useDataMigration() {
+  const { user } = useAuth();
+  const { 
+    encryptForSelf, 
+    encryptForFriend, 
+    isInitialized: encryptionInitialized,
+    getSharedKey 
+  } = useEncryption();
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState<MigrationStatus | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
+
+  /**
+   * Check if migration has been completed for this user
+   */
+  const checkMigrationStatus = useCallback(async () => {
+    if (!user?.uid) {
+      setIsChecking(false);
+      return;
+    }
+
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid)));
+      // Check migration status from user document
+      const statusRef = doc(db, 'migrationStatus', user.uid);
+      const statusDoc = await getDocs(query(collection(db, 'migrationStatus'), where('__name__', '==', user.uid)));
+      
+      // For now, we'll check by trying to read a task and see if it's encrypted
+      // Or we can add a migration flag to user document
+      setIsChecking(false);
+    } catch (error) {
+      console.error('[useDataMigration] Error checking migration status:', error);
+      setIsChecking(false);
+    }
+  }, [user?.uid]);
+
+  /**
+   * Migrate all user data to encrypted format
+   */
+  const migrateAllData = useCallback(async (): Promise<{ success: boolean; tasksMigrated: number; notificationsMigrated: number }> => {
+    if (!user?.uid || !encryptionInitialized) {
+      throw new Error('User not authenticated or encryption not initialized');
+    }
+
+    setIsMigrating(true);
+    let tasksMigrated = 0;
+    let notificationsMigrated = 0;
+
+    try {
+      console.log('[useDataMigration] Starting migration for user:', user.uid);
+
+      // Migrate tasks
+      const tasksQuery = query(
+        collection(db, 'tasks'),
+        where('userId', '==', user.uid)
+      );
+      const tasksSnapshot = await getDocs(tasksQuery);
+      
+      console.log(`[useDataMigration] Found ${tasksSnapshot.size} tasks to check`);
+
+      // Process tasks in batches to avoid overwhelming Firestore
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      const BATCH_SIZE = 500;
+
+      for (const taskDoc of tasksSnapshot.docs) {
+        const task = taskDoc.data() as Task;
+        const updates: any = {};
+        let needsUpdate = false;
+
+        // Check and encrypt task text
+        if (task.text && !isEncrypted(task.text)) {
+          updates.text = await encryptForSelf(task.text);
+          needsUpdate = true;
+        }
+
+        // Check and encrypt notes
+        if (task.notes && !isEncrypted(task.notes)) {
+          updates.notes = await encryptForSelf(task.notes);
+          needsUpdate = true;
+        }
+
+        // Check and encrypt comments
+        if (task.comments && Array.isArray(task.comments) && task.comments.length > 0) {
+          const encryptedComments: Comment[] = [];
+          let commentsNeedUpdate = false;
+
+          for (const comment of task.comments) {
+            if (comment.text && !isEncrypted(comment.text)) {
+              // Encrypt comment with shared key for the task owner
+              // Since comments are on tasks, we encrypt with the task owner's key
+              // But wait - comments are added by friends, so they should be encrypted with friend's shared key
+              // Actually, comments are stored on the task, so we need to encrypt with the task owner's shared key
+              const sharedKey = await getSharedKey(task.userId);
+              if (sharedKey) {
+                const { encrypt } = await import('@/utils/crypto');
+                encryptedComments.push({
+                  ...comment,
+                  text: await encrypt(comment.text, sharedKey),
+                });
+                commentsNeedUpdate = true;
+              } else {
+                encryptedComments.push(comment);
+              }
+            } else {
+              encryptedComments.push(comment);
+            }
+          }
+
+          if (commentsNeedUpdate) {
+            updates.comments = encryptedComments;
+            needsUpdate = true;
+          }
+        }
+
+        // Update task if any fields need encryption
+        if (needsUpdate) {
+          batch.update(taskDoc.ref, updates);
+          tasksMigrated++;
+          batchCount++;
+
+          // Commit batch if it reaches the limit
+          if (batchCount >= BATCH_SIZE) {
+            await batch.commit();
+            console.log(`[useDataMigration] Committed batch of ${batchCount} tasks`);
+            batchCount = 0;
+          }
+        }
+      }
+
+      // Commit remaining tasks
+      if (batchCount > 0) {
+        await batch.commit();
+        console.log(`[useDataMigration] Committed final batch of ${batchCount} tasks`);
+      }
+
+      console.log(`[useDataMigration] Migrated ${tasksMigrated} tasks`);
+
+      // Migrate notifications
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', user.uid)
+      );
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      
+      console.log(`[useDataMigration] Found ${notificationsSnapshot.size} notifications to check`);
+
+      const notifBatch = writeBatch(db);
+      let notifBatchCount = 0;
+
+      for (const notifDoc of notificationsSnapshot.docs) {
+        const notif = notifDoc.data();
+        const updates: any = {};
+        let needsUpdate = false;
+
+        if (notif.fromUserId) {
+          // Encrypt notification fields with friend's shared key
+          if (notif.message && !isEncrypted(notif.message)) {
+            updates.message = await encryptForFriend(notif.message, notif.fromUserId);
+            needsUpdate = true;
+          }
+          if (notif.taskText && !isEncrypted(notif.taskText)) {
+            updates.taskText = await encryptForFriend(notif.taskText, notif.fromUserId);
+            needsUpdate = true;
+          }
+          if (notif.commentText && !isEncrypted(notif.commentText)) {
+            updates.commentText = await encryptForFriend(notif.commentText, notif.fromUserId);
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          notifBatch.update(notifDoc.ref, updates);
+          notificationsMigrated++;
+          notifBatchCount++;
+
+          if (notifBatchCount >= BATCH_SIZE) {
+            await notifBatch.commit();
+            console.log(`[useDataMigration] Committed batch of ${notifBatchCount} notifications`);
+            notifBatchCount = 0;
+          }
+        }
+      }
+
+      // Commit remaining notifications
+      if (notifBatchCount > 0) {
+        await notifBatch.commit();
+        console.log(`[useDataMigration] Committed final batch of ${notifBatchCount} notifications`);
+      }
+
+      console.log(`[useDataMigration] Migrated ${notificationsMigrated} notifications`);
+
+      // Mark migration as complete
+      const statusRef = doc(db, 'migrationStatus', user.uid);
+      const status: MigrationStatus = {
+        completed: true,
+        migratedAt: Date.now(),
+        tasksMigrated,
+        notificationsMigrated,
+      };
+      await updateDoc(statusRef, status).catch(async () => {
+        // Create if doesn't exist
+        const { setDoc } = await import('firebase/firestore');
+        await setDoc(statusRef, status);
+      });
+
+      setMigrationStatus(status);
+      console.log('[useDataMigration] ✅ Migration completed successfully');
+
+      return { success: true, tasksMigrated, notificationsMigrated };
+    } catch (error) {
+      console.error('[useDataMigration] ❌ Migration failed:', error);
+      throw error;
+    } finally {
+      setIsMigrating(false);
+    }
+  }, [user?.uid, encryptionInitialized, encryptForSelf, encryptForFriend, getSharedKey]);
+
+  /**
+   * Check if migration is needed and run it automatically
+   */
+  useEffect(() => {
+    const runMigrationIfNeeded = async () => {
+      if (!user?.uid || !encryptionInitialized || isMigrating) return;
+
+      try {
+        // Check if migration has been completed
+        const statusRef = doc(db, 'migrationStatus', user.uid);
+        const { getDoc } = await import('firebase/firestore');
+        const statusDoc = await getDoc(statusRef);
+
+        if (statusDoc.exists()) {
+          const status = statusDoc.data() as MigrationStatus;
+          if (status.completed) {
+            console.log('[useDataMigration] Migration already completed');
+            setMigrationStatus(status);
+            return;
+          }
+        }
+
+        // Migration not completed, run it
+        console.log('[useDataMigration] Migration needed, starting...');
+        await migrateAllData();
+      } catch (error) {
+        console.error('[useDataMigration] Error in auto-migration:', error);
+        // Don't block the app if migration fails
+      }
+    };
+
+    // Wait a bit for encryption to initialize
+    const timer = setTimeout(runMigrationIfNeeded, 3000);
+    return () => clearTimeout(timer);
+  }, [user?.uid, encryptionInitialized, isMigrating, migrateAllData]);
+
+  return {
+    migrateAllData,
+    isMigrating,
+    migrationStatus,
+    isChecking,
+  };
+}

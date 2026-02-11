@@ -26,11 +26,15 @@ export function useTasks() {
   const [loading, setLoading] = useState(true);
   const [userStorageUsage, setUserStorageUsage] = useState(0);
   
+  // Force reconnection trigger - incrementing this will cause listeners to reconnect
+  const [reconnectTrigger, setReconnectTrigger] = useState(0);
+  
   // Create stable key for friends list to avoid infinite loops
   // Use ref to track last value and only update if contents actually changed
   const lastFriendsKeyRef = useRef<string>('');
   const lastSetupKeyRef = useRef<string>('');
   const lastFriendsContentRef = useRef<string>('');
+  const listenersActiveRef = useRef<boolean>(false);
   
   // Calculate friends key only when contents actually change
   // Create a stable string representation of friends for dependency comparison
@@ -55,11 +59,12 @@ export function useTasks() {
   
   // Create stable setup key to prevent re-running effect unnecessarily
   // Use stable IDs instead of object references
+  // Include reconnectTrigger to force reconnection when needed
   const userId = user?.uid || null;
   const userDataId = userData?.id || null;
   const setupKey = useMemo(() => {
-    return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}`;
-  }, [userId, userDataId, stableFriendsKey]);
+    return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}_${reconnectTrigger}`;
+  }, [userId, userDataId, stableFriendsKey, reconnectTrigger]);
 
   // Debug function to check specific task in Firestore (development only)
   useEffect(() => {
@@ -256,6 +261,7 @@ export function useTasks() {
     let quotaExceeded = false; // Circuit breaker to prevent infinite retries
     
     // Page Visibility API - Pause listeners when tab is hidden to save reads
+    // CRITICAL FIX: Reconnect listeners when tab becomes visible again
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (process.env.NODE_ENV === 'development') {
@@ -264,21 +270,49 @@ export function useTasks() {
         // Unsubscribe from all listeners when tab is hidden
         unsubscribers.forEach(unsub => unsub());
         unsubscribers.length = 0;
+        listenersActiveRef.current = false;
       } else {
         if (process.env.NODE_ENV === 'development') {
-          console.log('[useTasks] 📱 Tab visible - listeners will reconnect on next change');
+          console.log('[useTasks] 📱 Tab visible - reconnecting listeners...');
         }
-        // Note: Listeners will reconnect automatically when data changes
-        // Or we can force a re-render by updating a state, but that's not necessary
-        // The effect will re-run if user/userData changes
+        // CRITICAL FIX: Force reconnection by incrementing reconnectTrigger
+        // This will cause the effect to re-run and set up listeners again
+        listenersActiveRef.current = false;
+        setReconnectTrigger(prev => prev + 1);
       }
     };
     
-    // Only add visibility listener in browser
+    // Network connectivity handlers - reconnect when online
+    const handleOnline = () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useTasks] 🌐 Network online - checking listeners...');
+      }
+      // If listeners are not active, reconnect
+      if (!listenersActiveRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] 🔄 Reconnecting listeners after network restored');
+        }
+        setReconnectTrigger(prev => prev + 1);
+      }
+    };
+    
+    const handleOffline = () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useTasks] 📴 Network offline');
+      }
+    };
+    
+    // Only add event listeners in browser
     let visibilityHandler: (() => void) | null = null;
+    let onlineHandler: (() => void) | null = null;
+    let offlineHandler: (() => void) | null = null;
     if (typeof window !== 'undefined') {
       visibilityHandler = handleVisibilityChange;
+      onlineHandler = handleOnline;
+      offlineHandler = handleOffline;
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
     }
     
     // Debounced update function to prevent flickering and reduce reads
@@ -390,6 +424,7 @@ export function useTasks() {
     });
     
     unsubscribers.push(unsubOwnTasks);
+    listenersActiveRef.current = true;
     if (process.env.NODE_ENV === 'development') {
       console.log('[useTasks] ✅ Own tasks listener set up');
     }
@@ -456,6 +491,7 @@ export function useTasks() {
         });
         
         unsubscribers.push(unsubFriendTasks);
+        listenersActiveRef.current = true;
       }
     });
     
@@ -480,15 +516,36 @@ export function useTasks() {
       }
     }
 
+    // Periodic health check - verify listeners are still active
+    // Check every 30 seconds if listeners are active, reconnect if not
+    const healthCheckInterval = setInterval(() => {
+      if (!document.hidden && !listenersActiveRef.current && unsubscribers.length === 0) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useTasks] ⚠️ Health check: Listeners inactive, reconnecting...');
+        }
+        setReconnectTrigger(prev => prev + 1);
+      }
+    }, 30000); // Check every 30 seconds
+
     return () => {
       // Cleanup listeners
       quotaExceeded = false; // Reset circuit breaker on cleanup
+      listenersActiveRef.current = false;
       if (updateTimer) {
         clearTimeout(updateTimer);
       }
+      clearInterval(healthCheckInterval);
       unsubscribers.forEach(unsub => unsub());
-      if (typeof window !== 'undefined' && visibilityHandler) {
-        document.removeEventListener('visibilitychange', visibilityHandler);
+      if (typeof window !== 'undefined') {
+        if (visibilityHandler) {
+          document.removeEventListener('visibilitychange', visibilityHandler);
+        }
+        if (onlineHandler) {
+          window.removeEventListener('online', onlineHandler);
+        }
+        if (offlineHandler) {
+          window.removeEventListener('offline', offlineHandler);
+        }
       }
       if (process.env.NODE_ENV === 'development') {
         console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');

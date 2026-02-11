@@ -39,6 +39,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { useDataMigration } from '@/hooks/useDataMigration';
+import { useDataMigration } from '@/hooks/useDataMigration';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';

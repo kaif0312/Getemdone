@@ -110,21 +110,23 @@ export function useDataMigration() {
 
           for (const comment of task.comments) {
             if (comment.text && !isEncrypted(comment.text)) {
-              // Encrypt comment with shared key for the task owner
-              // Since comments are on tasks, we encrypt with the task owner's key
-              // But wait - comments are added by friends, so they should be encrypted with friend's shared key
-              // Actually, comments are stored on the task, so we need to encrypt with the task owner's shared key
-              const sharedKey = await getSharedKey(task.userId);
-              if (sharedKey) {
-                const { encrypt } = await import('@/utils/crypto');
+              // Comments are added by friends on tasks
+              // Encrypt with the shared key between comment author and task owner
+              // If comment author is the task owner, use master key
+              if (comment.userId === task.userId) {
+                // Comment by task owner on their own task - use master key
                 encryptedComments.push({
                   ...comment,
-                  text: await encrypt(comment.text, sharedKey),
+                  text: await encryptForSelf(comment.text),
                 });
-                commentsNeedUpdate = true;
               } else {
-                encryptedComments.push(comment);
+                // Comment by friend - use shared key with task owner
+                encryptedComments.push({
+                  ...comment,
+                  text: await encryptForFriend(comment.text, task.userId),
+                });
               }
+              commentsNeedUpdate = true;
             } else {
               encryptedComments.push(comment);
             }

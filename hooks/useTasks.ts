@@ -945,17 +945,25 @@ export function useTasks() {
           const friendCommentsEnabled = commentOwnerData.notificationSettings?.friendComments !== false;
           
           if (friendCommentsEnabled) {
+            // Encrypt notification data
+            const encryptedTaskText = encryptionInitialized 
+              ? await encryptForFriend(task.text.substring(0, 50), commentOwnerId)
+              : task.text.substring(0, 50);
+            const encryptedCommentText = encryptionInitialized 
+              ? await encryptForFriend(comment.text.substring(0, 150), commentOwnerId)
+              : comment.text.substring(0, 150);
+
             // Create in-app notification
             const notificationData = {
               userId: commentOwnerId,
               type: 'comment',
               title: `${emoji} ${userData.displayName} reacted to your comment`,
-              message: `${userData.displayName} reacted ${emoji} to your comment on "${task.text.substring(0, 50)}"`,
+              message: `${userData.displayName} reacted ${emoji} to your comment`,
               taskId: taskId,
-              taskText: task.text.substring(0, 50),
+              taskText: encryptedTaskText, // Encrypted task text
               fromUserId: user.uid,
               fromUserName: userData.displayName,
-              commentText: comment.text.substring(0, 150), // Store the comment text that was reacted to
+              commentText: encryptedCommentText, // Encrypted comment text
               createdAt: Date.now(),
               read: false,
             };
@@ -1028,6 +1036,14 @@ export function useTasks() {
             console.log('[addComment] Friend comments enabled:', friendCommentsEnabled);
             
             if (friendCommentsEnabled) {
+              // Encrypt notification data
+              const encryptedTaskText = encryptionInitialized 
+                ? await encryptForFriend(task.text.substring(0, 50), task.userId)
+                : task.text.substring(0, 50);
+              const encryptedCommentText = encryptionInitialized 
+                ? await encryptForFriend(text.substring(0, 150), task.userId)
+                : text.substring(0, 150);
+
               // Create in-app notification
               const notificationData = {
                 userId: task.userId,
@@ -1035,10 +1051,10 @@ export function useTasks() {
                 title: `💬 ${userData.displayName} commented`,
                 message: `${userData.displayName} commented on your task`,
                 taskId: taskId,
-                taskText: task.text.substring(0, 50), // Store first 50 chars of task
+                taskText: encryptedTaskText, // Encrypted task text
                 fromUserId: user.uid,
                 fromUserName: userData.displayName,
-                commentText: text.substring(0, 150), // Store first 150 chars of comment
+                commentText: encryptedCommentText, // Encrypted comment text
                 createdAt: Date.now(),
                 read: false,
               };

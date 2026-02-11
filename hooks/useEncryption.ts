@@ -41,7 +41,7 @@ export function useEncryption() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const retryCountRef = useRef(0);
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | number | null>(null);
   const keysRef = useRef<{ master: CryptoKey | null; friends: Record<string, CryptoKey> }>({
     master: null,
     friends: {},
@@ -129,7 +129,7 @@ export function useEncryption() {
         retryTimeoutRef.current = window.setTimeout(() => {
           retryTimeoutRef.current = null;
           initializeKeys(true);
-        }, delay) as ReturnType<typeof setTimeout>;
+        }, delay);
       }
     } finally {
       setIsLoading(false);

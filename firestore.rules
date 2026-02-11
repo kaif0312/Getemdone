@@ -109,13 +109,14 @@ service cloud.firestore {
       );
       
       // Users can only create tasks with their own userId
+      // Note: text may be encrypted (longer base64 string), so we allow up to 2000 chars
       allow create: if isAuthenticated() && 
         isOwner(request.resource.data.userId) &&
         request.resource.data.keys().hasAll(['userId', 'text', 'isPrivate', 'completed', 'createdAt', 'completedAt']) &&
         request.resource.data.userId is string &&
         request.resource.data.text is string &&
         request.resource.data.text.size() > 0 &&
-        request.resource.data.text.size() <= 500 &&
+        request.resource.data.text.size() <= 2000 &&
         request.resource.data.isPrivate is bool &&
         request.resource.data.completed is bool &&
         request.resource.data.createdAt is int &&
@@ -132,11 +133,11 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         // Task owner can update their own tasks
         (isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId &&
-          // Validate text if being updated
+          // Validate text if being updated (may be encrypted, allow up to 2000 chars)
           (!request.resource.data.keys().hasAny(['text']) || 
            (request.resource.data.text is string &&
             request.resource.data.text.size() > 0 &&
-            request.resource.data.text.size() <= 500)) &&
+            request.resource.data.text.size() <= 2000)) &&
           // Validate deferredTo if being updated
           (!request.resource.data.keys().hasAny(['deferredTo']) || request.resource.data.deferredTo is string || request.resource.data.deferredTo == null) &&
           // Validate dueDate if being updated
@@ -147,8 +148,10 @@ service cloud.firestore {
           (!request.resource.data.keys().hasAny(['committed']) || request.resource.data.committed is bool) &&
           // Validate skipRollover if being updated
           (!request.resource.data.keys().hasAny(['skipRollover']) || request.resource.data.skipRollover is bool) &&
-          // Validate notes if being updated
-          (!request.resource.data.keys().hasAny(['notes']) || request.resource.data.notes is string || request.resource.data.notes == null) &&
+          // Validate notes if being updated (may be encrypted, allow up to 5000 chars)
+          (!request.resource.data.keys().hasAny(['notes']) || 
+           request.resource.data.notes == null ||
+           (request.resource.data.notes is string && request.resource.data.notes.size() <= 5000)) &&
           // Validate deleted if being updated
           (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
           // Validate deletedAt if being updated

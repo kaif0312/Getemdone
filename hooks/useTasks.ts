@@ -19,9 +19,17 @@ import { Task, TaskWithUser, User, Reaction, Comment, Attachment } from '@/lib/t
 import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserStorageUsage } from '@/utils/storageManager';
+import { useEncryption } from '@/hooks/useEncryption';
 
 export function useTasks() {
   const { user, userData } = useAuth();
+  const { 
+    isInitialized: encryptionInitialized, 
+    encryptForSelf, 
+    decryptForSelf, 
+    encryptForFriend, 
+    decryptFromFriend 
+  } = useEncryption();
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [userStorageUsage, setUserStorageUsage] = useState(0);
@@ -362,21 +370,41 @@ export function useTasks() {
       orderBy('createdAt', 'desc')
     );
 
-    const unsubOwnTasks = onSnapshot(ownTasksQuery, (snapshot) => {
+    const unsubOwnTasks = onSnapshot(ownTasksQuery, async (snapshot) => {
       if (isInitialLoad) {
         // First load - process all documents
-        snapshot.docs.forEach((doc) => {
-          const task = { id: doc.id, ...doc.data() } as Task;
+        for (const docSnap of snapshot.docs) {
+          const task = { id: docSnap.id, ...docSnap.data() } as Task;
           if (task.deleted !== true) {
+            // Decrypt task text and notes
+            if (encryptionInitialized) {
+              try {
+                task.text = await decryptForSelf(task.text);
+                if (task.notes) {
+                  task.notes = await decryptForSelf(task.notes);
+                }
+                // Decrypt comments
+                if (task.comments) {
+                  task.comments = await Promise.all(
+                    task.comments.map(async (comment) => ({
+                      ...comment,
+                      text: await decryptForSelf(comment.text),
+                    }))
+                  );
+                }
+              } catch (error) {
+                console.error('[useTasks] Failed to decrypt task:', error);
+              }
+            }
             allTasks.set(task.id, { ...task, userName: 'You' });
           }
-        });
+        }
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
         }
       } else {
         // Subsequent updates - only process changes
-        snapshot.docChanges().forEach((change) => {
+        for (const change of snapshot.docChanges()) {
           const task = { id: change.doc.id, ...change.doc.data() } as Task;
           
           if (change.type === 'removed') {
@@ -385,10 +413,30 @@ export function useTasks() {
             if (task.deleted === true) {
               allTasks.delete(change.doc.id);
             } else {
+              // Decrypt task text and notes
+              if (encryptionInitialized) {
+                try {
+                  task.text = await decryptForSelf(task.text);
+                  if (task.notes) {
+                    task.notes = await decryptForSelf(task.notes);
+                  }
+                  // Decrypt comments
+                  if (task.comments) {
+                    task.comments = await Promise.all(
+                      task.comments.map(async (comment) => ({
+                        ...comment,
+                        text: await decryptForSelf(comment.text),
+                      }))
+                    );
+                  }
+                } catch (error) {
+                  console.error('[useTasks] Failed to decrypt task:', error);
+                }
+              }
               allTasks.set(task.id, { ...task, userName: 'You' });
             }
           }
-        });
+        }
       }
       
       scheduleUpdate();
@@ -446,9 +494,9 @@ export function useTasks() {
           orderBy('createdAt', 'desc')
         );
 
-        const unsubFriendTasks = onSnapshot(friendTasksQuery, (snapshot) => {
+        const unsubFriendTasks = onSnapshot(friendTasksQuery, async (snapshot) => {
           // Only process actual changes to reduce reads
-          snapshot.docChanges().forEach((change) => {
+          for (const change of snapshot.docChanges()) {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
             
             // CRITICAL FIX: Skip if this is actually OUR task (happens if we added ourselves as friend)
@@ -472,12 +520,36 @@ export function useTasks() {
               if (task.deleted === true) {
                 allTasks.delete(change.doc.id);
               } else {
+                // Decrypt friend's task data
+                if (encryptionInitialized) {
+                  try {
+                    // Decrypt task text (friends can see public tasks)
+                    if (!task.isPrivate) {
+                      task.text = await decryptFromFriend(task.text, task.userId);
+                      // Decrypt comments
+                      if (task.comments) {
+                        task.comments = await Promise.all(
+                          task.comments.map(async (comment) => ({
+                            ...comment,
+                            text: await decryptFromFriend(comment.text, comment.userId),
+                          }))
+                        );
+                      }
+                    } else {
+                      // For private tasks, we can't decrypt (don't have the key)
+                      // But we still show them for counting purposes
+                      task.text = '[Private Task]';
+                    }
+                  } catch (error) {
+                    console.error('[useTasks] Failed to decrypt friend task:', error);
+                  }
+                }
                 // Get friend's name from cache
                 const userName = friendNameCache.get(task.userId) || 'Unknown';
                 allTasks.set(task.id, { ...task, userName });
               }
             }
-          });
+          }
           
           scheduleUpdate();
         }, (error) => {
@@ -564,9 +636,12 @@ export function useTasks() {
       ? Math.max(...userTasks.map(t => t.order || 0))
       : 0;
 
+    // Encrypt task text
+    const encryptedText = encryptionInitialized ? await encryptForSelf(text) : text;
+
     const newTask = {
       userId: user.uid,
-      text,
+      text: encryptedText,
       isPrivate,
       completed: false,
       createdAt: Date.now(),
@@ -624,9 +699,12 @@ export function useTasks() {
       throw new Error('Task text must be 500 characters or less');
     }
 
+    // Encrypt task text
+    const encryptedText = encryptionInitialized ? await encryptForSelf(trimmedText) : trimmedText;
+
     const taskRef = doc(db, 'tasks', taskId);
     await updateDoc(taskRef, {
-      text: trimmedText,
+      text: encryptedText,
     });
   };
 
@@ -651,11 +729,16 @@ export function useTasks() {
   const updateTaskNotes = async (taskId: string, notes: string) => {
     if (!user) return;
 
+    // Encrypt notes
+    const encryptedNotes = notes 
+      ? (encryptionInitialized ? await encryptForSelf(notes) : notes)
+      : null;
+
     const startTime = Date.now();
     const taskRef = doc(db, 'tasks', taskId);
     try {
       await updateDoc(taskRef, {
-        notes: notes || null,
+        notes: encryptedNotes,
       });
       const duration = Date.now() - startTime;
       if (duration > 1000) {
@@ -908,11 +991,17 @@ export function useTasks() {
       const task = taskDoc.data() as Task;
       const comments = task.comments || [];
       
+      // Encrypt comment text
+      const commentText = text.substring(0, 500);
+      const encryptedCommentText = encryptionInitialized 
+        ? await encryptForFriend(commentText, task.userId) 
+        : commentText;
+
       const newComment: Comment = {
         id: `${user.uid}_${Date.now()}`,
         userId: user.uid,
         userName: userData.displayName,
-        text: text.substring(0, 500), // Limit to 500 characters
+        text: encryptedCommentText,
         timestamp: Date.now(),
       };
 

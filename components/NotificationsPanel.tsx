@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { FaTimes, FaBell, FaComment, FaCheck, FaClock, FaFire, FaTrash } from 'react-icons/fa';
 import { InAppNotification } from '@/lib/types';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { useEncryption } from '@/hooks/useEncryption';
 import { db } from '@/lib/firebase';
 
 interface NotificationsPanelProps {
@@ -19,6 +20,7 @@ export default function NotificationsPanel({
   userId,
   onTaskClick,
 }: NotificationsPanelProps) {
+  const { isInitialized: encryptionInitialized, decryptFromFriend } = useEncryption();
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,25 +37,49 @@ export default function NotificationsPanel({
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
+      async (snapshot) => {
         const notifs: InAppNotification[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          
+          // Decrypt notification data if encrypted
+          let message = data.message;
+          let taskText = data.taskText;
+          let commentText = data.commentText;
+          
+          if (encryptionInitialized && data.fromUserId) {
+            try {
+              // Decrypt message, taskText, and commentText if they're encrypted
+              if (message && typeof message === 'string' && message.length > 50) {
+                message = await decryptFromFriend(message, data.fromUserId);
+              }
+              if (taskText && typeof taskText === 'string' && taskText.length > 50) {
+                taskText = await decryptFromFriend(taskText, data.fromUserId);
+              }
+              if (commentText && typeof commentText === 'string' && commentText.length > 50) {
+                commentText = await decryptFromFriend(commentText, data.fromUserId);
+              }
+            } catch (error) {
+              console.error('[NotificationsPanel] Failed to decrypt notification:', error);
+              // Keep encrypted text if decryption fails
+            }
+          }
+          
           notifs.push({
-            id: doc.id,
+            id: docSnap.id,
             userId: data.userId,
             type: data.type,
             title: data.title,
-            message: data.message,
+            message: message,
             taskId: data.taskId,
-            taskText: data.taskText,
+            taskText: taskText,
             fromUserId: data.fromUserId,
             fromUserName: data.fromUserName,
-            commentText: data.commentText,
+            commentText: commentText,
             createdAt: data.createdAt,
             read: data.read || false,
           });
-        });
+        }
         setNotifications(notifs);
         setLoading(false);
       },

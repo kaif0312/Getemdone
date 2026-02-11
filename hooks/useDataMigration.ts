@@ -33,31 +33,6 @@ export function useDataMigration() {
   const [isChecking, setIsChecking] = useState(true);
 
   /**
-   * Check if migration has been completed for this user
-   */
-  const checkMigrationStatus = useCallback(async () => {
-    if (!user?.uid) {
-      setIsChecking(false);
-      return;
-    }
-
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', user.uid)));
-      // Check migration status from user document
-      const statusRef = doc(db, 'migrationStatus', user.uid);
-      const statusDoc = await getDocs(query(collection(db, 'migrationStatus'), where('__name__', '==', user.uid)));
-      
-      // For now, we'll check by trying to read a task and see if it's encrypted
-      // Or we can add a migration flag to user document
-      setIsChecking(false);
-    } catch (error) {
-      console.error('[useDataMigration] Error checking migration status:', error);
-      setIsChecking(false);
-    }
-  }, [user?.uid]);
-
-  /**
    * Migrate all user data to encrypted format
    */
   const migrateAllData = useCallback(async (): Promise<{ success: boolean; tasksMigrated: number; notificationsMigrated: number }> => {

@@ -40,15 +40,18 @@ export function useEncryption() {
   const [friendKeys, setFriendKeys] = useState<Record<string, CryptoKey>>({});
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const retryCountRef = useRef(0);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keysRef = useRef<{ master: CryptoKey | null; friends: Record<string, CryptoKey> }>({
     master: null,
     friends: {},
   });
 
   /**
-   * Initialize encryption keys for the user
+   * Initialize encryption keys for the user.
+   * Never use a temporary key on failure - that would encrypt/decrypt with the wrong key and hide user data.
    */
-  const initializeKeys = useCallback(async () => {
+  const initializeKeys = useCallback(async (isRetry = false) => {
     if (!user?.uid) {
       setIsLoading(false);
       return;
@@ -92,6 +95,7 @@ export function useEncryption() {
         setMasterKey(masterKeyCrypto);
         setFriendKeys(friendKeysMap);
         keysRef.current = { master: masterKeyCrypto, friends: friendKeysMap };
+        retryCountRef.current = 0;
       } else {
         // New user, generate master key
         masterKeyCrypto = await generateKey();
@@ -106,27 +110,43 @@ export function useEncryption() {
         setMasterKey(masterKeyCrypto);
         setFriendKeys({});
         keysRef.current = { master: masterKeyCrypto, friends: {} };
+        retryCountRef.current = 0;
       }
 
       setIsInitialized(true);
     } catch (error) {
       console.error('[useEncryption] Failed to initialize keys:', error);
-      // Generate a temporary key to prevent app from breaking
-      const tempKey = await generateKey();
-      setMasterKey(tempKey);
-      keysRef.current = { master: tempKey, friends: {} };
-      // Still mark as initialized even with temp key so UI shows active status
-      setIsInitialized(true);
+      // Do NOT use a temporary key - that would make existing data unreadable (wrong key).
+      setMasterKey(null);
+      keysRef.current = { master: null, friends: {} };
+      setIsInitialized(false);
+      // Retry loading the real key with backoff (2s, 4s, 8s, 16s, then every 30s)
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      const n = retryCountRef.current;
+      retryCountRef.current = n + 1;
+      const delay = n < 4 ? 2000 * Math.pow(2, n) : 30000;
+      if (typeof window !== 'undefined') {
+        retryTimeoutRef.current = window.setTimeout(() => {
+          retryTimeoutRef.current = null;
+          initializeKeys(true);
+        }, delay);
+      }
     } finally {
       setIsLoading(false);
     }
   }, [user?.uid]);
 
   /**
-   * Initialize keys on mount
+   * Initialize keys on mount; clear retry timeout on unmount
    */
   useEffect(() => {
-    initializeKeys();
+    initializeKeys(false);
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
   }, [initializeKeys]);
 
   /**
@@ -233,9 +253,12 @@ export function useEncryption() {
 
     try {
       return await decrypt(encryptedText, masterKey);
-    } catch (error) {
-      console.error('[useEncryption] Decryption failed:', error);
-      return encryptedText; // Return as-is on error
+    } catch {
+      // Wrong key, corrupted data, or not actually encrypted - show placeholder instead of ciphertext
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[useEncryption] Decryption failed (key mismatch or corrupted). Showing placeholder.');
+      }
+      return "Couldn't decrypt — try Reload encryption key in Settings";
     }
   }, [masterKey]);
 
@@ -284,9 +307,11 @@ export function useEncryption() {
 
     try {
       return await decrypt(encryptedText, sharedKey);
-    } catch (error) {
-      console.error('[useEncryption] Decryption from friend failed:', error);
-      return encryptedText; // Return as-is on error
+    } catch {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[useEncryption] Decryption from friend failed. Showing placeholder.');
+      }
+      return "[Couldn't decrypt]";
     }
   }, [getSharedKey]);
 

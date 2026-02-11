@@ -42,6 +42,16 @@ export function useNotifications(userId?: string) {
         return;
       }
 
+      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      if (!vapidKey) {
+        if (process.env.NODE_ENV === 'development') {
+          console.info('[useNotifications] FCM skipped: NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set (expected in dev)');
+        } else {
+          console.warn('[useNotifications] FCM skipped: NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set. Set it in your env for push notifications.');
+        }
+        return;
+      }
+
       try {
         console.log('[useNotifications] Auto-generating FCM token for logged-in user...');
         
@@ -72,7 +82,7 @@ export function useNotifications(userId?: string) {
         
         // Get FCM token
         const currentToken = await getToken(messaging, {
-          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+          vapidKey,
           serviceWorkerRegistration: registration,
         });
         
@@ -118,9 +128,20 @@ export function useNotifications(userId?: string) {
         } else {
           console.warn('⚠️ No FCM token available');
         }
-      } catch (error) {
-        console.error('❌ Error auto-generating FCM token:', error);
-        console.error('💡 Make sure NEXT_PUBLIC_FIREBASE_VAPID_KEY is set');
+      } catch (error: unknown) {
+        const err = error as { name?: string; message?: string };
+        const isPushUnavailable =
+          err?.name === 'AbortError' ||
+          /push service not available|registration failed/i.test(String(err?.message ?? ''));
+        if (isPushUnavailable) {
+          if (process.env.NODE_ENV === 'development') {
+            console.info('[useNotifications] Push not available in this environment (common in dev/localhost). Push will work in production HTTPS.');
+          } else {
+            console.warn('[useNotifications] Push service unavailable:', err?.message ?? error);
+          }
+        } else {
+          console.error('[useNotifications] Error auto-generating FCM token:', error);
+        }
       }
     };
 
@@ -197,10 +218,14 @@ export function useNotifications(userId?: string) {
         }
         
         // Get FCM token for this device
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        if (!vapidKey) {
+          console.warn('[requestPermission] Cannot get FCM token: NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set');
+          return true; // Permission was still granted
+        }
         try {
-          // IMPORTANT: Get your VAPID key from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
           const currentToken = await getToken(messaging, {
-            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+            vapidKey,
             serviceWorkerRegistration: registration,
           });
           
@@ -259,13 +284,20 @@ export function useNotifications(userId?: string) {
             console.warn('⚠️ No FCM token available. Request permission first.');
             return false;
           }
-        } catch (tokenError: any) {
-          console.error('❌ Error getting FCM token:', tokenError);
-          console.error('💡 Make sure you have set NEXT_PUBLIC_FIREBASE_VAPID_KEY in your .env.local file');
-          console.error('💡 Error details:', tokenError.message);
+        } catch (tokenError: unknown) {
+          const err = tokenError as { name?: string; message?: string };
+          const isPushUnavailable =
+            err?.name === 'AbortError' ||
+            /push service not available|registration failed/i.test(String(err?.message ?? ''));
+          if (isPushUnavailable) {
+            console.warn('[requestPermission] Push not available in this environment:', err?.message ?? tokenError);
+          } else {
+            console.error('❌ Error getting FCM token:', tokenError);
+            console.error('💡 Make sure NEXT_PUBLIC_FIREBASE_VAPID_KEY is set in .env.local');
+          }
           
           // If it's a service worker error, try again after a delay
-          if (tokenError.message?.includes('service worker') || tokenError.message?.includes('messaging')) {
+          if (err?.message && (err.message.includes('service worker') || err.message.includes('messaging')) && !isPushUnavailable) {
             console.log('🔄 Retrying FCM token generation after delay...');
             setTimeout(async () => {
               if (!messaging) {
@@ -275,7 +307,7 @@ export function useNotifications(userId?: string) {
               try {
                 const registration = await navigator.serviceWorker.ready;
                 const retryToken = await getToken(messaging, {
-                  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+                  vapidKey,
                   serviceWorkerRegistration: registration,
                 });
                 if (retryToken && userId) {

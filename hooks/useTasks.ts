@@ -30,6 +30,8 @@ export function useTasks() {
     encryptForFriend, 
     decryptFromFriend 
   } = useEncryption();
+  // When encryption finishes loading, listener must reconnect so tasks are decrypted (see setupKey)
+  const encryptionReady = Boolean(encryptionInitialized);
   const [tasks, setTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [userStorageUsage, setUserStorageUsage] = useState(0);
@@ -71,8 +73,8 @@ export function useTasks() {
   const userId = user?.uid || null;
   const userDataId = userData?.id || null;
   const setupKey = useMemo(() => {
-    return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}_${reconnectTrigger}`;
-  }, [userId, userDataId, stableFriendsKey, reconnectTrigger]);
+    return `${userId || ''}_${userDataId || ''}_${stableFriendsKey}_${reconnectTrigger}_${encryptionReady}`;
+  }, [userId, userDataId, stableFriendsKey, reconnectTrigger, encryptionReady]);
 
   // Debug function to check specific task in Firestore (development only)
   useEffect(() => {
@@ -252,6 +254,16 @@ export function useTasks() {
     if (lastSetupKeyRef.current === setupKey) {
       return; // Already set up for this user/friends combination, skip re-setup
     }
+    
+    // CRITICAL: Prevent concurrent listener setup
+    // If listeners are already active, wait a bit before setting up new ones
+    if (listenersActiveRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useTasks] ⚠️ Listeners already active, skipping setup to prevent duplicates');
+      }
+      return;
+    }
+    
     lastSetupKeyRef.current = setupKey;
     
     // Capture current values to avoid closure issues
@@ -283,10 +295,13 @@ export function useTasks() {
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] 📱 Tab visible - reconnecting listeners...');
         }
-        // CRITICAL FIX: Force reconnection by incrementing reconnectTrigger
-        // This will cause the effect to re-run and set up listeners again
+        // CRITICAL FIX: Mark listeners as inactive and wait a bit before reconnecting
+        // This prevents race conditions with Firestore
         listenersActiveRef.current = false;
-        setReconnectTrigger(prev => prev + 1);
+        // Use setTimeout to ensure cleanup completes before reconnection
+        setTimeout(() => {
+          setReconnectTrigger(prev => prev + 1);
+        }, 100);
       }
     };
     
@@ -295,12 +310,15 @@ export function useTasks() {
       if (process.env.NODE_ENV === 'development') {
         console.log('[useTasks] 🌐 Network online - checking listeners...');
       }
-      // If listeners are not active, reconnect
+      // If listeners are not active, reconnect with a delay to prevent race conditions
       if (!listenersActiveRef.current) {
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] 🔄 Reconnecting listeners after network restored');
         }
-        setReconnectTrigger(prev => prev + 1);
+        // Add delay to ensure any pending cleanup completes
+        setTimeout(() => {
+          setReconnectTrigger(prev => prev + 1);
+        }, 200);
       }
     };
     
@@ -595,19 +613,37 @@ export function useTasks() {
         if (process.env.NODE_ENV === 'development') {
           console.log('[useTasks] ⚠️ Health check: Listeners inactive, reconnecting...');
         }
-        setReconnectTrigger(prev => prev + 1);
+        // Add delay to prevent race conditions
+        setTimeout(() => {
+          setReconnectTrigger(prev => prev + 1);
+        }, 100);
       }
     }, 30000); // Check every 30 seconds
 
     return () => {
-      // Cleanup listeners
+      // Cleanup listeners - CRITICAL: Do this synchronously to prevent race conditions
       quotaExceeded = false; // Reset circuit breaker on cleanup
-      listenersActiveRef.current = false;
+      listenersActiveRef.current = false; // Mark as inactive FIRST
+      
+      // Clear timers
       if (updateTimer) {
         clearTimeout(updateTimer);
       }
       clearInterval(healthCheckInterval);
-      unsubscribers.forEach(unsub => unsub());
+      
+      // Unsubscribe from all listeners
+      // CRITICAL: Unsubscribe synchronously to prevent Firestore internal state issues
+      const unsubs = [...unsubscribers]; // Copy array to avoid issues during iteration
+      unsubs.forEach(unsub => {
+        try {
+          unsub();
+        } catch (error) {
+          console.error('[useTasks] Error unsubscribing listener:', error);
+        }
+      });
+      unsubscribers.length = 0; // Clear array
+      
+      // Remove event listeners
       if (typeof window !== 'undefined') {
         if (visibilityHandler) {
           document.removeEventListener('visibilitychange', visibilityHandler);
@@ -619,13 +655,19 @@ export function useTasks() {
           window.removeEventListener('offline', offlineHandler);
         }
       }
+      
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubscribers.length, 'listeners');
+        console.log('[useTasks] 🧹 Cleanup: unsubscribed from', unsubs.length, 'listeners');
       }
+      
       // Reset setup key on cleanup so effect can run again if needed
-      lastSetupKeyRef.current = '';
+      // But only after a small delay to ensure Firestore has processed the unsubscribes
+      setTimeout(() => {
+        lastSetupKeyRef.current = '';
+      }, 50);
     };
-  }, [userId, userDataId, stableFriendsKey, setupKey]); // Use stable IDs and friendsKey to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, userDataId, stableFriendsKey, setupKey]); // setupKey already includes reconnectTrigger via useMemo
 
   const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
     if (!user) return;

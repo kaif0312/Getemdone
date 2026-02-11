@@ -157,8 +157,8 @@ export async function decrypt(
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
-    console.error('[crypto] Decryption failed:', error);
-    throw new Error('Failed to decrypt data. The data may be corrupted or the key is incorrect.');
+    // Rethrow original so caller can handle (e.g. show placeholder instead of ciphertext)
+    throw error;
   }
 }
 

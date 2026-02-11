@@ -198,11 +198,8 @@ export function useDataMigration() {
         tasksMigrated,
         notificationsMigrated,
       };
-      await updateDoc(statusRef, status).catch(async () => {
-        // Create if doesn't exist
-        const { setDoc } = await import('firebase/firestore');
-        await setDoc(statusRef, status);
-      });
+      const { setDoc } = await import('firebase/firestore');
+      await setDoc(statusRef, status, { merge: true });
 
       setMigrationStatus(status);
       console.log('[useDataMigration] ✅ Migration completed successfully');

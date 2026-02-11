@@ -144,7 +144,18 @@ export default function CommentsModal({
 
   if (!isOpen) return null;
 
-  const comments = task.comments || [];
+  // Dedupe by id (keep last) to avoid duplicate key errors from optimistic + listener overlap
+  const rawComments = task.comments || [];
+  const seenIds = new Set<string>();
+  const comments = rawComments
+    .slice()
+    .reverse()
+    .filter((c) => {
+      if (seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+      return true;
+    })
+    .reverse();
   const isOwnTask = task.userId === currentUserId;
 
   return (
@@ -199,7 +210,7 @@ export default function CommentsModal({
               </div>
             ) : (
               <>
-                {comments.map((comment) => {
+                {comments.map((comment, index) => {
                   const isOwnComment = comment.userId === currentUserId;
                   const isTaskOwnerComment = comment.userId === task.userId;
                   const reactions = comment.reactions || [];
@@ -215,7 +226,7 @@ export default function CommentsModal({
 
                   return (
                     <div
-                      key={comment.id}
+                      key={`${comment.id}-${index}`}
                       ref={(el) => {
                         if (el) commentRefs.current.set(comment.id, el);
                         else commentRefs.current.delete(comment.id);

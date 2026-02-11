@@ -36,7 +36,8 @@ export default function SettingsMenu({
 }: SettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { isInitialized: encryptionInitialized, masterKey } = useEncryption();
+  const { isInitialized: encryptionInitialized, masterKey, reloadKeys, isLoading: encryptionLoading } = useEncryption();
+  const [reloadingKey, setReloadingKey] = useState(false);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -124,6 +125,21 @@ export default function SettingsMenu({
                       Encrypted at rest
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setReloadingKey(true);
+                      try {
+                        await reloadKeys();
+                      } finally {
+                        setReloadingKey(false);
+                      }
+                    }}
+                    disabled={reloadingKey || encryptionLoading}
+                    className="mt-2 w-full text-xs py-2 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {reloadingKey || encryptionLoading ? 'Loading…' : 'Reload encryption key'}
+                  </button>
                 </div>
               </div>
             </div>

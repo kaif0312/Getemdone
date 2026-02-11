@@ -122,8 +122,8 @@ export async function encrypt(
   combined.set(iv, 0);
   combined.set(new Uint8Array(encrypted), iv.length);
   
-  // Return as base64 string
-  return arrayBufferToBase64(combined.buffer);
+  // Return with version prefix so we can reliably detect encrypted data (including short strings)
+  return 'e1:' + arrayBufferToBase64(combined.buffer);
 }
 
 /**
@@ -134,8 +134,10 @@ export async function decrypt(
   key: CryptoKey
 ): Promise<string> {
   try {
+    // Strip version prefix if present (e1: = encrypted format v1)
+    const toDecode = encryptedData.startsWith('e1:') ? encryptedData.slice(3) : encryptedData;
     // Convert base64 to ArrayBuffer
-    const combined = base64ToArrayBuffer(encryptedData);
+    const combined = base64ToArrayBuffer(toDecode);
     const combinedArray = new Uint8Array(combined);
     
     // Extract IV and encrypted data
@@ -163,16 +165,15 @@ export async function decrypt(
 }
 
 /**
- * Check if a string is encrypted (starts with our encryption marker)
+ * Check if a string is encrypted (version prefix or legacy base64 format)
  */
 export function isEncrypted(data: string): boolean {
-  // Encrypted data is base64, which has a specific pattern
-  // We'll use a simple heuristic: if it's base64 and longer than a threshold
   if (!data || data.length < 20) return false;
-  
-  // Base64 strings are alphanumeric with +, /, and = padding
+  // New format: explicit prefix (catches short encrypted strings like "Buy milk")
+  if (data.startsWith('e1:')) return true;
+  // Legacy format: base64 with min length (IV 12 + tag 16 + 1 byte = 29 bytes = 39 base64 chars)
   const base64Pattern = /^[A-Za-z0-9+/]+=*$/;
-  return base64Pattern.test(data) && data.length > 50; // Encrypted data is typically longer
+  return base64Pattern.test(data) && data.length >= 36;
 }
 
 /**

@@ -137,6 +137,23 @@ export function useEncryption() {
   }, [user?.uid]);
 
   /**
+   * Reload encryption key from Firestore (e.g. after "Reload encryption key" in Settings)
+   */
+  const reloadKeys = useCallback(async () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    retryCountRef.current = 0;
+    setMasterKey(null);
+    setFriendKeys({});
+    keysRef.current = { master: null, friends: {} };
+    setIsInitialized(false);
+    setIsLoading(true);
+    await initializeKeys(false);
+  }, [initializeKeys]);
+
+  /**
    * Initialize keys on mount; clear retry timeout on unmount
    */
   useEffect(() => {
@@ -315,6 +332,38 @@ export function useEncryption() {
     }
   }, [getSharedKey]);
 
+  const SELF_PLACEHOLDER = "Couldn't decrypt — try Reload encryption key in Settings";
+  const FRIEND_PLACEHOLDER = "[Couldn't decrypt]";
+
+  /**
+   * Decrypt a comment with fallback strategies (handles legacy/incorrectly encrypted comments)
+   */
+  const decryptComment = useCallback(async (
+    encryptedText: string,
+    taskOwnerId: string,
+    commenterId: string,
+    currentUserId: string
+  ): Promise<string> => {
+    if (!encryptedText) return encryptedText;
+    if (!isEncrypted(encryptedText)) return encryptedText;
+
+    // Try 1: master key (own comment on own task, or legacy)
+    const r1 = await decryptForSelf(encryptedText);
+    if (r1 !== SELF_PLACEHOLDER) return r1;
+
+    // Try 2: shared key with task owner (comment on friend's task)
+    const r2 = await decryptFromFriend(encryptedText, taskOwnerId);
+    if (r2 !== FRIEND_PLACEHOLDER) return r2;
+
+    // Try 3: shared key with commenter (friend's comment on own task)
+    if (commenterId !== taskOwnerId) {
+      const r3 = await decryptFromFriend(encryptedText, commenterId);
+      if (r3 !== FRIEND_PLACEHOLDER) return r3;
+    }
+
+    return FRIEND_PLACEHOLDER;
+  }, [decryptForSelf, decryptFromFriend]);
+
   /**
    * Refresh friend keys when friends list changes
    */
@@ -338,9 +387,11 @@ export function useEncryption() {
     isLoading,
     encryptForSelf,
     decryptForSelf,
+    decryptComment,
     encryptForFriend,
     decryptFromFriend,
     getSharedKey,
     masterKey: masterKey !== null,
+    reloadKeys,
   };
 }

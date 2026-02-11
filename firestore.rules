@@ -215,9 +215,9 @@ service cloud.firestore {
     }
     
     // User Keys collection (stores encryption keys for E2EE)
+    // Users need to read/write a friend's doc when creating a shared key (merge friendKeys[myUid]).
     match /userKeys/{userId} {
-      // Users can read and write their own encryption keys
-      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+      allow read, write: if isAuthenticated();
     }
     
     // Migration status collection (tracks encryption migration)

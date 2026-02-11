@@ -27,6 +27,7 @@ export function useTasks() {
     isInitialized: encryptionInitialized, 
     encryptForSelf, 
     decryptForSelf, 
+    decryptComment,
     encryptForFriend, 
     decryptFromFriend 
   } = useEncryption();
@@ -45,6 +46,15 @@ export function useTasks() {
   const lastSetupKeyRef = useRef<string>('');
   const lastFriendsContentRef = useRef<string>('');
   const listenersActiveRef = useRef<boolean>(false);
+  const lastEncReconnectRef = useRef<number>(0);
+  // Ref so snapshot listener always uses latest encryption (avoids stale closure when key loads later)
+  const encryptionRef = useRef({
+    encryptionInitialized,
+    decryptForSelf,
+    decryptFromFriend,
+    decryptComment,
+  });
+  encryptionRef.current = { encryptionInitialized, decryptForSelf, decryptFromFriend, decryptComment };
   
   // Calculate friends key only when contents actually change
   // Create a stable string representation of friends for dependency comparison
@@ -265,6 +275,7 @@ export function useTasks() {
     }
     
     lastSetupKeyRef.current = setupKey;
+    lastEncReconnectRef.current = 0;
     
     // Capture current values to avoid closure issues
     const currentUserId = userId;
@@ -389,74 +400,45 @@ export function useTasks() {
     );
 
     const unsubOwnTasks = onSnapshot(ownTasksQuery, async (snapshot) => {
-      if (isInitialLoad) {
-        // First load - process all documents
-        for (const docSnap of snapshot.docs) {
-          const task = { id: docSnap.id, ...docSnap.data() } as Task;
-          if (task.deleted !== true) {
-            // Decrypt task text and notes
-            if (encryptionInitialized) {
-              try {
-                task.text = await decryptForSelf(task.text);
-                if (task.notes) {
-                  task.notes = await decryptForSelf(task.notes);
-                }
-                // Decrypt comments
-                if (task.comments) {
-                  task.comments = await Promise.all(
-                    task.comments.map(async (comment) => ({
-                      ...comment,
-                      text: await decryptForSelf(comment.text),
-                    }))
-                  );
-                }
-              } catch (error) {
-                console.error('[useTasks] Failed to decrypt task:', error);
-              }
-            }
-            allTasks.set(task.id, { ...task, userName: 'You' });
-          }
+      const { encryptionInitialized: encReady, decryptForSelf: decrypt, decryptFromFriend: decryptFriend, decryptComment: decryptCommentFn } = encryptionRef.current;
+      // Don't overwrite with ciphertext when key isn't ready - wait for reconnect
+      if (!encReady) {
+        const now = Date.now();
+        if (snapshot.docs.length > 0 && now - lastEncReconnectRef.current > 2000) {
+          lastEncReconnectRef.current = now;
+          setTimeout(() => setReconnectTrigger((prev) => prev + 1), 400);
         }
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useTasks] ✅ Initial load:', snapshot.docs.length, 'tasks');
-        }
-      } else {
-        // Subsequent updates - only process changes
-        for (const change of snapshot.docChanges()) {
-          const task = { id: change.doc.id, ...change.doc.data() } as Task;
-          
-          if (change.type === 'removed') {
-            allTasks.delete(change.doc.id);
-          } else {
-            if (task.deleted === true) {
-              allTasks.delete(change.doc.id);
-            } else {
-              // Decrypt task text and notes
-              if (encryptionInitialized) {
-                try {
-                  task.text = await decryptForSelf(task.text);
-                  if (task.notes) {
-                    task.notes = await decryptForSelf(task.notes);
-                  }
-                  // Decrypt comments
-                  if (task.comments) {
-                    task.comments = await Promise.all(
-                      task.comments.map(async (comment) => ({
-                        ...comment,
-                        text: await decryptForSelf(comment.text),
-                      }))
-                    );
-                  }
-                } catch (error) {
-                  console.error('[useTasks] Failed to decrypt task:', error);
-                }
-              }
-              allTasks.set(task.id, { ...task, userName: 'You' });
-            }
-          }
-        }
+        scheduleUpdate();
+        return;
       }
-      
+      // Remove only own tasks from the map so we don't wipe friend tasks
+      allTasks.forEach((task, taskId) => {
+        if (task.userId === currentUserId) allTasks.delete(taskId);
+      });
+      // Process full own-tasks snapshot and decrypt every task
+      for (const docSnap of snapshot.docs) {
+        const task = { id: docSnap.id, ...docSnap.data() } as Task;
+        if (task.deleted === true) continue;
+        try {
+          task.text = await decrypt(task.text);
+          if (task.notes) task.notes = await decrypt(task.notes);
+          if (task.comments) {
+            task.comments = await Promise.all(
+              task.comments.map(async (comment) => ({
+                ...comment,
+                text: await decryptCommentFn(comment.text, task.userId, comment.userId, currentUserId),
+              }))
+            );
+          }
+        } catch (error) {
+          console.error('[useTasks] Failed to decrypt task:', error);
+        }
+        allTasks.set(task.id, { ...task, userName: 'You' });
+      }
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useTasks] ✅ Snapshot:', snapshot.docs.length, 'tasks');
+      }
+      isInitialLoad = false;
       scheduleUpdate();
     }, (error) => {
       console.error('[useTasks] ❌ Error in own tasks listener:', error);
@@ -544,12 +526,12 @@ export function useTasks() {
                     // Decrypt task text (friends can see public tasks)
                     if (!task.isPrivate) {
                       task.text = await decryptFromFriend(task.text, task.userId);
-                      // Decrypt comments
+                      // Decrypt comments (try multiple keys for legacy/incorrectly encrypted data)
                       if (task.comments) {
                         task.comments = await Promise.all(
                           task.comments.map(async (comment) => ({
                             ...comment,
-                            text: await decryptFromFriend(comment.text, comment.userId),
+                            text: await decryptComment(comment.text, task.userId, comment.userId, currentUserId),
                           }))
                         );
                       }
@@ -697,6 +679,8 @@ export function useTasks() {
     try {
       const docRef = await addDoc(collection(db, 'tasks'), newTask);
       console.log('[addTask] ✅ Task created:', docRef.id);
+      // Force reconnect so listener re-processes with current key and displays decrypted task
+      setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
     } catch (error: any) {
       console.error('[addTask] ❌ Failed to create task:', error.message);
       if (error.code === 'resource-exhausted') {
@@ -748,6 +732,8 @@ export function useTasks() {
     await updateDoc(taskRef, {
       text: encryptedText,
     });
+    // Force reconnect so listener re-processes with current key and displays decrypted task
+    setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
   };
 
   const updateTaskDueDate = async (taskId: string, dueDate: number | null) => {
@@ -786,6 +772,8 @@ export function useTasks() {
       if (duration > 1000) {
         console.warn(`[updateTaskNotes] Slow update: ${duration}ms for task ${taskId}`);
       }
+      // Force reconnect so listener re-processes with current key and displays decrypted notes
+      setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
     } catch (error) {
       console.error('[updateTaskNotes] Error updating notes:', error);
       throw error;
@@ -1041,10 +1029,12 @@ export function useTasks() {
       const task = taskDoc.data() as Task;
       const comments = task.comments || [];
       
-      // Encrypt comment text
+      // Encrypt comment text: own task = encryptForSelf, friend's task = encryptForFriend
       const commentText = text.substring(0, 500);
-      const encryptedCommentText = encryptionInitialized 
-        ? await encryptForFriend(commentText, task.userId) 
+      const encryptedCommentText = encryptionInitialized
+        ? (task.userId === user.uid
+            ? await encryptForSelf(commentText)
+            : await encryptForFriend(commentText, task.userId))
         : commentText;
 
       const newComment: Comment = {
@@ -1060,6 +1050,8 @@ export function useTasks() {
       console.log('[addComment] Adding comment to task:', taskId, 'Current comments:', comments.length);
       await updateDoc(taskRef, { comments });
       console.log('[addComment] Comment added successfully');
+      // Force reconnect so listener re-processes with current key and displays decrypted comment
+      setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
 
       // Create notification for task owner if commenter is a friend
       if (task.userId !== user.uid) {

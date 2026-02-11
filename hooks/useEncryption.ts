@@ -115,6 +115,8 @@ export function useEncryption() {
       const tempKey = await generateKey();
       setMasterKey(tempKey);
       keysRef.current = { master: tempKey, friends: {} };
+      // Still mark as initialized even with temp key so UI shows active status
+      setIsInitialized(true);
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +128,17 @@ export function useEncryption() {
   useEffect(() => {
     initializeKeys();
   }, [initializeKeys]);
+
+  /**
+   * Ensure isInitialized is set correctly if we have a master key
+   * This handles edge cases where initialization might have completed
+   * but the state wasn't updated properly
+   */
+  useEffect(() => {
+    if (masterKey && !isInitialized && !isLoading) {
+      setIsInitialized(true);
+    }
+  }, [masterKey, isInitialized, isLoading]);
 
   /**
    * Get or create a shared key with a friend

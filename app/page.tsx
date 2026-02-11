@@ -93,6 +93,9 @@ export default function Home() {
   
   const onboarding = useOnboarding();
   
+  // Data migration - automatically encrypts existing data
+  useDataMigration();
+  
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
   const friendsButtonRef = useRef<HTMLButtonElement>(null);

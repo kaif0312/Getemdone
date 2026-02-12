@@ -76,11 +76,14 @@ messaging.onBackgroundMessage(async (payload) => {
     shownNotifications.delete(firstTag);
   }
   
-  // Format notification body to show actual comment text
+  // Format notification body - never show ciphertext
   let notificationBody = payload.notification?.body || 'You have a new update';
-  if (commentText && fromUserName) {
+  const stillEncrypted = (s) => s && typeof s === 'string' && s.startsWith('e1:');
+  if (commentText && fromUserName && !stillEncrypted(commentText) && !stillEncrypted(taskText)) {
     const taskSuffix = taskText ? ` on "${taskText}"` : '';
     notificationBody = `${fromUserName}: "${commentText}"${taskSuffix}`;
+  } else if (stillEncrypted(commentText) || stillEncrypted(taskText)) {
+    notificationBody = fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification';
   }
   
   const notificationTitle = payload.notification?.title || 'New Notification';

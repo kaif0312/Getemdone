@@ -5,6 +5,7 @@ import TaskItem from './TaskItem';
 import Avatar from './Avatar';
 import EncouragementModal from './EncouragementModal';
 import { TaskWithUser, Attachment } from '@/lib/types';
+import { groupTasksByTag } from '@/utils/taskGrouping';
 import { FaChevronDown, FaChevronUp, FaLock, FaFire } from 'react-icons/fa';
 
 interface FriendTaskCardProps {
@@ -32,6 +33,7 @@ interface FriendTaskCardProps {
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onSendEncouragement?: (friendId: string, message: string) => Promise<void>;
   currentUserId: string;
+  tagOrder?: string[];
 }
 
 export default function FriendTaskCard({
@@ -59,9 +61,11 @@ export default function FriendTaskCard({
   onDeleteAttachment,
   onSendEncouragement,
   currentUserId,
+  tagOrder = [],
 }: FriendTaskCardProps) {
   const [showEncouragementModal, setShowEncouragementModal] = useState(false);
   const publicTasks = tasks.filter(t => !t.isPrivate);
+  const publicGroups = groupTasksByTag(publicTasks, tagOrder);
   const completedToday = tasks.filter(t => t.completed).length;
   const pendingCount = publicTasks.filter(t => !t.completed).length;
 
@@ -150,7 +154,15 @@ export default function FriendTaskCard({
               Only private tasks for today.
             </p>
           )}
-          {publicTasks.map((task) => (
+          {publicGroups.map((group) => (
+            <div key={group.tag ?? 'no-tag'}>
+              {group.tag && (
+                <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
+                  <span className="text-base">{group.tag}</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                </div>
+              )}
+              {group.tasks.map((task) => (
             <TaskItem
               key={task.id}
               task={task}
@@ -170,6 +182,8 @@ export default function FriendTaskCard({
               onDeleteAttachment={onDeleteAttachment}
               currentUserId={currentUserId}
             />
+              ))}
+            </div>
           ))}
         </div>
       )}

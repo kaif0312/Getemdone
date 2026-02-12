@@ -43,6 +43,9 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
+import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
+import { groupTasksByTag } from '@/utils/taskGrouping';
+import SortableTagBar from '@/components/SortableTagBar';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading } = useAuth();
@@ -109,7 +112,12 @@ function MainApp() {
   const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
   const [hasManuallyInteracted, setHasManuallyInteracted] = useState(false); // Track if user has manually expanded/collapsed
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
-  
+  const [tagOrder, setTagOrder] = useState<string[]>(() => loadTagOrder());
+
+  useEffect(() => {
+    saveTagOrder(tagOrder);
+  }, [tagOrder]);
+
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
@@ -221,19 +229,24 @@ function MainApp() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    // Get only incomplete tasks for reordering
-    const myIncompleteTasks = tasks.filter(task => {
+    // Get incomplete tasks, apply tag filter, group by tag for display order
+    const myTasks = tasks.filter(task => {
       if (task.userId !== uid) return false;
       if (task.deferredTo && task.deferredTo > todayStr) return false;
       return !task.completed;
-    }).sort((a, b) => (a.order || 0) - (b.order || 0));
+    });
+    const filtered = activeTagFilters.length === 0
+      ? myTasks
+      : myTasks.filter((t) => activeTagFilters.some((tag) => t.tags?.includes(tag)));
+    const groups = groupTasksByTag(filtered, tagOrder);
+    const flatTasks = groups.flatMap((g) => g.tasks);
 
-    const oldIndex = myIncompleteTasks.findIndex(t => t.id === active.id);
-    const newIndex = myIncompleteTasks.findIndex(t => t.id === over.id);
+    const oldIndex = flatTasks.findIndex((t) => t.id === active.id);
+    const newIndex = flatTasks.findIndex((t) => t.id === over.id);
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reorderedTasks = arrayMove(myIncompleteTasks, oldIndex, newIndex);
+    const reorderedTasks = arrayMove(flatTasks, oldIndex, newIndex);
 
     // Update orders in Firestore
     const updates = reorderedTasks.map((task, index) => 
@@ -808,7 +821,7 @@ function MainApp() {
             </div>
           )}
 
-          {/* Tag filter bar - only when any task has tags */}
+          {/* Tag filter bar - sortable, only when any task has tags */}
           {(() => {
             const usedEmojis = Array.from(
               new Set(
@@ -816,43 +829,21 @@ function MainApp() {
                   .filter((t) => t.userId === uid && t.deleted !== true && t.tags?.length)
                   .flatMap((t) => t.tags || [])
               )
-            ).sort();
+            );
             if (usedEmojis.length === 0) return null;
+            const orderedEmojis = mergeTagOrder(usedEmojis, tagOrder);
             return (
-              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1 py-1.5">
-                <div className="flex items-center gap-1.5 min-w-max">
-                  <button
-                    onClick={() => setActiveTagFilters([])}
-                    className={`flex-shrink-0 h-8 px-2.5 rounded-full text-xs font-medium transition-all duration-150 flex items-center justify-center ${
-                      activeTagFilters.length === 0
-                        ? 'bg-blue-600 dark:bg-blue-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    All
-                  </button>
-                  {usedEmojis.map((emoji) => {
-                    const isActive = activeTagFilters.includes(emoji);
-                    return (
-                      <button
-                        key={emoji}
-                        onClick={() => {
-                          setActiveTagFilters((prev) =>
-                            prev.includes(emoji) ? prev.filter((e) => e !== emoji) : [...prev, emoji]
-                          );
-                        }}
-                        className={`flex-shrink-0 h-8 w-8 rounded-full text-base transition-all duration-150 flex items-center justify-center ${
-                          isActive
-                            ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500 dark:ring-blue-400'
-                            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        {emoji}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <SortableTagBar
+                emojis={orderedEmojis}
+                activeTagFilters={activeTagFilters}
+                onTagClick={(emoji) => {
+                  setActiveTagFilters((prev) =>
+                    prev.includes(emoji) ? prev.filter((e) => e !== emoji) : [...prev, emoji]
+                  );
+                }}
+                onAllClick={() => setActiveTagFilters([])}
+                onReorder={setTagOrder}
+              />
             );
           })()}
         </div>
@@ -962,6 +953,11 @@ function MainApp() {
               // Separate incomplete and completed tasks
               const incompleteTasks = filteredTasks.filter(t => !t.completed);
               const completedTasks = filteredTasks.filter(t => t.completed);
+
+              // Group by tag: no-tag first, then by tagOrder
+              const incompleteGroups = groupTasksByTag(incompleteTasks, tagOrder);
+              const completedGroups = groupTasksByTag(completedTasks, tagOrder);
+              const flatIncomplete = incompleteGroups.flatMap((g) => g.tasks);
               
               if (myTasks.length === 0) return null;
               
@@ -991,10 +987,18 @@ function MainApp() {
                       onDragEnd={handleDragEnd}
                     >
                       <SortableContext
-                        items={incompleteTasks.map(t => t.id)}
+                        items={flatIncomplete.map(t => t.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {incompleteTasks.map((task) => (
+                        {incompleteGroups.map((group) => (
+                          <div key={group.tag ?? 'no-tag'}>
+                            {group.tag && (
+                              <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
+                                <span className="text-base">{group.tag}</span>
+                                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                              </div>
+                            )}
+                            {group.tasks.map((task) => (
                           <SortableTaskItem
                             key={task.id}
                             task={task}
@@ -1020,12 +1024,22 @@ function MainApp() {
                             userStorageLimit={data.storageLimit}
                             currentUserId={uid}
                           />
+                            ))}
+                          </div>
                         ))}
                       </SortableContext>
                     </DndContext>
                     
-                    {/* Completed tasks (not draggable) */}
-                    {completedTasks.map((task) => (
+                    {/* Completed tasks (not draggable) - grouped by tag */}
+                    {completedGroups.map((group) => (
+                      <div key={`done-${group.tag ?? 'no-tag'}`}>
+                        {group.tag && (
+                          <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
+                            <span className="text-base">{group.tag}</span>
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                          </div>
+                        )}
+                        {group.tasks.map((task) => (
                       <TaskItem
                         key={task.id}
                         task={task}
@@ -1051,6 +1065,8 @@ function MainApp() {
                         userStorageLimit={data.storageLimit}
                         currentUserId={uid}
                       />
+                        ))}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -1140,6 +1156,7 @@ function MainApp() {
                             friendName={friendName}
                             photoURL={friendPhotoURLMap.get(userId)}
                             tasks={userTasks}
+                            tagOrder={tagOrder}
                             privateTotal={privateTotal}
                             privateCompleted={privateCompleted}
                             isExpanded={isExpanded}

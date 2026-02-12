@@ -10,6 +10,7 @@ import Confetti from './Confetti';
 import TaskContextMenu from './TaskContextMenu';
 import AttachmentUpload from './AttachmentUpload';
 import AttachmentGallery from './AttachmentGallery';
+import SortableSubtaskList from './SortableSubtaskList';
 import { playSound } from '@/utils/sounds';
 import { isRolledOver, getTodayString, getDateString } from '@/utils/taskFilter';
 
@@ -26,6 +27,7 @@ interface SubtaskRowProps {
   onUpdateEditTitle: (title: string) => void;
   onFinishEdit: () => void;
   onCancelEdit: () => void;
+  dragHandle?: React.ReactNode;
 }
 
 function SubtaskRow({
@@ -41,6 +43,7 @@ function SubtaskRow({
   onUpdateEditTitle,
   onFinishEdit,
   onCancelEdit,
+  dragHandle,
 }: SubtaskRowProps) {
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isLongPressing, setIsLongPressing] = useState(false);
@@ -85,6 +88,7 @@ function SubtaskRow({
         style={{ transform: `translateX(${swipeOffset}px)` }}
         className="relative z-10 flex items-center gap-1.5 py-0.5 pl-3 transition-transform duration-150 bg-white dark:bg-gray-800"
       >
+        {dragHandle}
         <button
           onClick={onToggle}
           disabled={!isOwnTask}
@@ -1347,51 +1351,95 @@ export default function TaskItem({
                 className="mt-1 pt-1 border-t border-gray-200/80 dark:border-gray-600/80"
                 onClick={(e) => e.stopPropagation()}
               >
-                {(task.subtasks || []).map((st) => (
-                  <SubtaskRow
-                    key={st.id}
-                    subtask={st}
-                    isOwnTask={isOwnTask}
-                    canEdit={isOwnTask && !task.completed}
-                    onToggle={() => {
+                <SortableSubtaskList
+                  taskId={task.id}
+                  subtasks={task.subtasks || []}
+                  isOwnTask={isOwnTask}
+                  taskCompleted={!!task.completed}
+                  onReorder={(newSubtasks) => onUpdateTaskSubtasks?.(task.id, newSubtasks)}
+                  onToggle={(st) => {
+                    const next = (task.subtasks || []).map((s) =>
+                      s.id === st.id ? { ...s, completed: !s.completed } : s
+                    );
+                    onUpdateTaskSubtasks?.(task.id, next);
+                  }}
+                  onDelete={(st) => {
+                    const next = (task.subtasks || []).filter((s) => s.id !== st.id);
+                    onUpdateTaskSubtasks?.(task.id, next);
+                  }}
+                  onEdit={(st, title) => {
+                    const next = (task.subtasks || []).map((s) =>
+                      s.id === st.id ? { ...s, title } : s
+                    );
+                    onUpdateTaskSubtasks?.(task.id, next);
+                  }}
+                  editingSubtaskId={editingSubtaskId}
+                  editingSubtaskTitle={editingSubtaskTitle}
+                  onStartEdit={(id, title) => {
+                    setEditingSubtaskId(id);
+                    setEditingSubtaskTitle(title);
+                  }}
+                  onUpdateEditTitle={setEditingSubtaskTitle}
+                  onFinishEdit={(st) => {
+                    if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
                       const next = (task.subtasks || []).map((s) =>
-                        s.id === st.id ? { ...s, completed: !s.completed } : s
+                        s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
                       );
                       onUpdateTaskSubtasks?.(task.id, next);
-                    }}
-                    onDelete={() => {
-                      const next = (task.subtasks || []).filter((s) => s.id !== st.id);
-                      onUpdateTaskSubtasks?.(task.id, next);
-                    }}
-                    onEdit={(title) => {
-                      const next = (task.subtasks || []).map((s) =>
-                        s.id === st.id ? { ...s, title } : s
-                      );
-                      onUpdateTaskSubtasks?.(task.id, next);
-                    }}
-                    editingSubtaskId={editingSubtaskId}
-                    editingSubtaskTitle={editingSubtaskTitle}
-                    onStartEdit={(id, title) => {
-                      setEditingSubtaskId(id);
-                      setEditingSubtaskTitle(title);
-                    }}
-                    onUpdateEditTitle={setEditingSubtaskTitle}
-                    onFinishEdit={() => {
-                      if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
+                    }
+                    setEditingSubtaskId(null);
+                    setEditingSubtaskTitle('');
+                  }}
+                  onCancelEdit={() => {
+                    setEditingSubtaskId(null);
+                    setEditingSubtaskTitle('');
+                  }}
+                  renderSubtaskRow={(st, dragHandle) => (
+                    <SubtaskRow
+                      subtask={st}
+                      isOwnTask={isOwnTask}
+                      canEdit={isOwnTask && !task.completed}
+                      onToggle={() => {
                         const next = (task.subtasks || []).map((s) =>
-                          s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
+                          s.id === st.id ? { ...s, completed: !s.completed } : s
                         );
                         onUpdateTaskSubtasks?.(task.id, next);
-                      }
-                      setEditingSubtaskId(null);
-                      setEditingSubtaskTitle('');
-                    }}
-                    onCancelEdit={() => {
-                      setEditingSubtaskId(null);
-                      setEditingSubtaskTitle('');
-                    }}
-                  />
-                ))}
+                      }}
+                      onDelete={() => {
+                        const next = (task.subtasks || []).filter((s) => s.id !== st.id);
+                        onUpdateTaskSubtasks?.(task.id, next);
+                      }}
+                      onEdit={(title) => {
+                        const next = (task.subtasks || []).map((s) =>
+                          s.id === st.id ? { ...s, title } : s
+                        );
+                        onUpdateTaskSubtasks?.(task.id, next);
+                      }}
+                      editingSubtaskId={editingSubtaskId}
+                      editingSubtaskTitle={editingSubtaskTitle}
+                      onStartEdit={(id, title) => {
+                        setEditingSubtaskId(id);
+                        setEditingSubtaskTitle(title);
+                      }}
+                      onUpdateEditTitle={setEditingSubtaskTitle}
+                      onFinishEdit={() => {
+                        if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
+                          const next = (task.subtasks || []).map((s) =>
+                            s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
+                          );
+                          onUpdateTaskSubtasks?.(task.id, next);
+                        }
+                        setEditingSubtaskId(null);
+                        setEditingSubtaskTitle('');
+                      }}
+                      onCancelEdit={() => {
+                        setEditingSubtaskId(null);
+                        setEditingSubtaskTitle('');
+                      }}
+                      dragHandle={dragHandle}
+                    />
+                  )}
+                />
                 {isOwnTask && onUpdateTaskSubtasks && (
                 <div className="pl-4">
                   <input

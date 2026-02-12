@@ -16,6 +16,7 @@ import {
   isEncrypted,
   generateSharedKeyId,
 } from '@/utils/crypto';
+import { persistKeysForSW } from '@/lib/notificationKeys';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -96,6 +97,11 @@ export function useEncryption() {
         setFriendKeys(friendKeysMap);
         keysRef.current = { master: masterKeyCrypto, friends: friendKeysMap };
         retryCountRef.current = 0;
+        // Persist keys for service worker to decrypt push notifications
+        persistKeysForSW(user.uid, {
+          masterKey: keysData.masterKey,
+          friendKeys: keysData.friendKeys || {},
+        });
       } else {
         // New user, generate master key
         masterKeyCrypto = await generateKey();
@@ -111,6 +117,10 @@ export function useEncryption() {
         setFriendKeys({});
         keysRef.current = { master: masterKeyCrypto, friends: {} };
         retryCountRef.current = 0;
+        persistKeysForSW(user.uid, {
+          masterKey: masterKeyData,
+          friendKeys: {},
+        });
       }
 
       setIsInitialized(true);

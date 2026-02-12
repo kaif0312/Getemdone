@@ -815,7 +815,7 @@ export function useTasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, userDataId, stableFriendsKey, setupKey]); // setupKey already includes reconnectTrigger via useMemo
 
-  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
+  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, tags?: string[]) => {
     if (!user) return;
 
     // Get current max order for user's tasks
@@ -849,6 +849,7 @@ export function useTasks() {
       deleted: false, // Explicitly set deleted to false
       ...(dueDate && { dueDate }), // Only include if set
       ...(scheduledFor && { deferredTo: scheduledFor }), // Schedule task for future date
+      ...(tags && tags.length > 0 && { tags }), // Emoji tags from active filter when adding
     };
     
     try {
@@ -1205,7 +1206,7 @@ export function useTasks() {
       );
       comments[commentIndex] = {
         ...comment,
-        reactions: updatedReactions.length > 0 ? updatedReactions : undefined,
+        reactions: updatedReactions.length > 0 ? updatedReactions : [],
       };
     } else {
       // Remove any previous reaction from this user for this comment and add new one
@@ -1223,7 +1224,17 @@ export function useTasks() {
       };
     }
 
-    await updateDoc(taskRef, { comments });
+    // Firestore rejects undefined - strip from comments before update
+    const sanitizedComments = comments.map((c) => {
+      const sanitized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(c)) {
+        if (v !== undefined) {
+          sanitized[k] = Array.isArray(v) ? v.filter((x) => x !== undefined) : v;
+        }
+      }
+      return sanitized;
+    });
+    await updateDoc(taskRef, { comments: sanitizedComments });
 
     // Create notification for comment owner if reaction was added (not removed) and it's not their own comment
     if (!isRemovingReaction && commentOwnerId !== user.uid) {
@@ -1238,17 +1249,61 @@ export function useTasks() {
           const friendCommentsEnabled = commentOwnerData.notificationSettings?.friendComments !== false;
           
           if (friendCommentsEnabled) {
-            // Store PLAINTEXT so push notifications display correctly (Cloud Function can't decrypt)
+            // Decrypt, then encrypt for recipient so only they can read (SW decrypts in browser)
+            let plainTaskText = '';
+            let plainCommentText = '';
+            if (encryptionInitialized && task.text) {
+              try {
+                if (task.userId === user.uid) {
+                  plainTaskText = await decryptForSelf(task.text);
+                } else {
+                  const toDecrypt = task.friendContent?.[user.uid] ?? task.text;
+                  plainTaskText = await decryptFromFriend(toDecrypt, task.userId);
+                }
+                if (plainTaskText.includes("Couldn't decrypt")) plainTaskText = '';
+              } catch {
+                plainTaskText = '';
+              }
+            }
+            if (encryptionInitialized && comment.text) {
+              try {
+                plainCommentText = await decryptComment(comment.text, task.userId, comment.userId, user.uid);
+                if (plainCommentText.includes("[Couldn't decrypt]")) plainCommentText = '';
+              } catch {
+                plainCommentText = '';
+              }
+            }
+            // Encrypt for recipient - only they can decrypt (in-app panel + service worker)
+            let taskTextToStore = '';
+            let commentTextToStore = '';
+            if (encryptionInitialized && commentOwnerId) {
+              try {
+                if (plainTaskText) {
+                  taskTextToStore = await encryptForFriend(plainTaskText.substring(0, 50), commentOwnerId);
+                }
+                if (plainCommentText) {
+                  commentTextToStore = await encryptForFriend(plainCommentText.substring(0, 150), commentOwnerId);
+                }
+              } catch (encErr) {
+                console.warn('[addCommentReaction] Encrypt for notification failed:', encErr);
+                // Fallback to plaintext if encryption fails
+                taskTextToStore = plainTaskText ? plainTaskText.substring(0, 50) : '';
+                commentTextToStore = plainCommentText ? plainCommentText.substring(0, 150) : '';
+              }
+            } else {
+              taskTextToStore = plainTaskText ? plainTaskText.substring(0, 50) : '';
+              commentTextToStore = plainCommentText ? plainCommentText.substring(0, 150) : '';
+            }
             const notificationData = {
               userId: commentOwnerId,
               type: 'comment',
               title: `${emoji} ${userData.displayName} reacted to your comment`,
               message: `${userData.displayName} reacted ${emoji} to your comment`,
               taskId: taskId,
-              taskText: task.text?.substring(0, 50) ?? '',
+              taskText: taskTextToStore,
               fromUserId: user.uid,
               fromUserName: userData.displayName,
-              commentText: comment.text?.substring(0, 150) ?? '',
+              commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
             };
@@ -1346,8 +1401,7 @@ export function useTasks() {
           const friendCommentsEnabled = taskOwnerData.notificationSettings?.friendComments !== false;
           
           if (friendCommentsEnabled) {
-            // Store PLAINTEXT so push notifications display correctly (Cloud Function can't decrypt)
-            // Notification doc is only readable by recipient per Firestore rules
+            // Decrypt task, then encrypt for recipient so only they can read (SW decrypts in browser)
             let taskPreview = '';
             if (encryptionInitialized) {
               const toDecrypt = task.friendContent?.[user.uid] ?? task.text;
@@ -1365,16 +1419,33 @@ export function useTasks() {
               taskPreview = task.text?.substring(0, 50) ?? '';
             }
 
+            // Encrypt for recipient (task owner)
+            let taskTextToStore = '';
+            let commentTextToStore = '';
+            if (encryptionInitialized && task.userId) {
+              try {
+                if (taskPreview) {
+                  taskTextToStore = await encryptForFriend(taskPreview, task.userId);
+                }
+                commentTextToStore = await encryptForFriend(text.substring(0, 150), task.userId);
+              } catch (encErr) {
+                console.warn('[addComment] Encrypt for notification failed:', encErr);
+              }
+            } else {
+              taskTextToStore = taskPreview;
+              commentTextToStore = text.substring(0, 150);
+            }
+
             const notificationData = {
               userId: task.userId,
               type: 'comment',
               title: `💬 ${userData.displayName} commented`,
               message: `${userData.displayName} commented on your task`,
               taskId: taskId,
-              taskText: taskPreview,
+              taskText: taskTextToStore,
               fromUserId: user.uid,
               fromUserName: userData.displayName,
-              commentText: text.substring(0, 150),
+              commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
             };
@@ -1511,6 +1582,14 @@ export function useTasks() {
       
       // Check if friend has encouragement notifications enabled
       if (friendData.notificationSettings?.enabled && friendData.notificationSettings?.friendEncouragement !== false) {
+        let commentTextToStore = message;
+        if (encryptionInitialized) {
+          try {
+            commentTextToStore = await encryptForFriend(message.substring(0, 150), friendId);
+          } catch (encErr) {
+            console.warn('[sendEncouragement] Encrypt for notification failed:', encErr);
+          }
+        }
         const notificationData = {
           userId: friendId,
           type: 'encouragement',
@@ -1518,7 +1597,7 @@ export function useTasks() {
           message: message,
           fromUserId: user.uid,
           fromUserName: userData.displayName,
-          commentText: message, // Store the encouragement message
+          commentText: commentTextToStore,
           createdAt: Date.now(),
           read: false,
         };

@@ -3,6 +3,7 @@
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+importScripts('/sw-crypto.js');
 
 // Initialize Firebase in the service worker
 firebase.initializeApp({
@@ -23,11 +24,30 @@ const shownNotifications = new Set();
 messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  // Extract comment text from payload if available
-  const commentText = payload.data?.commentText || '';
-  const fromUserName = payload.data?.fromUserName || '';
-  const notificationId = payload.data?.notificationId || '';
-  const type = payload.data?.type || 'default';
+  const data = payload.data || {};
+  let commentText = data.commentText || '';
+  let taskText = data.taskText || '';
+  const fromUserName = data.fromUserName || '';
+  const fromUserId = data.fromUserId || '';
+  const notificationId = data.notificationId || '';
+  const type = data.type || 'default';
+  
+  // Decrypt if content is encrypted (e1: prefix)
+  if (typeof self.decryptNotificationContent === 'function' && fromUserId) {
+    const encTask = taskText && self.isEncrypted && self.isEncrypted(taskText) ? taskText : '';
+    const encComment = commentText && self.isEncrypted && self.isEncrypted(commentText) ? commentText : '';
+    if (encTask || encComment) {
+      try {
+        const decrypted = await self.decryptNotificationContent(encTask, encComment, fromUserId);
+        if (decrypted) {
+          if (decrypted.taskText) taskText = decrypted.taskText;
+          if (decrypted.commentText) commentText = decrypted.commentText;
+        }
+      } catch (err) {
+        console.warn('[firebase-messaging-sw.js] Decrypt failed:', err);
+      }
+    }
+  }
   
   // Create unique tag for this notification
   const tag = notificationId ? `${type}-${notificationId}` : `${type}-${Date.now()}`;
@@ -59,7 +79,8 @@ messaging.onBackgroundMessage(async (payload) => {
   // Format notification body to show actual comment text
   let notificationBody = payload.notification?.body || 'You have a new update';
   if (commentText && fromUserName) {
-    notificationBody = `${fromUserName}: "${commentText}"`;
+    const taskSuffix = taskText ? ` on "${taskText}"` : '';
+    notificationBody = `${fromUserName}: "${commentText}"${taskSuffix}`;
   }
   
   const notificationTitle = payload.notification?.title || 'New Notification';

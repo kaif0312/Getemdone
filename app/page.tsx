@@ -322,7 +322,8 @@ function MainApp() {
   };
 
   const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
-    await addTask(text, isPrivate, dueDate, scheduledFor);
+    const tags = activeTagFilters.length > 0 ? activeTagFilters.slice(0, 5) : undefined;
+    await addTask(text, isPrivate, dueDate, scheduledFor, tags);
     // Mark first task as seen
     if (!onboarding.state.hasSeenFirstTask) {
       onboarding.markFeatureSeen('hasSeenFirstTask');

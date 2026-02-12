@@ -41,16 +41,21 @@ export const sendPushNotification = functions.firestore
 
       console.log(`[sendPushNotification] Found FCM token for user ${notification.userId}`);
 
-      // Prepare the push notification message (content is plaintext - stored for push display)
+      // Content may be encrypted (e1: prefix) - SW will decrypt in browser; use generic body if so
+      const taskText = (notification as any).taskText || '';
+      const commentText = notification.commentText || '';
+      const isEncrypted = (s: string) => s && s.startsWith('e1:');
+
       let notificationBody = notification.message;
-      
-      if (notification.type === 'comment' && notification.commentText) {
-        const taskContext = (notification as any).taskText 
-          ? ` on "${(notification as any).taskText}"` 
-          : '';
-        notificationBody = `${notification.fromUserName}: "${notification.commentText}"${taskContext}`;
-      } else if (notification.type === 'encouragement' && notification.commentText) {
-        notificationBody = notification.commentText;
+      if (notification.type === 'comment' && commentText) {
+        if (isEncrypted(commentText) || isEncrypted(taskText)) {
+          notificationBody = 'You have a new notification'; // SW decrypts and shows real content
+        } else {
+          const taskContext = taskText ? ` on "${taskText}"` : '';
+          notificationBody = `${notification.fromUserName}: "${commentText}"${taskContext}`;
+        }
+      } else if (notification.type === 'encouragement' && commentText) {
+        notificationBody = isEncrypted(commentText) ? 'You have a new notification' : commentText;
       }
 
       const message: admin.messaging.Message = {
@@ -65,7 +70,8 @@ export const sendPushNotification = functions.firestore
           taskId: notification.taskId || '',
           fromUserId: notification.fromUserId || '',
           fromUserName: notification.fromUserName || '',
-          commentText: notification.commentText || '',
+          taskText: taskText,
+          commentText: commentText,
           bugReportId: (notification as any).bugReportId || '',
         },
         webpush: {

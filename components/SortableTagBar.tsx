@@ -6,7 +6,7 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -86,7 +86,9 @@ export default function SortableTagBar({
   onReorder,
 }: SortableTagBarProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 5 },
+    }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 6 },
     }),

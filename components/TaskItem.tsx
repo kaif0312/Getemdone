@@ -45,22 +45,8 @@ function SubtaskRow({
   onCancelEdit,
   dragHandle,
 }: SubtaskRowProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0);
   const [isLongPressing, setIsLongPressing] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const swipeHandlers = useSwipeable({
-    onSwiping: (e) => {
-      if (e.deltaX < 0) setSwipeOffset(Math.max(-80, e.deltaX));
-      else setSwipeOffset(0);
-    },
-    onSwiped: (e) => {
-      if (e.deltaX < -60) setSwipeOffset(-80);
-      else setSwipeOffset(0);
-    },
-    trackMouse: true,
-    delta: 5,
-  });
 
   const handleLongPress = () => {
     if (!canEdit || !isOwnTask) return;
@@ -71,22 +57,8 @@ function SubtaskRow({
   const isEditing = editingSubtaskId === subtask.id;
 
   return (
-    <div
-      {...(canEdit && isOwnTask ? swipeHandlers : {})}
-      className="relative overflow-hidden rounded-lg"
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-red-500 text-white min-w-[80px] min-h-[44px] z-0"
-      >
-        Delete
-      </button>
-      <div
-        style={{ transform: `translateX(${swipeOffset}px)` }}
-        className="relative z-10 flex items-center gap-1.5 py-0.5 pl-3 transition-transform duration-150 bg-white dark:bg-gray-800"
+    <div className="rounded-lg">
+      <div className="flex items-center gap-1.5 py-0.5 pl-3 bg-white dark:bg-gray-800"
       >
         {dragHandle}
         <button

@@ -287,6 +287,7 @@ export function useTasks() {
     const unsubscribers: (() => void)[] = [];
     const allTasks = new Map<string, TaskWithUser>();
     const friendNameCache = new Map<string, string>();
+    const migratedForFriendContent = new Set<string>(); // Avoid re-migrating same task
     let updateTimer: NodeJS.Timeout | null = null;
     let isInitialLoad = true; // Track if this is the first snapshot
     let quotaExceeded = false; // Circuit breaker to prevent infinite retries
@@ -434,6 +435,33 @@ export function useTasks() {
           console.error('[useTasks] Failed to decrypt task:', error);
         }
         allTasks.set(task.id, { ...task, userName: 'You' });
+
+        // Backfill friendContent for existing public tasks so friends can decrypt
+        if (
+          !task.isPrivate &&
+          !migratedForFriendContent.has(task.id) &&
+          encryptionInitialized &&
+          currentFriends.length > 0 &&
+          (!task.friendContent || Object.keys(task.friendContent).length === 0)
+        ) {
+          migratedForFriendContent.add(task.id);
+          const plaintext = task.text; // Already decrypted above
+          (async () => {
+            try {
+              const friendContent: Record<string, string> = {};
+              for (const friendId of currentFriends) {
+                friendContent[friendId] = await encryptForFriend(plaintext, friendId);
+              }
+              await updateDoc(doc(db, 'tasks', task.id), { friendContent });
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[useTasks] Backfilled friendContent for task:', task.id);
+              }
+            } catch (err) {
+              console.error('[useTasks] Failed to backfill friendContent:', err);
+              migratedForFriendContent.delete(task.id);
+            }
+          })();
+        }
       }
       if (process.env.NODE_ENV === 'development') {
         console.log('[useTasks] ✅ Snapshot:', snapshot.docs.length, 'tasks');
@@ -525,7 +553,9 @@ export function useTasks() {
                   try {
                     // Decrypt task text (friends can see public tasks)
                     if (!task.isPrivate) {
-                      task.text = await decryptFromFriend(task.text, task.userId);
+                      // Use friendContent[me] if available (encrypted for us); else legacy task.text (won't decrypt)
+                      const toDecrypt = task.friendContent?.[currentUserId] ?? task.text;
+                      task.text = await decryptFromFriend(toDecrypt, task.userId);
                       // Decrypt comments (try multiple keys for legacy/incorrectly encrypted data)
                       if (task.comments) {
                         task.comments = await Promise.all(
@@ -660,12 +690,23 @@ export function useTasks() {
       ? Math.max(...userTasks.map(t => t.order || 0))
       : 0;
 
-    // Encrypt task text
+    // Encrypt task text (owner uses master key)
     const encryptedText = encryptionInitialized ? await encryptForSelf(text) : text;
+
+    // Encrypt for each friend so they can decrypt (public tasks only)
+    let friendContent: Record<string, string> | undefined;
+    if (!isPrivate && encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
+      friendContent = {};
+      for (const friendId of userData!.friends) {
+        const enc = await encryptForFriend(text, friendId);
+        friendContent[friendId] = enc;
+      }
+    }
 
     const newTask = {
       userId: user.uid,
       text: encryptedText,
+      ...(friendContent && Object.keys(friendContent).length > 0 && { friendContent }),
       isPrivate,
       completed: false,
       createdAt: Date.now(),
@@ -701,9 +742,25 @@ export function useTasks() {
 
   const togglePrivacy = async (taskId: string, isPrivate: boolean) => {
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      isPrivate,
-    });
+    const updateData: Record<string, unknown> = { isPrivate };
+    if (isPrivate) {
+      updateData.friendContent = {}; // Clear so friends can't decrypt
+    } else if (encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
+      const taskDoc = await getDoc(taskRef);
+      const task = taskDoc.exists() ? (taskDoc.data() as Task) : null;
+      if (task?.text) {
+        const plaintext = await decryptForSelf(task.text);
+        if (plaintext && !plaintext.includes("Couldn't decrypt")) {
+          const friendContent: Record<string, string> = {};
+          for (const friendId of userData!.friends) {
+            friendContent[friendId] = await encryptForFriend(plaintext, friendId);
+          }
+          updateData.friendContent = friendContent;
+        }
+      }
+    }
+    await updateDoc(taskRef, updateData);
+    setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
   };
 
   const toggleCommitment = async (taskId: string, committed: boolean) => {
@@ -725,13 +782,24 @@ export function useTasks() {
       throw new Error('Task text must be 500 characters or less');
     }
 
-    // Encrypt task text
+    // Encrypt task text (owner uses master key)
     const encryptedText = encryptionInitialized ? await encryptForSelf(trimmedText) : trimmedText;
 
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, {
-      text: encryptedText,
-    });
+    const updateData: Record<string, unknown> = { text: encryptedText };
+
+    // Encrypt for each friend so they can decrypt (public tasks only - don't leak private task content)
+    const taskDoc = await getDoc(taskRef);
+    const isPrivate = taskDoc.exists() ? (taskDoc.data() as Task).isPrivate : false;
+    if (!isPrivate && encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
+      const friendContent: Record<string, string> = {};
+      for (const friendId of userData!.friends) {
+        friendContent[friendId] = await encryptForFriend(trimmedText, friendId);
+      }
+      updateData.friendContent = friendContent;
+    }
+
+    await updateDoc(taskRef, updateData);
     // Force reconnect so listener re-processes with current key and displays decrypted task
     setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
   };

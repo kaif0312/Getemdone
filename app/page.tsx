@@ -45,12 +45,53 @@ import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateStr
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 
 export default function Home() {
-  const { user, userData, isWhitelisted, loading: authLoading, signOut, updateStreakData } = useAuth();
+  const { user, userData, isWhitelisted, loading: authLoading } = useAuth();
+
+  // Early return before mounting Firestore-dependent hooks - prevents "Missing or insufficient permissions" on login screen
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !userData) {
+    return <AuthModal />;
+  }
+
+  if (isWhitelisted === false) {
+    return <AccessRemovedScreen />;
+  }
+
+  if (isWhitelisted === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
+  const { user, userData, signOut, updateStreakData } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
-  
+
+  // MainApp only mounts when user and userData exist (checked in Home)
+  const uid = user!.uid;
+  const data = userData!;
+
   // Auto-cleanup expired recycle bin items
-  useRecycleCleanup(user?.uid);
+  useRecycleCleanup(uid);
 
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage } = useTasks();
   const { friends: friendUsers } = useFriends();
@@ -74,18 +115,18 @@ export default function Home() {
   const [showQuickInfo, setShowQuickInfo] = useState(false);
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
-  const notifications = useNotifications(user?.uid);
+  const notifications = useNotifications(uid);
 
   // Listen for new notifications and trigger push notifications
   useNotificationListener({
-    userId: user?.uid,
-    notificationSettings: userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS,
+    userId: uid,
+    notificationSettings: data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS,
     showNotification: notifications.showNotification,
     isSupported: notifications.isSupported,
   });
 
   // Track unread notification count
-  const unreadNotifications = useUnreadNotifications(user?.uid);
+  const unreadNotifications = useUnreadNotifications(uid);
 
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -181,7 +222,7 @@ export default function Home() {
     
     // Get only incomplete tasks for reordering
     const myIncompleteTasks = tasks.filter(task => {
-      if (task.userId !== user?.uid) return false;
+      if (task.userId !== uid) return false;
       if (task.deferredTo && task.deferredTo > todayStr) return false;
       return !task.completed;
     }).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -203,30 +244,30 @@ export default function Home() {
 
   // Update streak data when component mounts or user changes
   useEffect(() => {
-    if (user?.uid && userData?.id) {
+    if (uid && data.id) {
       updateStreakData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, userData?.id]); // Only depend on IDs, not entire objects or functions
+  }, [uid, data.id]); // Only depend on IDs, not entire objects or functions
 
   // Update deleted tasks count
   useEffect(() => {
-    if (user?.uid) {
+    if (uid) {
       getDeletedTasks().then(tasks => setDeletedCount(tasks.length));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, tasks.length]); // Only depend on user ID and task count, not entire tasks array
+  }, [uid, tasks.length]); // Only depend on user ID and task count, not entire tasks array
 
   // Calculate friend entries for friends' tasks section
   const friendEntries = useMemo(() => {
-    if (!user?.uid) return [];
+    if (!uid) return [];
     
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
     // Get all friend tasks (both private and public)
     const allFriendTasks = tasks.filter(task => {
-      if (task.userId === user.uid) return false;
+      if (task.userId === uid) return false;
       if (task.deleted === true) return false;
       
       // For friends' tasks, only show completed tasks from today
@@ -253,7 +294,7 @@ export default function Home() {
     }, {} as Record<string, typeof tasks>);
 
     return Object.entries(tasksByUser);
-  }, [user?.uid, tasks]);
+  }, [uid, tasks]);
 
   // Smart defaults: Expand first 2-3 friends by default (only on first load, not after manual interaction)
   useEffect(() => {
@@ -288,17 +329,17 @@ export default function Home() {
   };
 
   const handleShare = async () => {
-    if (!userData) return;
-    await shareMyTasks({ userData, tasks });
+    if (!data) return;
+    await shareMyTasks({ userData: data, tasks });
   };
 
   // Notification functions
   const saveNotificationSettings = async (settings: NotificationSettingsType) => {
-    if (!user?.uid) return;
+    if (!uid) return;
     try {
       const { doc, updateDoc } = await import('firebase/firestore');
       const { db } = await import('@/lib/firebase');
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(db, 'users', uid);
       await updateDoc(userDocRef, { notificationSettings: settings });
     } catch (error) {
       console.error('Error saving notification settings:', error);
@@ -316,12 +357,12 @@ export default function Home() {
 
   // Schedule deadline reminders for tasks with due dates
   useEffect(() => {
-    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    if (!uid || !data.notificationSettings || !notifications.isSupported) return;
     
-    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled || !settings.deadlineReminders) return;
 
-    const myTasks = tasks.filter(t => t.userId === user.uid && !t.completed && !t.deleted && t.dueDate);
+    const myTasks = tasks.filter(t => t.userId === uid && !t.completed && !t.deleted && t.dueDate);
     const timeoutIds: NodeJS.Timeout[] = [];
 
     myTasks.forEach(task => {
@@ -351,18 +392,18 @@ export default function Home() {
     });
 
     return () => timeoutIds.forEach(clearTimeout);
-  }, [user?.uid, tasks, userData?.notificationSettings, notifications]);
+  }, [uid, tasks, data.notificationSettings, notifications]);
 
   // Schedule notifications for scheduled tasks (tasks scheduled for future date/time)
   useEffect(() => {
-    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    if (!uid || !data.notificationSettings || !notifications.isSupported) return;
     
-    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled) return;
 
     const todayStr = getTodayString();
     const myTasks = tasks.filter(t => {
-      if (t.userId !== user.uid || t.completed || t.deleted || !t.deferredTo) return false;
+      if (t.userId !== uid || t.completed || t.deleted || !t.deferredTo) return false;
       
       // Schedule notifications for tasks scheduled for today or future (with time)
       const deferredDate = t.deferredTo.includes('T') ? t.deferredTo.split('T')[0] : t.deferredTo;
@@ -410,13 +451,13 @@ export default function Home() {
     });
 
     return () => timeoutIds.forEach(clearTimeout);
-  }, [user?.uid, tasks, userData?.notificationSettings, notifications]);
+  }, [uid, tasks, data.notificationSettings, notifications]);
 
   // Schedule noon check-in
   useEffect(() => {
-    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported || noonCheckScheduled) return;
+    if (!uid || !data.notificationSettings || !notifications.isSupported || noonCheckScheduled) return;
     
-    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled || !settings.noonCheckIn) return;
 
     const now = new Date();
@@ -433,7 +474,7 @@ export default function Home() {
     const timeoutId = setTimeout(() => {
       const todayStr = getTodayString();
       const completedToday = tasks.filter(t => 
-        t.userId === user.uid && 
+        t.userId === uid && 
         t.completed && 
         t.completedAt && 
         getDateString(t.completedAt) === todayStr
@@ -465,18 +506,18 @@ export default function Home() {
     setNoonCheckScheduled(true);
 
     return () => clearTimeout(timeoutId);
-  }, [user?.uid, userData?.notificationSettings, noonCheckScheduled, notifications, tasks]);
+  }, [uid, data.notificationSettings, noonCheckScheduled, notifications, tasks]);
 
   // Detect friend task completions (notify only on new completions)
   const previousFriendTasksRef = useRef<Map<string, boolean>>(new Map());
   useEffect(() => {
-    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    if (!uid || !data.notificationSettings || !notifications.isSupported) return;
     
-    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled || !settings.friendCompletions) return;
 
     // Check for newly completed friend tasks
-    const friendTasks = tasks.filter(t => t.userId !== user.uid && !t.isPrivate);
+    const friendTasks = tasks.filter(t => t.userId !== uid && !t.isPrivate);
     
     friendTasks.forEach(task => {
       const wasCompleted = previousFriendTasksRef.current.get(task.id);
@@ -502,18 +543,18 @@ export default function Home() {
       // Update tracking
       previousFriendTasksRef.current.set(task.id, task.completed);
     });
-  }, [user?.uid, tasks, userData?.notificationSettings, notifications, friendUsers]);
+  }, [uid, tasks, data.notificationSettings, notifications, friendUsers]);
 
   // Commitment reminders (check morning and evening)
   const [commitmentCheckScheduled, setCommitmentCheckScheduled] = useState<string | null>(null);
   useEffect(() => {
-    if (!user?.uid || !userData?.notificationSettings || !notifications.isSupported) return;
+    if (!uid || !data.notificationSettings || !notifications.isSupported) return;
     
-    const settings = userData.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
+    const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled || !settings.commitmentReminders) return;
 
     const committedTasks = tasks.filter(t => 
-      t.userId === user.uid && 
+      t.userId === uid && 
       t.committed && 
       !t.completed && 
       !t.deleted &&
@@ -561,7 +602,7 @@ export default function Home() {
 
     scheduleReminder(morningTime, 'morning');
     scheduleReminder(eveningTime, 'evening');
-  }, [user?.uid, tasks, userData?.notificationSettings, notifications, commitmentCheckScheduled]);
+  }, [uid, tasks, data.notificationSettings, notifications, commitmentCheckScheduled]);
 
   // Helper function to toggle friend expansion
   const toggleFriend = (friendId: string) => {
@@ -622,39 +663,6 @@ export default function Home() {
     }, 100);
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user || !userData) {
-    return <AuthModal />;
-  }
-
-  // Show access removed screen if user is authenticated but not whitelisted
-  // Check both false and null (null means whitelist check hasn't completed yet, but user is authenticated)
-  if (user && userData && isWhitelisted === false) {
-    return <AccessRemovedScreen />;
-  }
-  
-  // If whitelist check is still loading, wait before showing main app
-  if (user && userData && isWhitelisted === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Verifying access...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {
     return (
@@ -694,7 +702,7 @@ export default function Home() {
               </div>
               <div className="text-left">
                 <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">GetDone</h1>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {userData.displayName}!</p>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {data.displayName}!</p>
               </div>
             </button>
             
@@ -719,15 +727,15 @@ export default function Home() {
                 onNotificationSettings={() => setShowNotificationSettings(true)}
                 onHelp={() => setShowHelpModal(true)}
                 onRecycleBin={() => setShowRecycleBin(true)}
-                onAdmin={userData?.isAdmin ? () => router.push('/admin') : undefined}
+                onAdmin={data.isAdmin ? () => router.push('/admin') : undefined}
                 onWhatsAppShare={handleShare}
                 onFeedback={() => setShowBugReportModal(true)}
                 deletedCount={deletedCount}
-                isAdmin={userData?.isAdmin || false}
+                isAdmin={data.isAdmin || false}
                 notificationPermission={notifications.permission}
-                userId={user.uid}
+                userId={uid}
                 storageUsed={userStorageUsage}
-                storageLimit={userData?.storageLimit}
+                storageLimit={data.storageLimit}
               />
 
               {/* Theme Toggle */}
@@ -766,7 +774,7 @@ export default function Home() {
           </div>
 
           {/* Streak Display */}
-          {userData.streakData && (
+          {data.streakData && (
             <div className="flex items-center gap-3">
               <button
                 ref={streakButtonRef}
@@ -781,7 +789,7 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <FaFire size={20} />
                   <div className="text-left">
-                    <div className="text-2xl font-bold" suppressHydrationWarning>{userData.streakData.currentStreak}</div>
+                    <div className="text-2xl font-bold" suppressHydrationWarning>{data.streakData.currentStreak}</div>
                     <div className="text-xs opacity-90">Day Streak</div>
                   </div>
                 </div>
@@ -789,7 +797,7 @@ export default function Home() {
               </button>
               
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl px-4 py-3 shadow-md">
-                <div className="text-2xl font-bold text-center" suppressHydrationWarning>{userData.streakData.longestStreak}</div>
+                <div className="text-2xl font-bold text-center" suppressHydrationWarning>{data.streakData.longestStreak}</div>
                 <div className="text-xs opacity-90 text-center">Best</div>
               </div>
             </div>
@@ -799,7 +807,7 @@ export default function Home() {
 
       {/* Task Feed */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {!userData ? (
+        {!data ? (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center">
             <div className="text-4xl mb-3">⚠️</div>
             <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
@@ -844,7 +852,7 @@ export default function Home() {
               // Filter tasks using smart rollover logic
               const myTasks = tasks.filter(task => {
                 // Only show user's own tasks
-                if (task.userId !== user.uid) return false;
+                if (task.userId !== uid) return false;
                 
                 // Skip deleted tasks
                 if (task.deleted === true) return false;
@@ -908,8 +916,8 @@ export default function Home() {
                       title="Profile Settings"
                     >
                       <Avatar
-                        photoURL={userData?.photoURL}
-                        displayName={userData.displayName}
+                        photoURL={data.photoURL}
+                        displayName={data.displayName}
                         size="md"
                       />
                       <div className="text-left">
@@ -946,9 +954,9 @@ export default function Home() {
                             onDeferTask={deferTask}
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
-                            userStorageUsed={userData?.storageUsed}
-                            userStorageLimit={userData?.storageLimit}
-                            currentUserId={user.uid}
+                            userStorageUsed={data.storageUsed}
+                            userStorageLimit={data.storageLimit}
+                            currentUserId={uid}
                           />
                         ))}
                       </SortableContext>
@@ -973,9 +981,9 @@ export default function Home() {
                         onDeferTask={deferTask}
                         onAddAttachment={addAttachment}
                         onDeleteAttachment={deleteAttachment}
-                        userStorageUsed={userData?.storageUsed}
-                        userStorageLimit={userData?.storageLimit}
-                        currentUserId={user.uid}
+                        userStorageUsed={data.storageUsed}
+                        userStorageLimit={data.storageLimit}
+                        currentUserId={uid}
                       />
                     ))}
                   </div>
@@ -1085,7 +1093,7 @@ export default function Home() {
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
                             onSendEncouragement={sendEncouragement}
-                            currentUserId={user.uid}
+                            currentUserId={uid}
                           />
                         </div>
                       );
@@ -1137,7 +1145,7 @@ export default function Home() {
           inputRef={taskInputRef}
           recentTasks={
             tasks
-              .filter(t => t.userId === user?.uid && t.completed)
+              .filter(t => t.userId === uid && t.completed)
               .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
               .slice(0, 10)
               .map(t => t.text)
@@ -1151,11 +1159,11 @@ export default function Home() {
       )}
 
       {/* Streak Calendar Modal */}
-      {showStreakCalendar && userData.streakData && (
+      {showStreakCalendar && data.streakData && (
         <StreakCalendar 
-          streakData={userData.streakData}
-          tasks={tasks.filter(t => t.userId === user.uid)}
-          currentUserId={user.uid}
+          streakData={data.streakData}
+          tasks={tasks.filter(t => t.userId === uid)}
+          currentUserId={uid}
           onClose={() => setShowStreakCalendar(false)}
           onToggleComplete={handleToggleComplete}
           onTogglePrivacy={togglePrivacy}
@@ -1200,8 +1208,8 @@ export default function Home() {
             key={`comments-${selectedTask.id}`}
             isOpen={true}
             task={selectedTask}
-            currentUserId={user.uid}
-            currentUserName={userData.displayName}
+            currentUserId={uid}
+            currentUserName={data.displayName}
             onClose={() => setSelectedTaskForComments(null)}
             onAddComment={addComment}
             onAddCommentReaction={addCommentReaction}
@@ -1219,16 +1227,16 @@ export default function Home() {
       <BugReportModal
         isOpen={showBugReportModal}
         onClose={() => setShowBugReportModal(false)}
-        userId={user.uid}
-        userName={userData?.displayName || 'Unknown User'}
-        userEmail={userData?.email || ''}
+        userId={uid}
+        userName={data.displayName || 'Unknown User'}
+        userEmail={data.email || ''}
       />
 
       {/* Notifications Panel */}
       <NotificationsPanel
         isOpen={showNotificationsPanel}
         onClose={() => setShowNotificationsPanel(false)}
-        userId={user.uid}
+        userId={uid}
         onTaskClick={(taskId) => {
           // Scroll to task or open comments
           setSelectedTaskForComments(taskId);
@@ -1243,11 +1251,11 @@ export default function Home() {
 
 
       {/* Profile Settings Modal */}
-      {userData && (
+      {data && (
         <ProfileSettings
           isOpen={showProfileSettings}
           onClose={() => setShowProfileSettings(false)}
-          currentUser={userData}
+          currentUser={data}
           onUpdateUser={(updatedData) => {
             // The userData will be updated automatically via Firestore listener
             if (updatedData.photoURL !== undefined) {
@@ -1261,7 +1269,7 @@ export default function Home() {
       <NotificationSettings
         isOpen={showNotificationSettings}
         onClose={() => setShowNotificationSettings(false)}
-        settings={userData?.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS}
+        settings={data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS}
         onSave={saveNotificationSettings}
         onRequestPermission={notifications.requestPermission}
         permission={notifications.permission}

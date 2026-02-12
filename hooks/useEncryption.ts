@@ -192,6 +192,22 @@ export function useEncryption() {
       return keysRef.current.friends[friendId];
     }
 
+    // Check friend's doc before creating - they may have created the key when encrypting for us
+    try {
+      const friendKeysDocRef = doc(db, 'userKeys', friendId);
+      const friendKeysDoc = await getDoc(friendKeysDocRef);
+      const friendData = friendKeysDoc.data() as UserKeys | undefined;
+      const friendKeyData = friendData?.friendKeys?.[user.uid];
+      if (friendKeyData) {
+        const sharedKey = await importKey(friendKeyData);
+        setFriendKeys(prev => ({ ...prev, [friendId]: sharedKey }));
+        keysRef.current.friends[friendId] = sharedKey;
+        return sharedKey;
+      }
+    } catch (err) {
+      console.warn('[useEncryption] Could not read friend keys doc:', err);
+    }
+
     // Generate a new shared key
     try {
       const sharedKey = await generateKey();

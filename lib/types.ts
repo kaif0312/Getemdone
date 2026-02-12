@@ -95,6 +95,8 @@ export interface Task {
   id: string;
   userId: string;
   text: string;
+  /** For friend sharing: task text encrypted per friend (friendId -> encrypted). Owner uses text; friends use this. */
+  friendContent?: Record<string, string>;
   isPrivate: boolean;
   completed: boolean;
   createdAt: number;

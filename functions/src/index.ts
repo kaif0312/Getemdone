@@ -41,12 +41,14 @@ export const sendPushNotification = functions.firestore
 
       console.log(`[sendPushNotification] Found FCM token for user ${notification.userId}`);
 
-      // Prepare the push notification message
+      // Prepare the push notification message (content is plaintext - stored for push display)
       let notificationBody = notification.message;
       
-      // For comments and encouragement, use the actual text
       if (notification.type === 'comment' && notification.commentText) {
-        notificationBody = `${notification.fromUserName}: "${notification.commentText}"`;
+        const taskContext = (notification as any).taskText 
+          ? ` on "${(notification as any).taskText}"` 
+          : '';
+        notificationBody = `${notification.fromUserName}: "${notification.commentText}"${taskContext}`;
       } else if (notification.type === 'encouragement' && notification.commentText) {
         notificationBody = notification.commentText;
       }

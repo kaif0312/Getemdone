@@ -136,59 +136,7 @@ export function useDataMigration() {
 
       console.log(`[useDataMigration] Migrated ${tasksMigrated} tasks`);
 
-      // Migrate notifications
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', user.uid)
-      );
-      const notificationsSnapshot = await getDocs(notificationsQuery);
-      
-      console.log(`[useDataMigration] Found ${notificationsSnapshot.size} notifications to check`);
-
-      const notifBatch = writeBatch(db);
-      let notifBatchCount = 0;
-
-      for (const notifDoc of notificationsSnapshot.docs) {
-        const notif = notifDoc.data();
-        const updates: any = {};
-        let needsUpdate = false;
-
-        if (notif.fromUserId) {
-          // Encrypt notification fields with friend's shared key
-          if (notif.message && !isEncrypted(notif.message)) {
-            updates.message = await encryptForFriend(notif.message, notif.fromUserId);
-            needsUpdate = true;
-          }
-          if (notif.taskText && !isEncrypted(notif.taskText)) {
-            updates.taskText = await encryptForFriend(notif.taskText, notif.fromUserId);
-            needsUpdate = true;
-          }
-          if (notif.commentText && !isEncrypted(notif.commentText)) {
-            updates.commentText = await encryptForFriend(notif.commentText, notif.fromUserId);
-            needsUpdate = true;
-          }
-        }
-
-        if (needsUpdate) {
-          notifBatch.update(notifDoc.ref, updates);
-          notificationsMigrated++;
-          notifBatchCount++;
-
-          if (notifBatchCount >= BATCH_SIZE) {
-            await notifBatch.commit();
-            console.log(`[useDataMigration] Committed batch of ${notifBatchCount} notifications`);
-            notifBatchCount = 0;
-          }
-        }
-      }
-
-      // Commit remaining notifications
-      if (notifBatchCount > 0) {
-        await notifBatch.commit();
-        console.log(`[useDataMigration] Committed final batch of ${notifBatchCount} notifications`);
-      }
-
-      console.log(`[useDataMigration] Migrated ${notificationsMigrated} notifications`);
+      // Notifications: keep plaintext so push notifications display correctly (Cloud Function can't decrypt)
 
       // Mark migration as complete
       const statusRef = doc(db, 'migrationStatus', user.uid);

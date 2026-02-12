@@ -1177,25 +1177,17 @@ export function useTasks() {
           const friendCommentsEnabled = commentOwnerData.notificationSettings?.friendComments !== false;
           
           if (friendCommentsEnabled) {
-            // Encrypt notification data
-            const encryptedTaskText = encryptionInitialized 
-              ? await encryptForFriend(task.text.substring(0, 50), commentOwnerId)
-              : task.text.substring(0, 50);
-            const encryptedCommentText = encryptionInitialized 
-              ? await encryptForFriend(comment.text.substring(0, 150), commentOwnerId)
-              : comment.text.substring(0, 150);
-
-            // Create in-app notification
+            // Store PLAINTEXT so push notifications display correctly (Cloud Function can't decrypt)
             const notificationData = {
               userId: commentOwnerId,
               type: 'comment',
               title: `${emoji} ${userData.displayName} reacted to your comment`,
               message: `${userData.displayName} reacted ${emoji} to your comment`,
               taskId: taskId,
-              taskText: encryptedTaskText, // Encrypted task text
+              taskText: task.text?.substring(0, 50) ?? '',
               fromUserId: user.uid,
               fromUserName: userData.displayName,
-              commentText: encryptedCommentText, // Encrypted comment text
+              commentText: comment.text?.substring(0, 150) ?? '',
               createdAt: Date.now(),
               read: false,
             };
@@ -1292,43 +1284,37 @@ export function useTasks() {
           const friendCommentsEnabled = taskOwnerData.notificationSettings?.friendComments !== false;
           
           if (friendCommentsEnabled) {
-            // Encrypt notification data: use decrypted task text for preview (we have friendContent)
+            // Store PLAINTEXT so push notifications display correctly (Cloud Function can't decrypt)
+            // Notification doc is only readable by recipient per Firestore rules
             let taskPreview = '';
             if (encryptionInitialized) {
-                const toDecrypt = task.friendContent?.[user.uid] ?? task.text;
-                if (toDecrypt) {
-                  try {
-                    const plain = await decryptFromFriend(toDecrypt, task.userId);
-                    if (plain && !plain.includes("[Couldn't decrypt]")) {
-                      taskPreview = plain.substring(0, 50);
-                    }
-                  } catch {
-                    // Decryption failed - skip task preview to avoid showing ciphertext
+              const toDecrypt = task.friendContent?.[user.uid] ?? task.text;
+              if (toDecrypt) {
+                try {
+                  const plain = await decryptFromFriend(toDecrypt, task.userId);
+                  if (plain && !plain.includes("[Couldn't decrypt]")) {
+                    taskPreview = plain.substring(0, 50);
                   }
+                } catch {
+                  // Decryption failed - skip task preview
                 }
+              }
             } else {
               taskPreview = task.text?.substring(0, 50) ?? '';
             }
-            const encryptedTaskText = encryptionInitialized && taskPreview
-                ? await encryptForFriend(taskPreview, task.userId)
-              : taskPreview || '';
-            const encryptedCommentText = encryptionInitialized 
-              ? await encryptForFriend(text.substring(0, 150), task.userId)
-              : text.substring(0, 150);
 
-            // Create in-app notification
             const notificationData = {
-                userId: task.userId,
-                type: 'comment',
-                title: `💬 ${userData.displayName} commented`,
-                message: `${userData.displayName} commented on your task`,
-                taskId: taskId,
-                taskText: encryptedTaskText, // Encrypted task text
-                fromUserId: user.uid,
-                fromUserName: userData.displayName,
-                commentText: encryptedCommentText, // Encrypted comment text
-                createdAt: Date.now(),
-                read: false,
+              userId: task.userId,
+              type: 'comment',
+              title: `💬 ${userData.displayName} commented`,
+              message: `${userData.displayName} commented on your task`,
+              taskId: taskId,
+              taskText: taskPreview,
+              fromUserId: user.uid,
+              fromUserName: userData.displayName,
+              commentText: text.substring(0, 150),
+              createdAt: Date.now(),
+              read: false,
             };
             console.log('[addComment] Creating notification:', notificationData);
             

@@ -57,6 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Set up real-time listener for user data
         unsubscribeSnapshot = onSnapshot(userDocRef, async (docSnapshot) => {
+          // Check whitelist FIRST (before creating user doc) so we can auto-add new users
+          const userEmail = firebaseUser.email || (docSnapshot.exists() ? (docSnapshot.data() as User)?.email : null);
+          if (userEmail) {
+            let whitelistStatus = await checkBetaWhitelist(userEmail);
+            if (!whitelistStatus) {
+              // Auto-add new users: only add if user doc doesn't exist yet (first-time login)
+              await addToWhitelist(userEmail, docSnapshot.exists() ? firebaseUser.uid : undefined);
+              whitelistStatus = await checkBetaWhitelist(userEmail);
+            }
+            setIsWhitelisted(whitelistStatus);
+          } else {
+            setIsWhitelisted(false);
+          }
+
           if (docSnapshot.exists()) {
             const userData = docSnapshot.data() as User;
             
@@ -119,46 +133,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
               console.error('[AuthContext] Error creating user document:', error);
             }
-          }
-          
-          // Check whitelist status
-          const currentUserData = docSnapshot.exists() ? docSnapshot.data() as User : null;
-          // Use email from user document if available, otherwise fall back to Firebase auth email
-          // Both should be the same, but user document email is more reliable
-          const userEmail = currentUserData?.email || firebaseUser.email;
-          
-          if (userEmail) {
-            const whitelistStatus = await checkBetaWhitelist(userEmail);
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[AuthContext] Auth listener whitelist check:', {
-                email: userEmail,
-                emailLower: userEmail.toLowerCase(),
-                whitelisted: whitelistStatus,
-                hasUserData: !!currentUserData,
-                userDataEmail: currentUserData?.email,
-                firebaseEmail: firebaseUser.email,
-                currentIsWhitelisted: isWhitelisted
-              });
-            }
-            
-            // Always update isWhitelisted based on current whitelist status
-            // This ensures the state is correct even if signIn/signInWithGoogle hasn't set it yet
-            // or if the whitelist status changes after sign-in
-            setIsWhitelisted(whitelistStatus);
-            
-            // If user is not whitelisted, don't sign them out immediately
-            // Instead, set isWhitelisted to false so AccessRemovedScreen can be shown
-            // The user will be signed out when they click "Return to Sign In" on that screen
-            if (!whitelistStatus) {
-              console.log('[AuthContext] ⚠️ User not whitelisted:', userEmail);
-              // Keep user authenticated but mark as not whitelisted
-              // AccessRemovedScreen will be shown in app/page.tsx
-            }
-          } else {
-            // No email available - set to false
-            console.warn('[AuthContext] ⚠️ No email available for whitelist check');
-            setIsWhitelisted(false);
           }
           
           setLoading(false);
@@ -327,51 +301,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Unable to get email from Google account. Please try again.');
     }
     
-    // Check whitelist BEFORE proceeding
-    const isWhitelistedBefore = await checkBetaWhitelist(email);
+    // Whitelist is handled by auth listener (auto-adds new users, respects removed users)
     
     const userId = result.user.uid;
-    
-    // Check whitelist again after getting userId
-    const isWhitelisted = await checkBetaWhitelist(email);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[AuthContext] signInWithGoogle whitelist check:', {
-        email,
-        emailLower: email.toLowerCase(),
-        isWhitelisted,
-        isWhitelistedBefore,
-        userId
-      });
-    }
-    
-    if (!isWhitelisted) {
-      // Only auto-add if user was not previously whitelisted (new user)
-      // If they were whitelisted before and now removed, don't auto-add them back
-      if (!isWhitelistedBefore) {
-        // This is a new user - auto-add to whitelist
-        await addToWhitelist(email, userId);
-        // Re-check after adding
-        const isWhitelistedAfter = await checkBetaWhitelist(email);
-        if (!isWhitelistedAfter) {
-          // Sign out if still not whitelisted (shouldn't happen for new users)
-          await firebaseSignOut(auth);
-          throw new Error('Failed to add you to the whitelist. Please contact an administrator.');
-        }
-        // User is now whitelisted (auto-added)
-        setIsWhitelisted(true);
-      } else {
-        // User was previously whitelisted but now removed - don't auto-add
-        // Don't sign out - let them stay authenticated so AccessRemovedScreen can be shown
-        // The auth state listener will set isWhitelisted to false, which will trigger the screen
-        // Just return without throwing error - the screen will be shown automatically
-        setIsWhitelisted(false);
-        return;
-      }
-    } else {
-      // User is whitelisted - explicitly set the state
-      setIsWhitelisted(true);
-    }
     
     // Check if user document exists
     const userDocRef = doc(db, 'users', userId);

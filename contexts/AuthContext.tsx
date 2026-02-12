@@ -74,8 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUserData(userData);
             }
           } else {
-            console.error('[AuthContext] ❌ User document does NOT exist in Firestore!');
-            console.error('[AuthContext] Creating user document now...');
+            // Expected for new signups – create user document
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[AuthContext] New user detected, creating profile...');
+            }
             
             // Import DEFAULT_NOTIFICATION_SETTINGS
             const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');

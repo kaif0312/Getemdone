@@ -14,7 +14,7 @@ import {
   getDoc,
   getDocs
 } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db, storage, auth } from '@/lib/firebase';
 import { Task, TaskWithUser, User, Reaction, Comment, Attachment } from '@/lib/types';
 import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +47,7 @@ export function useTasks() {
   const lastFriendsContentRef = useRef<string>('');
   const listenersActiveRef = useRef<boolean>(false);
   const lastEncReconnectRef = useRef<number>(0);
+  const autoBackfillRanRef = useRef<boolean>(false);
   // Ref so snapshot listener always uses latest encryption (avoids stale closure when key loads later)
   const encryptionRef = useRef({
     encryptionInitialized,
@@ -251,11 +252,105 @@ export function useTasks() {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  // Auto-backfill friendContent when app loads so friends can decrypt older tasks
+  useEffect(() => {
+    if (!userId || !userDataId || !encryptionInitialized || autoBackfillRanRef.current) return;
+    const friends = userData?.friends || [];
+    if (friends.length === 0) return;
+
+    const timer = setTimeout(async () => {
+      // Abort if user signed out before backfill started
+      if (!auth.currentUser || auth.currentUser.uid !== userId) return;
+      autoBackfillRanRef.current = true;
+      try {
+        const q = query(
+          collection(db, 'tasks'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        let count = 0;
+
+        for (const docSnap of snapshot.docs) {
+          const task = { id: docSnap.id, ...docSnap.data() } as Task;
+          if (task.deleted || task.isPrivate) continue;
+
+          const existing = task.friendContent || {};
+          const missingFriends = friends.filter((f) => !existing[f]);
+          let needsTaskBackfill = missingFriends.length > 0;
+
+          const plaintext = needsTaskBackfill ? await decryptForSelf(task.text) : null;
+          if (needsTaskBackfill && (!plaintext || plaintext.includes("Couldn't decrypt"))) needsTaskBackfill = false;
+
+          const friendContent: Record<string, string> = { ...existing };
+          if (needsTaskBackfill) {
+            for (const friendId of missingFriends) {
+              friendContent[friendId] = await encryptForFriend(plaintext!, friendId);
+            }
+          }
+
+          // Backfill comment friendContent: owner comments + friend comments (so all friends can decrypt)
+          let updatedComments: Comment[] | undefined;
+          if (task.comments?.length && friends.length > 0) {
+            const result = await Promise.all(
+              task.comments.map(async (comment) => {
+                const cExisting = comment.friendContent || {};
+                const cMissing = friends.filter((f) => !cExisting[f]);
+                if (cMissing.length === 0) return comment;
+                let cPlain: string;
+                if (comment.userId === userId) {
+                  cPlain = await decryptForSelf(comment.text);
+                } else {
+                  cPlain = await decryptFromFriend(comment.text, comment.userId);
+                }
+                if (!cPlain || cPlain.includes("[Couldn't decrypt]")) return comment;
+                const commentFriendContent: Record<string, string> = { ...cExisting };
+                for (const friendId of cMissing) {
+                  commentFriendContent[friendId] = await encryptForFriend(cPlain, friendId);
+                }
+                return { ...comment, friendContent: commentFriendContent };
+              })
+            );
+            if (result.some((c, i) => c !== task.comments![i])) updatedComments = result;
+          }
+
+          const updateData: Record<string, unknown> = {};
+          if (needsTaskBackfill) updateData.friendContent = friendContent;
+          if (updatedComments) updateData.comments = updatedComments;
+          if (Object.keys(updateData).length === 0) continue;
+
+          if (!auth.currentUser || auth.currentUser.uid !== userId) return;
+          await updateDoc(doc(db, 'tasks', task.id), updateData);
+          count++;
+        }
+
+        if (count > 0) {
+          setReconnectTrigger((prev) => prev + 1);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useTasks] Auto-backfill: updated', count, 'task(s) (tasks + comments for friends)');
+          }
+        }
+      } catch (err) {
+        console.error('[useTasks] Auto-backfill failed:', err);
+        autoBackfillRanRef.current = false;
+      }
+    }, 4000); // Wait for encryption + initial snapshot
+
+    return () => clearTimeout(timer);
+  }, [userId, userDataId, encryptionInitialized, userData?.friends, decryptForSelf, encryptForFriend]);
+
   useEffect(() => {
     if (!userId || !userDataId) {
       setTasks([]);
       setLoading(false);
       lastSetupKeyRef.current = '';
+      return;
+    }
+    
+    // CRITICAL: Wait for encryption before setting up listeners - prevents showing ciphertext
+    // or empty tasks when key loads slowly (e.g. Chrome vs Cursor timing differences)
+    if (!encryptionInitialized) {
+      setLoading(true);
       return;
     }
     
@@ -425,10 +520,13 @@ export function useTasks() {
           if (task.notes) task.notes = await decrypt(task.notes);
           if (task.comments) {
             task.comments = await Promise.all(
-              task.comments.map(async (comment) => ({
-                ...comment,
-                text: await decryptCommentFn(comment.text, task.userId, comment.userId, currentUserId),
-              }))
+              task.comments.map(async (comment) => {
+                const toDecrypt = comment.friendContent?.[currentUserId] ?? comment.text;
+                return {
+                  ...comment,
+                  text: await decryptCommentFn(toDecrypt, task.userId, comment.userId, currentUserId),
+                };
+              })
             );
           }
         } catch (error) {
@@ -437,22 +535,54 @@ export function useTasks() {
         allTasks.set(task.id, { ...task, userName: 'You' });
 
         // Backfill friendContent for existing public tasks so friends can decrypt
-        if (
-          !task.isPrivate &&
-          !migratedForFriendContent.has(task.id) &&
+        const needsBackfill = !task.isPrivate &&
           encryptionInitialized &&
           currentFriends.length > 0 &&
-          (!task.friendContent || Object.keys(task.friendContent).length === 0)
-        ) {
+          (() => {
+            const existing = task.friendContent || {};
+            return currentFriends.some((f) => !existing[f]);
+          })();
+
+        if (needsBackfill && !migratedForFriendContent.has(task.id)) {
           migratedForFriendContent.add(task.id);
           const plaintext = task.text; // Already decrypted above
           (async () => {
             try {
-              const friendContent: Record<string, string> = {};
+              const existing = task.friendContent || {};
+              const friendContent: Record<string, string> = { ...existing };
               for (const friendId of currentFriends) {
-                friendContent[friendId] = await encryptForFriend(plaintext, friendId);
+                if (!friendContent[friendId]) {
+                  friendContent[friendId] = await encryptForFriend(plaintext, friendId);
+                }
               }
-              await updateDoc(doc(db, 'tasks', task.id), { friendContent });
+              // Backfill comment friendContent: owner comments (friends can't decrypt) + friend comments (other friends can't decrypt)
+              let updatedComments: Comment[] | undefined;
+              if (task.comments?.length && currentFriends.length > 0) {
+                const result = await Promise.all(
+                  task.comments.map(async (comment) => {
+                    const existing = comment.friendContent || {};
+                    const missing = currentFriends.filter((f) => !existing[f]);
+                    if (missing.length === 0) return comment;
+                    let plain: string;
+                    if (comment.userId === currentUserId) {
+                      plain = await decryptForSelf(comment.text);
+                    } else {
+                      plain = await decryptFromFriend(comment.text, comment.userId);
+                    }
+                    if (!plain || plain.includes("[Couldn't decrypt]")) return comment;
+                    const commentFriendContent: Record<string, string> = { ...existing };
+                    for (const friendId of missing) {
+                      commentFriendContent[friendId] = await encryptForFriend(plain, friendId);
+                    }
+                    return { ...comment, friendContent: commentFriendContent };
+                  })
+                );
+                const changed = result.some((c, i) => c !== task.comments![i]);
+                if (changed) updatedComments = result;
+              }
+              if (!auth.currentUser || auth.currentUser.uid !== currentUserId) return;
+              await updateDoc(doc(db, 'tasks', task.id),
+                updatedComments ? { friendContent, comments: updatedComments } : { friendContent });
               if (process.env.NODE_ENV === 'development') {
                 console.log('[useTasks] Backfilled friendContent for task:', task.id);
               }
@@ -523,6 +653,7 @@ export function useTasks() {
         );
 
         const unsubFriendTasks = onSnapshot(friendTasksQuery, async (snapshot) => {
+          const { encryptionInitialized: encReady, decryptFromFriend: decryptFriend, decryptComment: decryptCommentFn } = encryptionRef.current;
           // Only process actual changes to reduce reads
           for (const change of snapshot.docChanges()) {
             const task = { id: change.doc.id, ...change.doc.data() } as Task;
@@ -548,21 +679,24 @@ export function useTasks() {
               if (task.deleted === true) {
                 allTasks.delete(change.doc.id);
               } else {
-                // Decrypt friend's task data
-                if (encryptionInitialized) {
+                // Decrypt friend's task data (use encryptionRef for latest state - fixes Chrome vs Cursor timing)
+                if (encReady) {
                   try {
                     // Decrypt task text (friends can see public tasks)
                     if (!task.isPrivate) {
                       // Use friendContent[me] if available (encrypted for us); else legacy task.text (won't decrypt)
                       const toDecrypt = task.friendContent?.[currentUserId] ?? task.text;
-                      task.text = await decryptFromFriend(toDecrypt, task.userId);
+                      task.text = await decryptFriend(toDecrypt, task.userId);
                       // Decrypt comments (try multiple keys for legacy/incorrectly encrypted data)
                       if (task.comments) {
                         task.comments = await Promise.all(
-                          task.comments.map(async (comment) => ({
-                            ...comment,
-                            text: await decryptComment(comment.text, task.userId, comment.userId, currentUserId),
-                          }))
+                          task.comments.map(async (comment) => {
+                            const toDecrypt = comment.friendContent?.[currentUserId] ?? comment.text;
+                            return {
+                              ...comment,
+                              text: await decryptCommentFn(toDecrypt, task.userId, comment.userId, currentUserId),
+                            };
+                          })
                         );
                       }
                     } else {
@@ -1097,19 +1231,49 @@ export function useTasks() {
       const task = taskDoc.data() as Task;
       const comments = task.comments || [];
       
-      // Encrypt comment text: own task = encryptForSelf, friend's task = encryptForFriend
+      // Pre-fetch task owner doc when commenting on friend's task (for encryption + notification)
+      let taskOwnerData: User | null = null;
+      if (task.userId !== user.uid) {
+        const taskOwnerDocSnap = await getDoc(doc(db, 'users', task.userId));
+        taskOwnerData = taskOwnerDocSnap.exists() ? (taskOwnerDocSnap.data() as User) : null;
+      }
+      
+      // Encrypt comment text: own task = encryptForSelf + friendContent for each friend;
+      // friend's task = encrypt for task owner + friendContent for each of owner's friends (so all viewers can decrypt)
       const commentText = text.substring(0, 500);
-      const encryptedCommentText = encryptionInitialized
-        ? (task.userId === user.uid
-            ? await encryptForSelf(commentText)
-            : await encryptForFriend(commentText, task.userId))
-        : commentText;
+      let encryptedCommentText = commentText;
+      let commentFriendContent: Record<string, string> | undefined;
+
+      if (encryptionInitialized) {
+        if (task.userId === user.uid) {
+          encryptedCommentText = await encryptForSelf(commentText);
+          // Encrypt for each friend so they can decrypt owner's comments (owner uses master key, friends can't)
+          if (userData.friends?.length) {
+            commentFriendContent = {};
+            for (const friendId of userData.friends) {
+              commentFriendContent[friendId] = await encryptForFriend(commentText, friendId);
+            }
+          }
+        } else {
+          encryptedCommentText = await encryptForFriend(commentText, task.userId);
+          const ownerFriends = taskOwnerData?.friends || [];
+          if (ownerFriends.length > 0) {
+            commentFriendContent = {};
+            for (const friendId of ownerFriends) {
+              if (friendId !== task.userId) {
+                commentFriendContent[friendId] = await encryptForFriend(commentText, friendId);
+              }
+            }
+          }
+        }
+      }
 
       const newComment: Comment = {
         id: `${user.uid}_${Date.now()}`,
         userId: user.uid,
         userName: userData.displayName,
         text: encryptedCommentText,
+        ...(commentFriendContent && Object.keys(commentFriendContent).length > 0 && { friendContent: commentFriendContent }),
         timestamp: Date.now(),
       };
 
@@ -1118,36 +1282,42 @@ export function useTasks() {
       console.log('[addComment] Adding comment to task:', taskId, 'Current comments:', comments.length);
       await updateDoc(taskRef, { comments });
       console.log('[addComment] Comment added successfully');
-      // Force reconnect so listener re-processes with current key and displays decrypted comment
-      setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
+      // Firestore listener will receive the update in real time; no need to force reconnect (avoids comment box flicker)
 
       // Create notification for task owner if commenter is a friend
-      if (task.userId !== user.uid) {
+      if (task.userId !== user.uid && taskOwnerData) {
         console.log('[addComment] Task owner is different, checking for notification...');
         
         try {
-          const taskOwnerRef = doc(db, 'users', task.userId);
-          const taskOwnerDoc = await getDoc(taskOwnerRef);
+          const friendCommentsEnabled = taskOwnerData.notificationSettings?.friendComments !== false;
           
-          if (taskOwnerDoc.exists()) {
-            const taskOwnerData = taskOwnerDoc.data();
-            console.log('[addComment] Task owner data found, notificationSettings:', taskOwnerData.notificationSettings);
-            
-            // Check if friend comments notifications are enabled (default to true if not set)
-            const friendCommentsEnabled = taskOwnerData.notificationSettings?.friendComments !== false;
-            console.log('[addComment] Friend comments enabled:', friendCommentsEnabled);
-            
-            if (friendCommentsEnabled) {
-              // Encrypt notification data
-              const encryptedTaskText = encryptionInitialized 
-                ? await encryptForFriend(task.text.substring(0, 50), task.userId)
-                : task.text.substring(0, 50);
-              const encryptedCommentText = encryptionInitialized 
-                ? await encryptForFriend(text.substring(0, 150), task.userId)
-                : text.substring(0, 150);
+          if (friendCommentsEnabled) {
+            // Encrypt notification data: use decrypted task text for preview (we have friendContent)
+            let taskPreview = '';
+            if (encryptionInitialized) {
+                const toDecrypt = task.friendContent?.[user.uid] ?? task.text;
+                if (toDecrypt) {
+                  try {
+                    const plain = await decryptFromFriend(toDecrypt, task.userId);
+                    if (plain && !plain.includes("[Couldn't decrypt]")) {
+                      taskPreview = plain.substring(0, 50);
+                    }
+                  } catch {
+                    // Decryption failed - skip task preview to avoid showing ciphertext
+                  }
+                }
+            } else {
+              taskPreview = task.text?.substring(0, 50) ?? '';
+            }
+            const encryptedTaskText = encryptionInitialized && taskPreview
+                ? await encryptForFriend(taskPreview, task.userId)
+              : taskPreview || '';
+            const encryptedCommentText = encryptionInitialized 
+              ? await encryptForFriend(text.substring(0, 150), task.userId)
+              : text.substring(0, 150);
 
-              // Create in-app notification
-              const notificationData = {
+            // Create in-app notification
+            const notificationData = {
                 userId: task.userId,
                 type: 'comment',
                 title: `💬 ${userData.displayName} commented`,
@@ -1159,16 +1329,13 @@ export function useTasks() {
                 commentText: encryptedCommentText, // Encrypted comment text
                 createdAt: Date.now(),
                 read: false,
-              };
-              console.log('[addComment] Creating notification:', notificationData);
-              
-              await addDoc(collection(db, 'notifications'), notificationData);
-              console.log('[addComment] ✅ Notification created successfully for task owner');
-            } else {
-              console.log('[addComment] Notifications disabled for task owner');
-            }
+            };
+            console.log('[addComment] Creating notification:', notificationData);
+            
+            await addDoc(collection(db, 'notifications'), notificationData);
+            console.log('[addComment] ✅ Notification created successfully for task owner');
           } else {
-            console.log('[addComment] Task owner document not found');
+            console.log('[addComment] Notifications disabled for task owner');
           }
         } catch (notifError) {
           console.error('[addComment] ❌ Error creating notification:', notifError);

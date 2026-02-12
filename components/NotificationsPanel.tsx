@@ -5,6 +5,7 @@ import { FaTimes, FaBell, FaComment, FaCheck, FaClock, FaFire, FaTrash } from 'r
 import { InAppNotification } from '@/lib/types';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useEncryption } from '@/hooks/useEncryption';
+import { isEncrypted } from '@/utils/crypto';
 import { db } from '@/lib/firebase';
 
 interface NotificationsPanelProps {
@@ -49,20 +50,29 @@ export default function NotificationsPanel({
           
           if (encryptionInitialized && data.fromUserId) {
             try {
-              // Decrypt message, taskText, and commentText if they're encrypted
-              if (message && typeof message === 'string' && message.length > 50) {
+              // Decrypt message, taskText, and commentText if they're encrypted (use isEncrypted, not length)
+              if (message && typeof message === 'string' && isEncrypted(message)) {
                 message = await decryptFromFriend(message, data.fromUserId);
               }
-              if (taskText && typeof taskText === 'string' && taskText.length > 50) {
+              if (taskText && typeof taskText === 'string' && isEncrypted(taskText)) {
                 taskText = await decryptFromFriend(taskText, data.fromUserId);
               }
-              if (commentText && typeof commentText === 'string' && commentText.length > 50) {
-                commentText = await decryptFromFriend(commentText, data.fromUserId);
+              if (commentText && typeof commentText === 'string' && isEncrypted(commentText)) {
+                const decrypted = await decryptFromFriend(commentText, data.fromUserId);
+                if (decrypted && !isEncrypted(decrypted) && !decrypted.includes("[Couldn't decrypt]")) {
+                  commentText = decrypted;
+                }
               }
             } catch (error) {
               console.error('[NotificationsPanel] Failed to decrypt notification:', error);
-              // Keep encrypted text if decryption fails
             }
+          }
+          // Hide any remaining ciphertext (decryption failed) - show friendly placeholder
+          if (commentText && typeof commentText === 'string' && isEncrypted(commentText)) {
+            commentText = '[Message]';
+          }
+          if (taskText && typeof taskText === 'string' && isEncrypted(taskText)) {
+            taskText = '[Task]';
           }
           
           notifs.push({
@@ -90,7 +100,7 @@ export default function NotificationsPanel({
     );
 
     return () => unsubscribe();
-  }, [isOpen, userId]);
+  }, [isOpen, userId, encryptionInitialized, decryptFromFriend]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -223,32 +233,28 @@ export default function NotificationsPanel({
                             {notification.title}
                           </p>
                           <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
-                            {notification.commentText 
-                              ? `"${notification.commentText}"`
-                              : notification.type === 'bugReport' && notification.message && !notification.message.includes('Your feedback has been')
-                              ? (
-                                  // Format admin reply in a highlighted box
-                                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border-l-3 border-blue-500 rounded-r">
-                                    <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">
-                                      💬 Admin Reply:
-                                    </div>
-                                    <div className="text-sm text-gray-800 dark:text-gray-200">
-                                      {notification.message}
-                                    </div>
-                                  </div>
-                                )
-                              : notification.message}
+                            {notification.type === 'comment' && notification.commentText ? (
+                              <>
+                                <span>"{notification.commentText}"</span>
+                                {notification.taskText && (
+                                  <span className="block text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
+                                    on "{notification.taskText}"
+                                  </span>
+                                )}
+                              </>
+                            ) : notification.type === 'bugReport' && notification.message && !notification.message.includes('Your feedback has been') ? (
+                              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border-l-3 border-blue-500 rounded-r">
+                                <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">
+                                  💬 Admin Reply:
+                                </div>
+                                <div className="text-sm text-gray-800 dark:text-gray-200">
+                                  {notification.message}
+                                </div>
+                              </div>
+                            ) : (
+                              notification.message
+                            )}
                           </div>
-                          {notification.taskText && (
-                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
-                              "{notification.taskText}"
-                            </p>
-                          )}
-                          {notification.commentText && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 bg-gray-100 dark:bg-gray-700 rounded px-2 py-1">
-                              💬 {notification.commentText}
-                            </p>
-                          )}
                         </div>
                         <button
                           onClick={(e) => {

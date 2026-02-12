@@ -64,6 +64,8 @@ export interface Comment {
   userId: string;
   userName: string;
   text: string;
+  /** For owner comments on own tasks: encrypted per friend so friends can decrypt. Owner uses text; friends use this. */
+  friendContent?: Record<string, string>;
   timestamp: number;
   reactions?: Reaction[]; // Emoji reactions to the comment
 }

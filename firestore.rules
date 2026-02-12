@@ -155,7 +155,8 @@ service cloud.firestore {
           // Validate deleted if being updated
           (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
           // Validate deletedAt if being updated
-          (!request.resource.data.keys().hasAny(['deletedAt']) || request.resource.data.deletedAt is number || request.resource.data.deletedAt == null)
+          (!request.resource.data.keys().hasAny(['deletedAt']) || request.resource.data.deletedAt is number || request.resource.data.deletedAt == null) &&
+          (!request.resource.data.keys().hasAny(['friendContent']) || request.resource.data.friendContent is map)
         ) ||
         // Friends can ONLY add reactions
         (areFriends(resource.data.userId) && 

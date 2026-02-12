@@ -14,7 +14,7 @@ interface SortableTaskItemProps {
   onDelete: (taskId: string) => void;
   onUpdateTask?: (taskId: string, text: string) => Promise<void>;
   onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
-  onUpdateNotes?: (taskId: string, notes: string) => Promise<void>;
+  onUpdateNotes?: (taskId: string, notes: string, existingSubtasks?: { id: string; title: string; completed: boolean }[]) => Promise<void>;
   onToggleCommitment?: (taskId: string, committed: boolean) => void;
   onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
@@ -22,6 +22,10 @@ interface SortableTaskItemProps {
   onDeferTask?: (taskId: string, deferToDate: string) => void;
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
+  onUpdateTaskTags?: (taskId: string, tags: string[]) => Promise<void>;
+  recordRecentlyUsedTag?: (emoji: string) => Promise<void>;
+  recentUsedTags?: string[];
+  onUpdateTaskSubtasks?: (taskId: string, subtasks: { id: string; title: string; completed: boolean }[]) => Promise<void>;
   userStorageUsed?: number;
   userStorageLimit?: number;
   currentUserId?: string;

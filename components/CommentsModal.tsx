@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
 import { FaTimes, FaPaperPlane, FaComment } from 'react-icons/fa';
 import CommentReactionPicker from './CommentReactionPicker';
+import Avatar from './Avatar';
 
 interface CommentsModalProps {
   isOpen: boolean;
@@ -233,14 +234,19 @@ export default function CommentsModal({
                       }}
                       className={`flex gap-3 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom duration-200`}
                     >
-                      {/* Avatar */}
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                        isTaskOwnerComment 
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}>
-                        {comment.userName.charAt(0).toUpperCase()}
-                      </div>
+                      {/* Avatar - profile picture when available */}
+                      <Avatar
+                        photoURL={comment.photoURL}
+                        displayName={comment.userName}
+                        size="sm"
+                        className={`flex-shrink-0 ${
+                          isTaskOwnerComment
+                            ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-1 dark:ring-offset-gray-800'
+                            : ''
+                        }`}
+                        gradientFrom={isTaskOwnerComment ? 'from-blue-500' : 'from-gray-500'}
+                        gradientTo={isTaskOwnerComment ? 'to-blue-600' : 'to-gray-600'}
+                      />
 
                       {/* Comment Bubble */}
                       <div className={`flex-1 max-w-[75%] ${isOwnComment ? 'items-end' : 'items-start'} flex flex-col`}>

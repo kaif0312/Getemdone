@@ -59,9 +59,9 @@ export default function EncouragementModal({ isOpen, onClose, friendName, onSend
         onClick={onClose}
       />
 
-      {/* Modal */}
-      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[480px] z-50 animate-in zoom-in-95 duration-200">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden h-full md:h-auto flex flex-col">
+      {/* Modal - max-h ensures bottom stays visible on PC when content is tall */}
+      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[480px] md:max-h-[90vh] z-50 animate-in zoom-in-95 duration-200 flex flex-col">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden h-full md:max-h-[90vh] flex flex-col min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-700 dark:to-gray-800">
             <div className="flex items-center gap-2">
@@ -81,8 +81,8 @@ export default function EncouragementModal({ isOpen, onClose, friendName, onSend
             </button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Content - min-h-0 lets flex shrink so footer stays visible on PC */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
             {/* Quick Messages */}
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">

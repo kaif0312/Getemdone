@@ -146,3 +146,12 @@ body {
 .animate-spin-slow {
   animation: spin-slow 2s linear infinite;
 }
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

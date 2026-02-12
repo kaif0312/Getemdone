@@ -50,6 +50,8 @@ export interface User {
   notificationSettings?: NotificationSettings; // User's notification preferences
   storageUsed?: number; // Storage used in bytes
   storageLimit?: number; // Storage limit in bytes (default: 100MB)
+  /** Recently used emoji tags for quick selection (max 12) */
+  recentlyUsedTags?: string[];
 }
 
 export interface Reaction {
@@ -63,6 +65,8 @@ export interface Comment {
   id: string;
   userId: string;
   userName: string;
+  /** Commenter's profile picture URL */
+  photoURL?: string;
   text: string;
   /** For owner comments on own tasks: encrypted per friend so friends can decrypt. Owner uses text; friends use this. */
   friendContent?: Record<string, string>;
@@ -78,6 +82,12 @@ export interface Attachment {
   name: string;
   size: number; // in bytes
   uploadedAt: number;
+}
+
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
 }
 
 export interface BugReport {
@@ -114,6 +124,10 @@ export interface Task {
   skipRollover?: boolean; // If true, don't auto-rollover to next day
   notes?: string; // Personal notes/description for the task
   attachments?: Attachment[]; // Media attachments (max 3)
+  /** Emoji tags (max 5 per task) */
+  tags?: string[];
+  /** Subtasks (one level only, no sub-subtasks) */
+  subtasks?: Subtask[];
 }
 
 export interface TaskWithUser extends Task {

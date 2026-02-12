@@ -93,7 +93,7 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -108,6 +108,7 @@ function MainApp() {
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
   const [hasManuallyInteracted, setHasManuallyInteracted] = useState(false); // Track if user has manually expanded/collapsed
+  const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
@@ -651,16 +652,22 @@ function MainApp() {
       ? !collapsedFriends.has(friendId)
       : expandedFriends.has(friendId);
     
-    if (!isCurrentlyExpanded) {
+    const needsExpand = !isCurrentlyExpanded;
+    if (needsExpand) {
       toggleFriend(friendId);
     }
-    // Scroll to friend card
+    // Wait for layout to settle (longer when expanding), then scroll
+    const delay = needsExpand ? 250 : 50;
     setTimeout(() => {
-      const element = document.getElementById(`friend-${friendId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const element = document.getElementById(`friend-${friendId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      });
+    }, delay);
   };
 
   // Show iOS installation prompt if needed (blocks access until installed)
@@ -773,35 +780,80 @@ function MainApp() {
             </div>
           </div>
 
-          {/* Streak Display */}
+          {/* Streak Display - compact */}
           {data.streakData && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 ref={streakButtonRef}
                 onClick={() => {
                   setShowStreakCalendar(true);
-                  if (!onboarding.state.hasSeenStreak) {
-                    onboarding.markFeatureSeen('hasSeenStreak');
-                  }
+                  if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
                 }}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl px-4 py-3 flex items-center justify-between hover:from-orange-600 hover:to-orange-700 transition-all shadow-md relative"
+                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg px-3 py-2 flex items-center justify-between hover:from-orange-600 hover:to-orange-700 transition-all"
               >
-                <div className="flex items-center gap-2">
-                  <FaFire size={20} />
+                <div className="flex items-center gap-1.5">
+                  <FaFire size={16} />
                   <div className="text-left">
-                    <div className="text-2xl font-bold" suppressHydrationWarning>{data.streakData.currentStreak}</div>
-                    <div className="text-xs opacity-90">Day Streak</div>
+                    <div className="text-xl font-bold leading-tight" suppressHydrationWarning>{data.streakData.currentStreak}</div>
+                    <div className="text-[10px] opacity-90">Day Streak</div>
                   </div>
                 </div>
-                <FaCalendarAlt size={16} className="opacity-75" />
+                <FaCalendarAlt size={12} className="opacity-75" />
               </button>
-              
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl px-4 py-3 shadow-md">
-                <div className="text-2xl font-bold text-center" suppressHydrationWarning>{data.streakData.longestStreak}</div>
-                <div className="text-xs opacity-90 text-center">Best</div>
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg px-3 py-2 shadow-sm">
+                <div className="text-xl font-bold leading-tight text-center" suppressHydrationWarning>{data.streakData.longestStreak}</div>
+                <div className="text-[10px] opacity-90 text-center">Best</div>
               </div>
             </div>
           )}
+
+          {/* Tag filter bar - only when any task has tags */}
+          {(() => {
+            const usedEmojis = Array.from(
+              new Set(
+                tasks
+                  .filter((t) => t.userId === uid && t.deleted !== true && t.tags?.length)
+                  .flatMap((t) => t.tags || [])
+              )
+            ).sort();
+            if (usedEmojis.length === 0) return null;
+            return (
+              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1 py-1.5">
+                <div className="flex items-center gap-1.5 min-w-max">
+                  <button
+                    onClick={() => setActiveTagFilters([])}
+                    className={`flex-shrink-0 h-8 px-2.5 rounded-full text-xs font-medium transition-all duration-150 flex items-center justify-center ${
+                      activeTagFilters.length === 0
+                        ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {usedEmojis.map((emoji) => {
+                    const isActive = activeTagFilters.includes(emoji);
+                    return (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          setActiveTagFilters((prev) =>
+                            prev.includes(emoji) ? prev.filter((e) => e !== emoji) : [...prev, emoji]
+                          );
+                        }}
+                        className={`flex-shrink-0 h-8 w-8 rounded-full text-base transition-all duration-150 flex items-center justify-center ${
+                          isActive
+                            ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500 dark:ring-blue-400'
+                            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </header>
 
@@ -901,9 +953,14 @@ function MainApp() {
               
               // Debug logging removed
 
+              // Apply tag filter (OR logic)
+              const filteredTasks = activeTagFilters.length === 0
+                ? myTasks
+                : myTasks.filter((t) => activeTagFilters.some((tag) => t.tags?.includes(tag)));
+
               // Separate incomplete and completed tasks
-              const incompleteTasks = myTasks.filter(t => !t.completed);
-              const completedTasks = myTasks.filter(t => t.completed);
+              const incompleteTasks = filteredTasks.filter(t => !t.completed);
+              const completedTasks = filteredTasks.filter(t => t.completed);
               
               if (myTasks.length === 0) return null;
               
@@ -926,7 +983,7 @@ function MainApp() {
                       </div>
                     </button>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-4 space-y-3">
+                  <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-3 space-y-2">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -954,6 +1011,10 @@ function MainApp() {
                             onDeferTask={deferTask}
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
+                            onUpdateTaskTags={updateTaskTags}
+                            recordRecentlyUsedTag={recordRecentlyUsedTag}
+                            recentUsedTags={data.recentlyUsedTags || []}
+                            onUpdateTaskSubtasks={updateTaskSubtasks}
                             userStorageUsed={data.storageUsed}
                             userStorageLimit={data.storageLimit}
                             currentUserId={uid}
@@ -981,6 +1042,10 @@ function MainApp() {
                         onDeferTask={deferTask}
                         onAddAttachment={addAttachment}
                         onDeleteAttachment={deleteAttachment}
+                        onUpdateTaskTags={updateTaskTags}
+                        recordRecentlyUsedTag={recordRecentlyUsedTag}
+                        recentUsedTags={data.recentlyUsedTags || []}
+                        onUpdateTaskSubtasks={updateTaskSubtasks}
                         userStorageUsed={data.storageUsed}
                         userStorageLimit={data.storageLimit}
                         currentUserId={uid}
@@ -1068,7 +1133,7 @@ function MainApp() {
                         : expandedFriends.has(userId);
 
                       return (
-                        <div key={userId} id={`friend-${userId}`}>
+                        <div key={userId} id={`friend-${userId}`} className="scroll-mt-[140px] md:scroll-mt-[170px]">
                           <FriendTaskCard
                             friendId={userId}
                             friendName={friendName}

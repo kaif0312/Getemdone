@@ -133,7 +133,7 @@ export default function AttachmentUpload({
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading || !canUploadMore}
         className={`
-          flex items-center gap-1 px-2 py-1 text-[11px] transition-colors rounded min-h-[32px]
+          flex items-center gap-1 px-1.5 py-0.5 text-[10px] transition-colors rounded
           ${uploading || !canUploadMore
             ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -148,11 +148,11 @@ export default function AttachmentUpload({
         }
       >
         {uploading ? (
-          <FaSpinner className="animate-spin" size={11} />
+          <FaSpinner className="animate-spin" size={9} />
         ) : (
-          <FaPaperclip size={11} />
+          <FaPaperclip size={9} />
         )}
-        <span className="font-medium">{uploading ? 'Uploading...' : 'Attach'}</span>
+        <span>{uploading ? 'Uploading...' : 'Attach'}</span>
       </button>
 
       {error && (

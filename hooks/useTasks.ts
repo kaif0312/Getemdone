@@ -15,7 +15,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, storage, auth } from '@/lib/firebase';
-import { Task, TaskWithUser, User, Reaction, Comment, Attachment } from '@/lib/types';
+import { Task, TaskWithUser, User, Reaction, Comment, Attachment, Subtask } from '@/lib/types';
 import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserStorageUsage } from '@/utils/storageManager';
@@ -956,30 +956,91 @@ export function useTasks() {
     });
   };
 
-  const updateTaskNotes = async (taskId: string, notes: string) => {
+  const updateTaskTags = async (taskId: string, tags: string[]) => {
+    if (!user) return;
+    if (tags.length > 5) {
+      throw new Error('Maximum 5 tags per task');
+    }
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, { tags });
+  };
+
+  const recordRecentlyUsedTag = async (emoji: string) => {
+    if (!user) return;
+    const current = userData?.recentlyUsedTags || [];
+    const without = current.filter((e) => e !== emoji);
+    const updated = [emoji, ...without].slice(0, 12);
+    await updateDoc(doc(db, 'users', user.uid), { recentlyUsedTags: updated });
+  };
+
+  /** Parse notes: lines starting with "- " become subtask titles, rest becomes notes. */
+  const parseNotesIntoSubtasks = (notesText: string): { subtaskTitles: string[]; notes: string } => {
+    const lines = notesText.split('\n');
+    const subtaskTitles: string[] = [];
+    const noteLines: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trimEnd();
+      if (trimmed.startsWith('- ')) {
+        subtaskTitles.push(trimmed.slice(2).trim() || 'Untitled');
+      } else {
+        noteLines.push(line);
+      }
+    }
+    const notes = noteLines.join('\n').trim();
+    return { subtaskTitles, notes };
+  };
+
+  const updateTaskNotes = async (
+    taskId: string,
+    notes: string,
+    existingSubtasks?: Subtask[]
+  ) => {
     if (!user) return;
 
-    // Encrypt notes
-    const encryptedNotes = notes 
-      ? (encryptionInitialized ? await encryptForSelf(notes) : notes)
-      : null;
+    const { subtaskTitles, notes: parsedNotes } = parseNotesIntoSubtasks(notes);
+
+    // Merge: parsed titles from notes + existing subtasks not in notes (e.g. button-added)
+    const existing = existingSubtasks || [];
+    const parsedSet = new Set(subtaskTitles);
+    const fromParsed: Subtask[] = subtaskTitles.map((title) => {
+      const ex = existing.find((e) => e.title === title);
+      if (ex) return ex;
+      return {
+        id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        title,
+        completed: false,
+      };
+    });
+    const fromExisting = existing.filter((e) => !parsedSet.has(e.title));
+    const mergedSubtasks = [...fromParsed, ...fromExisting];
+
+    const encryptedNotes =
+      parsedNotes.length > 0
+        ? (encryptionInitialized ? await encryptForSelf(parsedNotes) : parsedNotes)
+        : null;
 
     const startTime = Date.now();
     const taskRef = doc(db, 'tasks', taskId);
     try {
       await updateDoc(taskRef, {
         notes: encryptedNotes,
+        subtasks: mergedSubtasks,
       });
       const duration = Date.now() - startTime;
       if (duration > 1000) {
         console.warn(`[updateTaskNotes] Slow update: ${duration}ms for task ${taskId}`);
       }
-      // Force reconnect so listener re-processes with current key and displays decrypted notes
       setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
     } catch (error) {
       console.error('[updateTaskNotes] Error updating notes:', error);
       throw error;
     }
+  };
+
+  const updateTaskSubtasks = async (taskId: string, subtasks: Subtask[]) => {
+    if (!user) return;
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, { subtasks });
   };
 
   const deleteTask = async (taskId: string) => {
@@ -1264,6 +1325,7 @@ export function useTasks() {
         id: `${user.uid}_${Date.now()}`,
         userId: user.uid,
         userName: userData.displayName,
+        ...(userData.photoURL && { photoURL: userData.photoURL }),
         text: encryptedCommentText,
         ...(commentFriendContent && Object.keys(commentFriendContent).length > 0 && { friendContent: commentFriendContent }),
         timestamp: Date.now(),
@@ -1497,5 +1559,8 @@ export function useTasks() {
     deleteAttachment,
     sendEncouragement,
     userStorageUsage,
+    updateTaskTags,
+    recordRecentlyUsedTag,
+    updateTaskSubtasks,
   };
 }

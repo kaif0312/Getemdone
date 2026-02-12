@@ -344,8 +344,10 @@ export function useEncryption() {
 
     const sharedKey = await getSharedKey(friendId);
     if (!sharedKey) {
-      console.warn('[useEncryption] No shared key available, returning as-is');
-      return encryptedText;
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[useEncryption] No shared key for friend', friendId, '- showing placeholder');
+      }
+      return "[Couldn't decrypt]";
     }
 
     try {
@@ -407,6 +409,59 @@ export function useEncryption() {
 
     ensureFriendKeys();
   }, [userData?.friends, masterKey, friendKeys, getSharedKey]);
+
+  /**
+   * Re-persist keys to IndexedDB when friendKeys change (e.g. after ensureFriendKeys adds new keys).
+   * This ensures the service worker can decrypt push notifications from friends.
+   */
+  useEffect(() => {
+    if (!user?.uid || !isInitialized) return;
+
+    const repersist = async () => {
+      try {
+        const keysDocRef = doc(db, 'userKeys', user.uid);
+        const keysDoc = await getDoc(keysDocRef);
+        if (keysDoc.exists()) {
+          const keysData = keysDoc.data() as UserKeys;
+          persistKeysForSW(user.uid, {
+            masterKey: keysData.masterKey ?? null,
+            friendKeys: keysData.friendKeys || {},
+          });
+        }
+      } catch (err) {
+        console.warn('[useEncryption] Failed to re-persist keys for SW:', err);
+      }
+    };
+
+    repersist();
+  }, [user?.uid, isInitialized, friendKeys]);
+
+  /**
+   * Re-persist keys when app becomes visible (user switches back to tab).
+   * Ensures keys are fresh for SW decryption after background fetch.
+   */
+  useEffect(() => {
+    if (!user?.uid || !isInitialized || typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        getDoc(doc(db, 'userKeys', user.uid))
+          .then((keysDoc) => {
+            if (keysDoc.exists()) {
+              const keysData = keysDoc.data() as UserKeys;
+              persistKeysForSW(user.uid, {
+                masterKey: keysData.masterKey ?? null,
+                friendKeys: keysData.friendKeys || {},
+              });
+            }
+          })
+          .catch((err) => console.warn('[useEncryption] Visibility persist failed:', err));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.uid, isInitialized]);
 
   return {
     isInitialized,

@@ -50,7 +50,7 @@ export default function NotificationsPanel({
           
           if (encryptionInitialized && data.fromUserId) {
             try {
-              // Decrypt message, taskText, and commentText if they're encrypted (use isEncrypted, not length)
+              // Decrypt message, taskText, and commentText if they're encrypted
               if (message && typeof message === 'string' && isEncrypted(message)) {
                 message = await decryptFromFriend(message, data.fromUserId);
               }
@@ -58,21 +58,23 @@ export default function NotificationsPanel({
                 taskText = await decryptFromFriend(taskText, data.fromUserId);
               }
               if (commentText && typeof commentText === 'string' && isEncrypted(commentText)) {
-                const decrypted = await decryptFromFriend(commentText, data.fromUserId);
-                if (decrypted && !isEncrypted(decrypted) && !decrypted.includes("[Couldn't decrypt]")) {
-                  commentText = decrypted;
-                }
+                commentText = await decryptFromFriend(commentText, data.fromUserId);
               }
             } catch (error) {
               console.error('[NotificationsPanel] Failed to decrypt notification:', error);
             }
           }
-          // Hide any remaining ciphertext (decryption failed) - show friendly placeholder
-          if (commentText && typeof commentText === 'string' && isEncrypted(commentText)) {
-            commentText = '[Message]';
+          // Hide any remaining ciphertext or decryption failure - show friendly placeholder
+          const looksLikeCipher = (s: string) =>
+            !s || typeof s !== 'string' ? false
+              : isEncrypted(s) || s.startsWith('e1:') || (s.length >= 30 && /^[A-Za-z0-9+/]+=*$/.test(s));
+          const toPlaceholder = (s: string, placeholder: string) =>
+            (looksLikeCipher(s) || s?.includes("[Couldn't decrypt]")) ? placeholder : s;
+          if (commentText && typeof commentText === 'string') {
+            commentText = toPlaceholder(commentText, '[Message]');
           }
-          if (taskText && typeof taskText === 'string' && isEncrypted(taskText)) {
-            taskText = '[Task]';
+          if (taskText && typeof taskText === 'string') {
+            taskText = toPlaceholder(taskText, '[Task]');
           }
           
           notifs.push({

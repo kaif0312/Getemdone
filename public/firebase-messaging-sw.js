@@ -78,7 +78,9 @@ messaging.onBackgroundMessage(async (payload) => {
   
   // Format notification body - never show ciphertext
   let notificationBody = payload.notification?.body || 'You have a new update';
-  const stillEncrypted = (s) => s && typeof s === 'string' && s.startsWith('e1:');
+  const stillEncrypted = (s) => s && typeof s === 'string' && (
+    s.startsWith('e1:') || (s.length >= 30 && /^[A-Za-z0-9+/]+=*$/.test(s))
+  );
   if (commentText && fromUserName && !stillEncrypted(commentText) && !stillEncrypted(taskText)) {
     const taskSuffix = taskText ? ` on "${taskText}"` : '';
     notificationBody = `${fromUserName}: "${commentText}"${taskSuffix}`;

@@ -441,16 +441,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
     
-    // Build completion history - only count days with >= 70% completion
+    // Build completion history - count day if at least 1 task completed
     const completionHistory: { [date: string]: number } = {};
     
     Object.entries(dailyTaskCounts).forEach(([dateStr, counts]) => {
-      if (counts.total > 0) {
-        const completionPercentage = (counts.completed / counts.total) * 100;
-        // Only count day if >= 70% of tasks are completed
-        if (completionPercentage >= 70) {
-          completionHistory[dateStr] = counts.completed;
-        }
+      if (counts.completed >= 1) {
+        completionHistory[dateStr] = counts.completed;
       }
     });
 

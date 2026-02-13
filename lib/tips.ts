@@ -48,7 +48,7 @@ export const TIPS: Record<string, Tip> = {
   },
   STREAK: {
     id: 'streak',
-    message: '🔥 Complete 70% of tasks daily to build your streak!',
+    message: '🔥 Complete at least one task daily to build your streak!',
     position: 'tooltip',
     trigger: 'onFirstStreak',
   },

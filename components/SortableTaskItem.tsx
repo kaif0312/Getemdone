@@ -19,7 +19,7 @@ interface SortableTaskItemProps {
   onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
-  onDeferTask?: (taskId: string, deferToDate: string) => void;
+  onDeferTask?: (taskId: string, deferToDate: string | null) => void;
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onUpdateTaskTags?: (taskId: string, tags: string[]) => Promise<void>;

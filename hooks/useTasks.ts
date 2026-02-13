@@ -1539,13 +1539,13 @@ export function useTasks() {
     }
   };
 
-  const deferTask = async (taskId: string, deferToDate: string, task?: Task) => {
+  const deferTask = async (taskId: string, deferToDate: string | null, task?: Task) => {
     if (!user) return;
 
     const taskRef = doc(db, 'tasks', taskId);
 
     // Recurring tasks: skip today's instance (add to skippedDates) - doesn't break streak
-    if (task?.recurrence) {
+    if (task?.recurrence && deferToDate) {
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const skippedDates = [...(task.recurrence.skippedDates || []), todayStr];
@@ -1555,11 +1555,12 @@ export function useTasks() {
       return;
     }
 
-    await updateDoc(taskRef, {
-      deferredTo: deferToDate,
-      completed: false,
-      completedAt: null,
-    });
+    const updateData: Record<string, unknown> = { deferredTo: deferToDate || null };
+    if (deferToDate) {
+      updateData.completed = false;
+      updateData.completedAt = null;
+    }
+    await updateDoc(taskRef, updateData);
   };
 
   const reorderTasks = async (taskId: string, newOrder: number) => {

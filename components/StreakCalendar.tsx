@@ -19,7 +19,7 @@ interface StreakCalendarProps {
   onUpdateNotes?: (taskId: string, notes: string) => Promise<void>;
   onAddReaction: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
-  onDeferTask: (taskId: string, deferToDate: string) => void;
+  onDeferTask: (taskId: string, deferToDate: string | null) => void;
   onUpdateTaskRecurrence?: (taskId: string, recurrence: import('@/lib/types').Recurrence | null, completedDateStr?: string) => Promise<void>;
 }
 

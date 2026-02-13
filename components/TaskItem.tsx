@@ -170,7 +170,7 @@ interface TaskItemProps {
   onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
-  onDeferTask?: (taskId: string, deferToDate: string) => void;
+  onDeferTask?: (taskId: string, deferToDate: string | null) => void;
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onUpdateTaskTags?: (taskId: string, tags: string[]) => Promise<void>;
@@ -214,7 +214,8 @@ export default function TaskItem({
   dragHandleProps
 }: TaskItemProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showDeferPicker, setShowDeferPicker] = useState(false);
+  const [showUnifiedDatePicker, setShowUnifiedDatePicker] = useState(false);
+  const [unifiedDatePickerTab, setUnifiedDatePickerTab] = useState<'schedule' | 'deadline'>('schedule');
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -225,7 +226,6 @@ export default function TaskItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isSaving, setIsSaving] = useState(false);
-  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState(task.notes || '');
@@ -246,6 +246,9 @@ export default function TaskItem({
   const subtaskSectionRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const dueDateInputRef = useRef<HTMLInputElement>(null);
+  const scheduleDateRef = useRef<HTMLInputElement>(null);
+  const scheduleTimeRef = useRef<HTMLInputElement>(null);
+  const unifiedDatePickerRef = useRef<HTMLDivElement>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -358,19 +361,19 @@ export default function TaskItem({
   // Close due date picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (showDueDatePicker && dueDateInputRef.current && !dueDateInputRef.current.contains(e.target as Node)) {
+      if (showUnifiedDatePicker && unifiedDatePickerRef.current && !unifiedDatePickerRef.current.contains(e.target as Node)) {
         const target = e.target as HTMLElement;
-        if (!target.closest('.due-date-picker-container')) {
-          setShowDueDatePicker(false);
+        if (!target.closest('.due-date-picker-container') && !target.closest('.unified-date-picker')) {
+          setShowUnifiedDatePicker(false);
         }
       }
     };
 
-    if (showDueDatePicker) {
+    if (showUnifiedDatePicker) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showDueDatePicker]);
+  }, [showUnifiedDatePicker]);
 
   const handleToggleComplete = async () => {
     if (!isOwnTask || isEditing) return;
@@ -640,15 +643,35 @@ export default function TaskItem({
     }
   };
 
-  const handleDeferTask = (days: number) => {
-    if (!onDeferTask) return;
-    
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + days);
-    const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-    
-    onDeferTask(task.id, dateStr);
-    setShowDeferPicker(false);
+  const getTomorrowDateTime = (): string => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T${String(tomorrow.getHours()).padStart(2, '0')}:${String(tomorrow.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const getLaterTodayDateTime = (): string => {
+    const later = new Date();
+    later.setHours(later.getHours() + 1);
+    later.setMinutes(Math.ceil(later.getMinutes() / 15) * 15, 0, 0);
+    return `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, '0')}-${String(later.getDate()).padStart(2, '0')}T${String(later.getHours()).padStart(2, '0')}:${String(later.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const getMinDateTime = (): string => {
+    const now = new Date();
+    now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const handleOpenUnifiedDatePicker = () => {
+    if (task.deferredTo && !task.dueDate) {
+      setUnifiedDatePickerTab('schedule');
+    } else if (task.dueDate) {
+      setUnifiedDatePickerTab('deadline');
+    } else {
+      setUnifiedDatePickerTab('schedule');
+    }
+    setShowUnifiedDatePicker(true);
   };
 
   // Swipe handlers with smooth animations and undo support
@@ -1047,47 +1070,23 @@ export default function TaskItem({
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {/* Only show scheduled/deferred badge if there's no deadline */}
               {task.deferredTo && !task.dueDate && (() => {
-                const todayStr = getTodayString();
-                // Use getDateString to ensure consistent date comparison (local time)
-                const createdDate = getDateString(task.createdAt);
-                const deferredDate = task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo;
-                // A task is "scheduled" if it was created today and deferred/scheduled to today or future
-                // A task is "deferred" if it was created before today and moved to today or future
-                const isScheduled = createdDate === todayStr && deferredDate >= todayStr;
-                const isDeferred = createdDate < todayStr && deferredDate >= todayStr;
-                
-                // Parse datetime for display
+                // All tasks with deferredTo shown on today's list use "Scheduled for" (new or existing)
                 let displayText: string;
                 try {
                   const dateTime = task.deferredTo.includes('T') 
                     ? new Date(task.deferredTo) 
                     : new Date(task.deferredTo + 'T00:00:00');
-                  
-                  // Check if time is set (not midnight)
                   const hasTime = task.deferredTo.includes('T') && !task.deferredTo.endsWith('T00:00') && !task.deferredTo.endsWith('T00:00:00');
+                  const today = new Date();
+                  const isToday = dateTime.toDateString() === today.toDateString();
                   
-                  if (isScheduled && hasTime) {
-                    // For scheduled tasks with time, show "Scheduled for 4:30 PM" or "Scheduled for Jan 15, 4:30 PM"
-                    const scheduledDate = dateTime.toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric'
-                    });
-                    const scheduledTime = dateTime.toLocaleTimeString('en-US', {
+                  if (hasTime && isToday) {
+                    displayText = dateTime.toLocaleTimeString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
                       hour12: true
                     });
-                    const today = new Date();
-                    const isToday = dateTime.toDateString() === today.toDateString();
-                    displayText = isToday ? scheduledTime : `${scheduledDate}, ${scheduledTime}`;
-                  } else if (isScheduled) {
-                    // Scheduled without time
-                    displayText = dateTime.toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric'
-                    });
                   } else if (hasTime) {
-                    // Deferred with time
                     displayText = dateTime.toLocaleDateString('en-US', { 
                       month: 'short', 
                       day: 'numeric',
@@ -1096,28 +1095,37 @@ export default function TaskItem({
                       hour12: true
                     });
                   } else {
-                    // Deferred without time
                     displayText = dateTime.toLocaleDateString('en-US', { 
                       month: 'short', 
                       day: 'numeric'
                     });
                   }
                 } catch {
-                  displayText = task.deferredTo;
+                  displayText = task.deferredTo || '';
                 }
                 
-                return (
-                  <div className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full ${
-                    isScheduled 
-                      ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' 
-                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
-                  }`}>
+                const badgeClass = `inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300`;
+                const badgeContent = (
+                  <>
                     <FaCalendarPlus size={8} />
                     <span>
-                      {isScheduled ? 'Scheduled for' : 'Deferred to'} {displayText}
+                      Scheduled for {displayText}
                     </span>
-                  </div>
+                  </>
                 );
+                if (isOwnTask && onDeferTask) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenUnifiedDatePicker()}
+                      className={`${badgeClass} transition-colors hover:opacity-80 due-date-picker-container`}
+                      title="Tap to change schedule"
+                    >
+                      {badgeContent}
+                    </button>
+                  );
+                }
+                return <div className={badgeClass}>{badgeContent}</div>;
               })()}
               
               {/* Due Date Indicator - Ultra-compact */}
@@ -1125,7 +1133,7 @@ export default function TaskItem({
                 <div className="relative due-date-picker-container inline-flex items-center gap-0.5">
                   <button
                     type="button"
-                    onClick={() => setShowDueDatePicker(!showDueDatePicker)}
+                    onClick={() => (showUnifiedDatePicker ? setShowUnifiedDatePicker(false) : handleOpenUnifiedDatePicker())}
                     className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full border transition-colors hover:opacity-80 ${getDueDateColor(task.dueDate)}`}
                     title="Tap to change deadline"
                   >
@@ -1138,7 +1146,7 @@ export default function TaskItem({
                       e.stopPropagation();
                       if (onUpdateDueDate) {
                         await onUpdateDueDate(task.id, null);
-                        setShowDueDatePicker(false);
+                        setShowUnifiedDatePicker(false);
                       }
                     }}
                     className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -1580,72 +1588,165 @@ export default function TaskItem({
       </div>
       </div>
 
-      {/* Due Date Picker Modal - Centered, works for both badge and button */}
-      {showDueDatePicker && isOwnTask && !task.completed && onUpdateDueDate && (
+      {/* Unified Schedule & Deadline Picker - Like TaskInput */}
+      {showUnifiedDatePicker && isOwnTask && !task.completed && (onUpdateDueDate || onDeferTask) && (
         <>
           <div 
             className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-sm" 
-            onClick={() => setShowDueDatePicker(false)}
+            onClick={() => setShowUnifiedDatePicker(false)}
           />
           <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none p-4">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-full max-w-[90vw] sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200">
+            <div ref={unifiedDatePickerRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-full max-w-[90vw] sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
-                  {task.dueDate ? 'Change Deadline' : 'Set Deadline'}
+                  Schedule & Deadline
                 </span>
-                {task.dueDate && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (onUpdateDueDate) {
-                        await onUpdateDueDate(task.id, null);
-                        setShowDueDatePicker(false);
+                <button
+                  type="button"
+                  onClick={() => setShowUnifiedDatePicker(false)}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  title="Close"
+                >
+                  <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+              {/* Tabs */}
+              <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setUnifiedDatePickerTab('schedule')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    unifiedDatePickerTab === 'schedule'
+                      ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUnifiedDatePickerTab('deadline')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    unifiedDatePickerTab === 'deadline'
+                      ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Deadline
+                </button>
+              </div>
+              {/* Schedule Tab */}
+              {unifiedDatePickerTab === 'schedule' && onDeferTask && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Schedule Task</span>
+                    {task.deferredTo && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await onDeferTask(task.id, null);
+                        }}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                        title="Remove schedule"
+                      >
+                        <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onDeferTask(task.id, getLaterTodayDateTime());
+                        setShowUnifiedDatePicker(false);
+                      }}
+                      className="flex-1 px-3 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg font-medium text-sm"
+                    >
+                      Later Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onDeferTask(task.id, getTomorrowDateTime());
+                        setShowUnifiedDatePicker(false);
+                      }}
+                      className="flex-1 px-3 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg font-medium text-sm"
+                    >
+                      Tomorrow
+                    </button>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date (time optional)</div>
+                  <div className="unified-date-picker space-y-2">
+                    <input
+                      ref={scheduleDateRef}
+                      type="date"
+                      min={getTodayString()}
+                      defaultValue={task.deferredTo ? (task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo) : ''}
+                      className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onChange={async () => {
+                        const dateVal = scheduleDateRef.current?.value;
+                        const timeVal = scheduleTimeRef.current?.value;
+                        if (dateVal && onDeferTask) {
+                          const value = timeVal ? `${dateVal}T${timeVal}` : dateVal;
+                          await onDeferTask(task.id, value);
+                        }
+                      }}
+                    />
+                    <input
+                      ref={scheduleTimeRef}
+                      type="time"
+                      defaultValue={task.deferredTo && task.deferredTo.includes('T') ? task.deferredTo.split('T')[1]?.slice(0, 5) : ''}
+                      className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      onChange={async () => {
+                        const dateVal = scheduleDateRef.current?.value;
+                        const timeVal = scheduleTimeRef.current?.value;
+                        if (dateVal && onDeferTask) {
+                          const value = timeVal ? `${dateVal}T${timeVal}` : dateVal;
+                          await onDeferTask(task.id, value);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {/* Deadline Tab */}
+              {unifiedDatePickerTab === 'deadline' && onUpdateDueDate && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Deadline</span>
+                    {task.dueDate && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await onUpdateDueDate(task.id, null);
+                        }}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                        title="Remove deadline"
+                      >
+                        <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={dueDateInputRef}
+                    type="datetime-local"
+                    min={new Date().toISOString().slice(0, 16)}
+                    defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
+                    className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    onChange={async (e) => {
+                      const value = e.target.value;
+                      if (value && onUpdateDueDate) {
+                        const date = new Date(value);
+                        await onUpdateDueDate(task.id, date.getTime());
                       }
                     }}
-                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                    title="Remove deadline"
-                  >
-                    <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
-                  </button>
-                )}
-              </div>
-              <div className="w-full mb-3">
-                <input
-                  ref={dueDateInputRef}
-                  type="datetime-local"
-                  onChange={async (e) => {
-                    const value = e.target.value;
-                    if (value && onUpdateDueDate) {
-                      const date = new Date(value);
-                      await onUpdateDueDate(task.id, date.getTime());
-                      // Don't auto-close - let user see the selected date and click Done
-                    }
-                  }}
-                  min={new Date().toISOString().slice(0, 16)}
-                  defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
-                  className="w-full px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  style={{
-                    WebkitAppearance: 'none',
-                    appearance: 'none',
-                    boxSizing: 'border-box',
-                    minHeight: '44px', // iOS touch target minimum
-                  }}
-                />
-              </div>
-              {task.dueDate && (
-                <div className="mb-3 text-sm text-gray-600 dark:text-gray-400 text-center">
-                  Current: {new Date(task.dueDate).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
+                  />
                 </div>
               )}
               <button
                 type="button"
-                onClick={() => setShowDueDatePicker(false)}
-                className="w-full px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                onClick={() => setShowUnifiedDatePicker(false)}
+                className="w-full mt-4 px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium"
               >
                 Done
               </button>
@@ -1718,13 +1819,8 @@ export default function TaskItem({
           }
         }}
         onSetDeadline={() => {
-          if (onUpdateDueDate && !task.completed) {
-            setShowDueDatePicker(true);
-          }
-        }}
-        onDefer={() => {
-          if (onDeferTask && !task.completed) {
-            setShowDeferPicker(true);
+          if ((onUpdateDueDate || onDeferTask) && !task.completed) {
+            handleOpenUnifiedDatePicker();
           }
         }}
         onSetRecurrence={() => {
@@ -1772,45 +1868,6 @@ export default function TaskItem({
         currentRecurrence={task.recurrence}
       />
 
-      {showDeferPicker && onDeferTask && !task.completed && (
-        <>
-          <div 
-            className="fixed inset-0 z-[99998]" 
-            onClick={() => setShowDeferPicker(false)}
-          />
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none">
-            <div 
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-2xl p-3 min-w-[180px] pointer-events-auto animate-in fade-in zoom-in duration-200"
-            >
-              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 px-2 text-center">⏰ Defer task to:</div>
-              <button
-                onClick={() => handleDeferTask(1)}
-                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-              >
-                Tomorrow
-              </button>
-              <button
-                onClick={() => handleDeferTask(2)}
-                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-              >
-                In 2 days
-              </button>
-              <button
-                onClick={() => handleDeferTask(3)}
-                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-              >
-                In 3 days
-              </button>
-              <button
-                onClick={() => handleDeferTask(7)}
-                className="block w-full text-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-base transition-colors text-gray-900 dark:text-gray-100 font-medium"
-              >
-                Next week
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 }

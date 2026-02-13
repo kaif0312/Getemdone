@@ -67,20 +67,15 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
     // 1. Handle deferred/scheduled tasks
     if (task.deferredTo) {
       const deferredDate = extractDateFromDeferredTo(task.deferredTo);
-      const createdDate = getDateString(task.createdAt);
       
-      // Show scheduled tasks (created today, scheduled for today or future)
-      if (createdDate === todayStr && deferredDate >= todayStr) {
-        return true; // Show scheduled tasks for today and future
-      }
-      
-      // Show deferred tasks for today (moved from previous days)
-      if (deferredDate === todayStr && createdDate < todayStr) {
+      // Show any task scheduled for today or future - keep on screen with "Scheduled for X" badge
+      // User expects "Schedule" to mean "set a reminder time" not "hide until that date"
+      if (deferredDate >= todayStr) {
         return true;
       }
       
-      // Don't show tasks deferred to future (that were moved from previous days)
-      if (deferredDate > todayStr && createdDate < todayStr) {
+      // Don't show tasks scheduled for a past date (already missed)
+      if (deferredDate < todayStr) {
         return false;
       }
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { FaEdit, FaClock, FaCalendarPlus, FaStickyNote, FaStar, FaEye, FaEyeSlash, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaClock, FaStickyNote, FaStar, FaEye, FaEyeSlash, FaTrash, FaTimes } from 'react-icons/fa';
 import { Task } from '@/lib/types';
 
 interface TaskContextMenuProps {
@@ -12,7 +12,6 @@ interface TaskContextMenuProps {
   onClose: () => void;
   onEdit?: () => void;
   onSetDeadline?: () => void;
-  onDefer?: () => void;
   onSetRecurrence?: () => void;
   onToggleNotes?: () => void;
   onToggleCommitment?: () => void;
@@ -33,7 +32,6 @@ export default function TaskContextMenu({
   onClose,
   onEdit,
   onSetDeadline,
-  onDefer,
   onSetRecurrence,
   onToggleNotes,
   onToggleCommitment,
@@ -113,7 +111,7 @@ export default function TaskContextMenu({
             </button>
           )}
 
-          {/* Set Deadline - Only for incomplete tasks */}
+          {/* Schedule & Deadline - Only for incomplete tasks */}
           {onSetDeadline && !task.completed && (
             <button
               onClick={() => {
@@ -122,24 +120,10 @@ export default function TaskContextMenu({
               }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              <FaClock size={16} className={task.dueDate ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400'} />
+              <FaClock size={16} className={task.dueDate || task.deferredTo ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400'} />
               <span className="text-sm font-medium">
-                {task.dueDate ? 'Change deadline' : 'Set deadline'}
+                {task.dueDate || task.deferredTo ? 'Schedule & deadline' : 'Schedule or set deadline'}
               </span>
-            </button>
-          )}
-
-          {/* Defer Task - Only for incomplete tasks */}
-          {onDefer && !task.completed && (
-            <button
-              onClick={() => {
-                onDefer();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaCalendarPlus size={16} className="text-amber-500" />
-              <span className="text-sm font-medium">Defer task</span>
             </button>
           )}
 

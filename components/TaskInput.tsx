@@ -8,6 +8,7 @@ import RecurrenceChip from './RecurrenceChip';
 import RecurrenceBottomSheet from './RecurrenceBottomSheet';
 import { Recurrence } from '@/lib/types';
 import { parseRecurrenceFromText } from '@/utils/recurrence';
+import { getTodayString } from '@/utils/taskFilter';
 
 interface TaskInputProps {
   onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: Recurrence | null) => Promise<void>;
@@ -30,6 +31,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   const inputRef = externalInputRef || internalInputRef;
   const dateInputRef = useRef<HTMLInputElement>(null);
   const scheduleInputRef = useRef<HTMLInputElement>(null);
+  const scheduleTimeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Auto-focus on mount
@@ -120,20 +122,10 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value) {
-      setScheduledFor(value);
-    } else {
-      setScheduledFor(null);
-    }
-  };
-
   const clearSchedule = () => {
     setScheduledFor(null);
-    if (scheduleInputRef.current) {
-      scheduleInputRef.current.value = '';
-    }
+    if (scheduleInputRef.current) scheduleInputRef.current.value = '';
+    if (scheduleTimeRef.current) scheduleTimeRef.current.value = '';
   };
 
   const scheduleForTomorrow = () => {
@@ -357,16 +349,35 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                           </button>
                         </div>
                         
-                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date & time</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date (time optional)</div>
                         
-                        <input
-                          ref={scheduleInputRef}
-                          type="datetime-local"
-                          onChange={handleScheduleChange}
-                          min={getMinDateTime()}
-                          defaultValue={scheduledFor || ''}
-                          className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
-                        />
+                        <div className="space-y-2">
+                          <input
+                            ref={scheduleInputRef}
+                            type="date"
+                            min={getTodayString()}
+                            defaultValue={scheduledFor ? (scheduledFor.includes('T') ? scheduledFor.split('T')[0] : scheduledFor) : ''}
+                            onChange={(e) => {
+                              const dateVal = e.target.value;
+                              const timeVal = scheduleTimeRef.current?.value;
+                              setScheduledFor(dateVal ? (timeVal ? `${dateVal}T${timeVal}` : dateVal) : null);
+                            }}
+                            className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                          />
+                          <input
+                            ref={scheduleTimeRef}
+                            type="time"
+                            className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                            defaultValue={scheduledFor && scheduledFor.includes('T') ? scheduledFor.split('T')[1]?.slice(0, 5) : ''}
+                            onChange={(e) => {
+                              const timeVal = e.target.value;
+                              const dateVal = scheduleInputRef.current?.value;
+                              if (dateVal) {
+                                setScheduledFor(timeVal ? `${dateVal}T${timeVal}` : dateVal);
+                              }
+                            }}
+                          />
+                        </div>
                         {scheduledFor && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
                             {(() => {
@@ -374,14 +385,17 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                                 const dateTime = scheduledFor.includes('T') 
                                   ? new Date(scheduledFor) 
                                   : new Date(scheduledFor + 'T00:00:00');
-                                return dateTime.toLocaleDateString('en-US', { 
+                                const opts: Intl.DateTimeFormatOptions = { 
                                   weekday: 'short',
                                   month: 'short', 
-                                  day: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                });
+                                  day: 'numeric'
+                                };
+                                if (scheduledFor.includes('T')) {
+                                  opts.hour = 'numeric';
+                                  opts.minute = '2-digit';
+                                  opts.hour12 = true;
+                                }
+                                return dateTime.toLocaleDateString('en-US', opts);
                               } catch {
                                 return scheduledFor;
                               }

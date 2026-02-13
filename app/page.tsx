@@ -251,11 +251,11 @@ function MainApp() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    // Get incomplete tasks, apply tag filter, group by tag for display order
+    // Get incomplete tasks - use same filter as main list (includes scheduled tasks)
     const myTasks = tasks.filter(task => {
       if (task.userId !== uid) return false;
-      if (task.deferredTo && task.deferredTo > todayStr) return false;
-      return !task.completed;
+      if (task.deleted === true) return false;
+      return shouldShowInTodayView(task, todayStr) && !task.completed;
     });
     const filtered = activeTagFilters.length === 0
       ? myTasks
@@ -379,7 +379,7 @@ function MainApp() {
     }
   };
 
-  const handleDeferTask = (taskId: string, deferToDate: string) => {
+  const handleDeferTask = (taskId: string, deferToDate: string | null) => {
     const task = tasks.find((t) => t.id === taskId);
     deferTask(taskId, deferToDate, task);
   };

@@ -28,7 +28,7 @@ interface FriendTaskCardProps {
   onDelete: (taskId: string) => Promise<void>;
   onAddReaction: (taskId: string, emoji: string) => void;
   onOpenComments: (taskId: string) => void;
-  onDeferTask: (taskId: string, date: string) => void;
+  onDeferTask: (taskId: string, date: string | null) => void;
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onSendEncouragement?: (friendId: string, message: string) => Promise<void>;

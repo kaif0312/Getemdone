@@ -98,6 +98,9 @@ export const sendPushNotification = functions.firestore
         case 'bugReport':
           notificationBody = notification.message || 'You have a new notification';
           break;
+        case 'announcement':
+          notificationBody = notification.message || 'New app update';
+          break;
         default:
           notificationBody = notification.message || (fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification');
       }
@@ -106,7 +109,7 @@ export const sendPushNotification = functions.firestore
       let url = '/';
       if (taskId && notification.type === 'comment') {
         url = `/?taskId=${encodeURIComponent(taskId)}&openComments=1`;
-      } else if (notification.type === 'encouragement' || notification.type === 'bugReport') {
+      } else if (notification.type === 'encouragement' || notification.type === 'bugReport' || notification.type === 'announcement') {
         url = '/?openNotifications=1';
       }
 
@@ -230,6 +233,70 @@ export const cleanupOldFcmTokens = functions.pubsub
 
     return null;
   });
+
+/**
+ * Cloud Function: Send announcement to all users
+ *
+ * Callable - requires admin authentication
+ * Creates a notification for each user with the given title and message (e.g. features, bug fixes)
+ */
+export const sendAnnouncementToAllUsers = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const callerUid = context.auth.uid;
+  const title = data.title;
+  const message = data.message;
+
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'title is required');
+  }
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'message is required');
+  }
+
+  const callerDoc = await admin.firestore().collection('users').doc(callerUid).get();
+  if (!callerDoc.exists || callerDoc.data()?.isAdmin !== true) {
+    throw new functions.https.HttpsError('permission-denied', 'Only admins can send announcements');
+  }
+
+  const trimmedTitle = title.trim().substring(0, 200);
+  const trimmedMessage = message.trim().substring(0, 1000);
+
+  console.log(`[sendAnnouncementToAllUsers] Admin ${callerUid} sending to all users`);
+
+  const usersSnapshot = await admin.firestore().collection('users').get();
+  const notificationsRef = admin.firestore().collection('notifications');
+  const BATCH_SIZE = 500;
+  let batch = admin.firestore().batch();
+  let count = 0;
+
+  for (const userDoc of usersSnapshot.docs) {
+    const notificationData = {
+      userId: userDoc.id,
+      type: 'announcement',
+      title: trimmedTitle,
+      message: trimmedMessage,
+      createdAt: Date.now(),
+      read: false,
+    };
+    batch.set(notificationsRef.doc(), notificationData);
+    count++;
+
+    if (count % BATCH_SIZE === 0) {
+      await batch.commit();
+      batch = admin.firestore().batch();
+    }
+  }
+
+  if (count % BATCH_SIZE !== 0) {
+    await batch.commit();
+  }
+  console.log(`[sendAnnouncementToAllUsers] ✅ Sent to ${count} users`);
+
+  return { success: true, count };
+});
 
 /**
  * Cloud Function: Delete user account completely

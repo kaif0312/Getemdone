@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaTimes, FaBell, FaComment, FaCheck, FaClock, FaFire, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaBell, FaComment, FaCheck, FaClock, FaFire, FaTrash, FaBullhorn } from 'react-icons/fa';
 import { InAppNotification } from '@/lib/types';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useEncryption } from '@/hooks/useEncryption';
@@ -164,6 +164,8 @@ export default function NotificationsPanel({
         return <FaClock className="text-blue-500" size={18} />;
       case 'commitment':
         return <FaFire className="text-red-500" size={18} />;
+      case 'announcement':
+        return <FaBullhorn className="text-indigo-500" size={18} />;
       default:
         return <FaBell className="text-gray-500" size={18} />;
     }

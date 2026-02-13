@@ -22,7 +22,7 @@ export interface NotificationSettings {
 export interface InAppNotification {
   id: string;
   userId: string; // Who receives the notification
-  type: 'comment' | 'completion' | 'deadline' | 'commitment' | 'encouragement' | 'bugReport';
+  type: 'comment' | 'completion' | 'deadline' | 'commitment' | 'encouragement' | 'bugReport' | 'announcement';
   title: string;
   message: string;
   taskId?: string;

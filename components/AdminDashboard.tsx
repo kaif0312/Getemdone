@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
-import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage, FaBullhorn } from 'react-icons/fa';
 import { BugReport } from '@/lib/types';
 
 interface WhitelistEntry {
@@ -48,6 +48,9 @@ export default function AdminDashboard() {
   const [replyBugId, setReplyBugId] = useState<string | null>(null);
   const [replyStatus, setReplyStatus] = useState<BugReport['status'] | null>(null);
   const [adminReply, setAdminReply] = useState('');
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
 
   // Check if user is admin
   const isAdmin = userData?.isAdmin === true;
@@ -410,6 +413,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSendAnnouncement = async () => {
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      setError('Title and message are required');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    setSendingAnnouncement(true);
+    setError('');
+    setSuccess('');
+    try {
+      const sendAnnouncement = httpsCallable(functions, 'sendAnnouncementToAllUsers');
+      const result = await sendAnnouncement({
+        title: announcementTitle.trim(),
+        message: announcementMessage.trim(),
+      });
+      const data = result.data as { success: boolean; count: number };
+      setSuccess(`Announcement sent to ${data.count} users`);
+      setAnnouncementTitle('');
+      setAnnouncementMessage('');
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err: any) {
+      console.error('Error sending announcement:', err);
+      setError(err.message || 'Failed to send announcement');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSendingAnnouncement(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -448,6 +480,51 @@ export default function AdminDashboard() {
             {success}
           </div>
         )}
+
+        {/* Send Announcement Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <FaBullhorn className="text-indigo-500" />
+            Send Announcement to All Users
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Notify all users about new features, bug fixes, or updates. They will see this in their notifications.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+              <input
+                type="text"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+                placeholder="e.g. New features & bug fixes"
+                maxLength={200}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700"
+              />
+              <p className="text-xs text-gray-500 mt-1">{announcementTitle.length}/200</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
+              <textarea
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                placeholder="e.g. • Recurring tasks - set daily, weekdays, or custom schedules&#10;• Improved notification display with sender names&#10;• Bug fixes for friend list scrolling"
+                maxLength={1000}
+                rows={5}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white bg-white dark:bg-gray-700 resize-y"
+              />
+              <p className="text-xs text-gray-500 mt-1">{announcementMessage.length}/1000</p>
+            </div>
+            <button
+              onClick={handleSendAnnouncement}
+              disabled={sendingAnnouncement || !announcementTitle.trim() || !announcementMessage.trim()}
+              className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {sendingAnnouncement ? <FaSpinner className="animate-spin" /> : <FaBullhorn />}
+              Send to {allUsers.length} users
+            </button>
+          </div>
+        </div>
 
         {/* Add Email Section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">

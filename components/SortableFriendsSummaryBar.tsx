@@ -83,7 +83,7 @@ function SortableFriendCard({
             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }
         `}
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'pan-x' }}
         onPointerDown={() => {
           if ('vibrate' in navigator) navigator.vibrate(25);
         }}
@@ -159,7 +159,7 @@ export default function SortableFriendsSummaryBar({
       activationConstraint: { distance: 5 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 6 },
+      activationConstraint: { delay: 250, tolerance: 12 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -184,7 +184,14 @@ export default function SortableFriendsSummaryBar({
   return (
     <div className="sticky top-[73px] md:top-[81px] z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="max-w-3xl mx-auto px-4 py-2">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
+        <div
+          className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            scrollBehavior: 'smooth',
+            overscrollBehaviorX: 'contain',
+          }}
+        >
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={friends.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
               <div className="flex items-center gap-2 min-w-max">

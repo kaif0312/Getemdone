@@ -101,7 +101,7 @@ self.addEventListener('notificationclick', (event) => {
     const type = data.type;
     if (taskId && type === 'comment') {
       urlToOpen = `/?taskId=${encodeURIComponent(taskId)}&openComments=1`;
-    } else if (type === 'encouragement' || type === 'bugReport') {
+    } else if (type === 'encouragement' || type === 'bugReport' || type === 'announcement') {
       urlToOpen = '/?openNotifications=1';
     }
   }

@@ -91,7 +91,12 @@
 
     try {
       const keys = await getKeysFromIndexedDB();
-      if (!keys || !keys.friendKeys || !keys.friendKeys[fromUserId]) {
+      if (!keys) {
+        console.warn('[sw-crypto] No keys in IndexedDB - open app to persist keys');
+        return null;
+      }
+      if (!keys.friendKeys || !keys.friendKeys[fromUserId]) {
+        console.warn('[sw-crypto] No friend key for fromUserId:', fromUserId, '- have keys for:', keys.friendKeys ? Object.keys(keys.friendKeys) : []);
         return null;
       }
       const friendKeyData = keys.friendKeys[fromUserId];
@@ -103,14 +108,16 @@
       if (encryptedTaskText) {
         try {
           taskText = await decrypt(encryptedTaskText, key);
-        } catch {
+        } catch (e) {
+          console.warn('[sw-crypto] Task decrypt failed:', e);
           taskText = '';
         }
       }
       if (encryptedCommentText) {
         try {
           commentText = await decrypt(encryptedCommentText, key);
-        } catch {
+        } catch (e) {
+          console.warn('[sw-crypto] Comment decrypt failed:', e);
           commentText = '';
         }
       }

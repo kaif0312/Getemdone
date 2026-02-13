@@ -41,10 +41,14 @@ export const sendPushNotification = functions.firestore
 
       console.log(`[sendPushNotification] Found FCM token for user ${notification.userId}`);
 
-      // Content may be encrypted (e1: prefix) - SW will decrypt in browser; use generic body if so
+      // Match app's isEncrypted: e1: prefix OR legacy base64 (avoids ever sending ciphertext in body)
       const taskText = (notification as any).taskText || '';
       const commentText = notification.commentText || '';
-      const isEncrypted = (s: string) => s && s.startsWith('e1:');
+      const isEncrypted = (s: string) => {
+        if (!s || typeof s !== 'string') return false;
+        if (s.startsWith('e1:')) return true;
+        return s.length >= 36 && /^[A-Za-z0-9+/]+=*$/.test(s);
+      };
 
       let notificationBody = notification.message;
       if (notification.type === 'comment' && commentText) {
@@ -58,12 +62,10 @@ export const sendPushNotification = functions.firestore
         notificationBody = isEncrypted(commentText) ? 'You have a new notification' : commentText;
       }
 
+      // Data-only message: prevents Firebase SDK from auto-showing notification.
+      // Our SW has full control to decrypt and show decrypted content or fallback.
       const message: admin.messaging.Message = {
         token: fcmToken,
-        notification: {
-          title: notification.title,
-          body: notificationBody,
-        },
         data: {
           notificationId: notificationId,
           type: notification.type,
@@ -73,6 +75,8 @@ export const sendPushNotification = functions.firestore
           taskText: taskText,
           commentText: commentText,
           bugReportId: (notification as any).bugReportId || '',
+          title: notification.title,
+          body: notificationBody,
         },
         webpush: {
           notification: {

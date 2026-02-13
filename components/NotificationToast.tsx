@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { FaBell, FaCheckCircle, FaClock, FaFire, FaUserFriends, FaTimes } from 'react-icons/fa';
+import LinkifyText from './LinkifyText';
 
 export interface ToastNotification {
   id: string;
@@ -77,7 +78,7 @@ export default function NotificationToast({ notifications, onDismiss }: Notifica
                 {notif.title}
               </h4>
               <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                {notif.message}
+                <LinkifyText text={notif.message} linkClassName="text-blue-600 dark:text-blue-400" />
               </p>
             </div>
             <button

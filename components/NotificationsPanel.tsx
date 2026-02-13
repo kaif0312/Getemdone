@@ -7,6 +7,7 @@ import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDo
 import { useEncryption } from '@/hooks/useEncryption';
 import { isEncrypted } from '@/utils/crypto';
 import { db } from '@/lib/firebase';
+import LinkifyText from './LinkifyText';
 
 interface NotificationsPanelProps {
   isOpen: boolean;
@@ -237,10 +238,10 @@ export default function NotificationsPanel({
                           <div className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
                             {notification.type === 'comment' && notification.commentText ? (
                               <>
-                                <span>"{notification.commentText}"</span>
+                                <span>"<LinkifyText text={notification.commentText} linkClassName="text-blue-600 dark:text-blue-400" />"</span>
                                 {notification.taskText && (
                                   <span className="block text-xs text-gray-500 dark:text-gray-500 mt-1 italic truncate">
-                                    on "{notification.taskText}"
+                                    on "<LinkifyText text={notification.taskText} linkClassName="text-blue-600 dark:text-blue-400" />"
                                   </span>
                                 )}
                               </>
@@ -250,11 +251,11 @@ export default function NotificationsPanel({
                                   💬 Admin Reply:
                                 </div>
                                 <div className="text-sm text-gray-800 dark:text-gray-200">
-                                  {notification.message}
+                                  <LinkifyText text={notification.message} linkClassName="text-blue-600 dark:text-blue-400" />
                                 </div>
                               </div>
                             ) : (
-                              notification.message
+                              notification.message ? <LinkifyText text={notification.message} linkClassName="text-blue-600 dark:text-blue-400" /> : null
                             )}
                           </div>
                         </div>

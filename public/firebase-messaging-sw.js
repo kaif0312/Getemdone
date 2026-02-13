@@ -32,7 +32,7 @@ messaging.onBackgroundMessage(async (payload) => {
   const notificationId = data.notificationId || '';
   const type = data.type || 'default';
   
-  // Decrypt if content is encrypted (e1: prefix)
+  // Decrypt if content is encrypted (e1: prefix or base64)
   if (typeof self.decryptNotificationContent === 'function' && fromUserId) {
     const encTask = taskText && self.isEncrypted && self.isEncrypted(taskText) ? taskText : '';
     const encComment = commentText && self.isEncrypted && self.isEncrypted(commentText) ? commentText : '';
@@ -42,6 +42,9 @@ messaging.onBackgroundMessage(async (payload) => {
         if (decrypted) {
           if (decrypted.taskText) taskText = decrypted.taskText;
           if (decrypted.commentText) commentText = decrypted.commentText;
+          console.log('[firebase-messaging-sw.js] Decryption succeeded for fromUserId:', fromUserId);
+        } else {
+          console.warn('[firebase-messaging-sw.js] Decryption returned null (no keys for fromUserId):', fromUserId);
         }
       } catch (err) {
         console.warn('[firebase-messaging-sw.js] Decrypt failed:', err);
@@ -77,7 +80,9 @@ messaging.onBackgroundMessage(async (payload) => {
   }
   
   // Format notification body - never show ciphertext
-  let notificationBody = payload.notification?.body || 'You have a new update';
+  // Data-only messages: title/body come from payload.data (no payload.notification)
+  const fallbackBody = data.body || payload.notification?.body || 'You have a new update';
+  let notificationBody = fallbackBody;
   const stillEncrypted = (s) => s && typeof s === 'string' && (
     s.startsWith('e1:') || (s.length >= 30 && /^[A-Za-z0-9+/]+=*$/.test(s))
   );
@@ -88,7 +93,7 @@ messaging.onBackgroundMessage(async (payload) => {
     notificationBody = fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification';
   }
   
-  const notificationTitle = payload.notification?.title || 'New Notification';
+  const notificationTitle = data.title || payload.notification?.title || 'New Notification';
   
   console.log('[firebase-messaging-sw.js] Showing notification with tag:', tag);
   

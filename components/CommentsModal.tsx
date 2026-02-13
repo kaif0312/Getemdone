@@ -5,6 +5,7 @@ import { Comment, TaskWithUser } from '@/lib/types';
 import { FaTimes, FaPaperPlane, FaComment } from 'react-icons/fa';
 import CommentReactionPicker from './CommentReactionPicker';
 import Avatar from './Avatar';
+import LinkifyText from './LinkifyText';
 
 interface CommentsModalProps {
   isOpen: boolean;
@@ -275,7 +276,7 @@ export default function CommentsModal({
                             </div>
                           )}
                           <p className="text-sm whitespace-pre-wrap break-words">
-                            {comment.text}
+                            <LinkifyText text={comment.text} linkClassName="text-inherit" />
                           </p>
                         </div>
                         

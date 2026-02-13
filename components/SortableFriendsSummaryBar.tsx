@@ -84,9 +84,7 @@ function SortableFriendCard({
           }
         `}
         style={{ touchAction: 'pan-x' }}
-        onPointerDown={() => {
-          if ('vibrate' in navigator) navigator.vibrate(25);
-        }}
+        title="Tap to select, hold to reorder"
       >
         {friend.photoURL ? (
           <Avatar
@@ -159,7 +157,7 @@ export default function SortableFriendsSummaryBar({
       activationConstraint: { distance: 5 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 12 },
+      activationConstraint: { delay: 450, tolerance: 25 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,

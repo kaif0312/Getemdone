@@ -41,42 +41,50 @@ export const sendPushNotification = functions.firestore
 
       console.log(`[sendPushNotification] Found FCM token for user ${notification.userId}`);
 
-      // Match app's isEncrypted: e1: prefix OR legacy base64 (avoids ever sending ciphertext in body)
+      // Option B: Always use generic messages. Content is decrypted in-app only.
       const taskText = (notification as any).taskText || '';
       const commentText = notification.commentText || '';
-      const isEncrypted = (s: string) => {
-        if (!s || typeof s !== 'string') return false;
-        if (s.startsWith('e1:')) return true;
-        return s.length >= 36 && /^[A-Za-z0-9+/]+=*$/.test(s);
-      };
+      const taskId = notification.taskId || '';
+      const fromUserName = notification.fromUserName || '';
 
-      let notificationBody = notification.message;
-      if (notification.type === 'comment' && commentText) {
-        if (isEncrypted(commentText) || isEncrypted(taskText)) {
-          notificationBody = 'You have a new notification'; // SW decrypts and shows real content
-        } else {
-          const taskContext = taskText ? ` on "${taskText}"` : '';
-          notificationBody = `${notification.fromUserName}: "${commentText}"${taskContext}`;
-        }
-      } else if (notification.type === 'encouragement' && commentText) {
-        notificationBody = isEncrypted(commentText) ? 'You have a new notification' : commentText;
+      let notificationBody: string;
+      switch (notification.type) {
+        case 'comment':
+          // Use stored message (e.g. "X commented on your task" or "X reacted emoji to your comment")
+          notificationBody = notification.message || (fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification');
+          break;
+        case 'encouragement':
+          notificationBody = fromUserName ? `${fromUserName} sent you encouragement` : 'You have new encouragement';
+          break;
+        case 'bugReport':
+          notificationBody = notification.message || 'You have a new notification';
+          break;
+        default:
+          notificationBody = notification.message || (fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification');
       }
 
-      // Data-only message: prevents Firebase SDK from auto-showing notification.
-      // Our SW has full control to decrypt and show decrypted content or fallback.
+      // URL for notification click - open relevant view in app
+      let url = '/';
+      if (taskId && notification.type === 'comment') {
+        url = `/?taskId=${encodeURIComponent(taskId)}&openComments=1`;
+      } else if (notification.type === 'encouragement' || notification.type === 'bugReport') {
+        url = '/?openNotifications=1';
+      }
+
       const message: admin.messaging.Message = {
         token: fcmToken,
         data: {
           notificationId: notificationId,
           type: notification.type,
-          taskId: notification.taskId || '',
+          taskId: taskId,
           fromUserId: notification.fromUserId || '',
-          fromUserName: notification.fromUserName || '',
+          fromUserName: fromUserName,
           taskText: taskText,
           commentText: commentText,
           bugReportId: (notification as any).bugReportId || '',
           title: notification.title,
           body: notificationBody,
+          url: url,
         },
         webpush: {
           notification: {

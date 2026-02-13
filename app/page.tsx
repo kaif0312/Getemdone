@@ -12,7 +12,7 @@ import TaskItem from '@/components/TaskItem';
 import SortableTaskItem from '@/components/SortableTaskItem';
 import FriendsModal from '@/components/FriendsModal';
 import FriendTaskCard from '@/components/FriendTaskCard';
-import FriendsSummaryBar from '@/components/FriendsSummaryBar';
+import SortableFriendsSummaryBar from '@/components/SortableFriendsSummaryBar';
 import StreakCalendar from '@/components/StreakCalendar';
 import RecycleBin from '@/components/RecycleBin';
 import CommentsModal from '@/components/CommentsModal';
@@ -44,6 +44,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
+import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
 import { groupTasksByTag } from '@/utils/taskGrouping';
 import SortableTagBar from '@/components/SortableTagBar';
 
@@ -105,6 +106,7 @@ function MainApp() {
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<string | null>(null);
+  const [hasHandledNotificationOpen, setHasHandledNotificationOpen] = useState(false);
   const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
   const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
   const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
@@ -117,6 +119,24 @@ function MainApp() {
   useEffect(() => {
     saveTagOrder(tagOrder);
   }, [tagOrder]);
+
+  // Open comments or notifications when arriving from notification click
+  useEffect(() => {
+    if (hasHandledNotificationOpen || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get('taskId');
+    const openComments = params.get('openComments');
+    const openNotifications = params.get('openNotifications');
+    if (taskId && openComments === '1') {
+      setSelectedTaskForComments(taskId);
+      setHasHandledNotificationOpen(true);
+      router.replace('/', { scroll: false });
+    } else if (openNotifications === '1') {
+      setShowNotificationsPanel(true);
+      setHasHandledNotificationOpen(true);
+      router.replace('/', { scroll: false });
+    }
+  }, [router, hasHandledNotificationOpen]);
 
   // Notification system
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
@@ -138,6 +158,7 @@ function MainApp() {
   const unreadNotifications = useUnreadNotifications(uid);
 
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const [friendOrder, setFriendOrder] = useState<string[]>([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
   
   const onboarding = useOnboarding();
@@ -310,17 +331,33 @@ function MainApp() {
     return Object.entries(tasksByUser);
   }, [uid, tasks]);
 
+  // Apply saved friend order - friendEntriesOrdered is used for both summary bar and task cards
+  const friendEntriesOrdered = useMemo(() => {
+    if (friendEntries.length === 0) return [];
+    const friendIds = friendEntries.map(([id]) => id);
+    const orderedIds = mergeFriendOrder(friendIds, friendOrder);
+    const entriesMap = new Map(friendEntries);
+    return orderedIds
+      .filter((id) => entriesMap.has(id))
+      .map((id) => [id, entriesMap.get(id)!] as [string, typeof tasks]);
+  }, [friendEntries, friendOrder]);
+
+  // Load friend order from localStorage on mount
+  useEffect(() => {
+    setFriendOrder(loadFriendOrder());
+  }, []);
+
   // Smart defaults: Expand first 2-3 friends by default (only on first load, not after manual interaction)
   useEffect(() => {
-    if (!hasManuallyInteracted && expandedFriends.size === 0 && friendEntries.length > 0) {
+    if (!hasManuallyInteracted && expandedFriends.size === 0 && friendEntriesOrdered.length > 0) {
       const defaultExpanded = new Set<string>();
-      const maxDefault = Math.min(3, friendEntries.length);
+      const maxDefault = Math.min(3, friendEntriesOrdered.length);
       for (let i = 0; i < maxDefault; i++) {
-        defaultExpanded.add(friendEntries[i][0]);
+        defaultExpanded.add(friendEntriesOrdered[i][0]);
       }
       setExpandedFriends(defaultExpanded);
     }
-  }, [friendEntries.length, expandedFriends.size, hasManuallyInteracted]);
+  }, [friendEntriesOrdered.length, expandedFriends.size, hasManuallyInteracted]);
 
   const handleToggleComplete = async (taskId: string, completed: boolean) => {
     await toggleComplete(taskId, completed);
@@ -1074,7 +1111,7 @@ function MainApp() {
             })()}
 
             {/* Friends' Tasks - Hybrid Approach */}
-            {friendEntries.length > 0 && (() => {
+            {friendEntriesOrdered.length > 0 && (() => {
               
               const colors = [
                 { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
@@ -1093,8 +1130,8 @@ function MainApp() {
                 friendPhotoURLMap.set(friend.id, friend.photoURL);
               });
 
-              // Prepare friend summaries for the bar
-              const friendSummaries = friendEntries.map(([userId, userTasks]) => {
+              // Prepare friend summaries for the bar (order matches friendEntriesOrdered)
+              const friendSummaries = friendEntriesOrdered.map(([userId, userTasks]) => {
                 const friendName = userTasks[0]?.userName || 'Unknown';
                 const publicTasks = userTasks.filter(t => !t.isPrivate);
                 const privateTasks = userTasks.filter(t => t.isPrivate);
@@ -1122,16 +1159,20 @@ function MainApp() {
 
               return (
                 <>
-                  {/* Friends Summary Bar */}
-                  <FriendsSummaryBar
+                  {/* Friends Summary Bar - draggable to reorder */}
+                  <SortableFriendsSummaryBar
                     friends={friendSummaries}
                     activeFriendId={activeFriendId}
                     onFriendClick={handleFriendClick}
+                    onReorder={(newOrder) => {
+                      saveFriendOrder(newOrder);
+                      setFriendOrder(newOrder);
+                    }}
                   />
 
-                  {/* Friends' Task Cards */}
+                  {/* Friends' Task Cards - order matches summary bar */}
                   <div className="mb-6">
-                    {friendEntries.map(([userId, userTasks]) => {
+                    {friendEntriesOrdered.map(([userId, userTasks]) => {
                       const friendName = userTasks[0]?.userName || 'Unknown';
                       const privateTasks = userTasks.filter(t => t.isPrivate);
                       const publicTasks = userTasks.filter(t => !t.isPrivate);
@@ -1183,7 +1224,7 @@ function MainApp() {
                     })}
 
                     {/* Show All / Collapse All Button */}
-                    {friendEntries.length > 3 && (
+                    {friendEntriesOrdered.length > 3 && (
                       <div className="flex justify-center mt-4">
                         <button
                           onClick={() => {
@@ -1191,9 +1232,9 @@ function MainApp() {
                               setShowAllFriends(false);
                               // Restore default expanded state
                               const defaultExpanded = new Set<string>();
-                              const maxDefault = Math.min(3, friendEntries.length);
+                              const maxDefault = Math.min(3, friendEntriesOrdered.length);
                               for (let i = 0; i < maxDefault; i++) {
-                                defaultExpanded.add(friendEntries[i][0]);
+                                defaultExpanded.add(friendEntriesOrdered[i][0]);
                               }
                               setExpandedFriends(defaultExpanded);
                               // Clear collapsed set when turning off "Show All"
@@ -1207,7 +1248,7 @@ function MainApp() {
                           }}
                           className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm"
                         >
-                          {showAllFriends ? 'Collapse All' : `Show All (${friendEntries.length} friends)`}
+                          {showAllFriends ? 'Collapse All' : `Show All (${friendEntriesOrdered.length} friends)`}
                         </button>
                       </div>
                     )}

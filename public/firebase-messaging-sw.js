@@ -3,7 +3,6 @@
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-importScripts('/sw-crypto.js');
 
 // Initialize Firebase in the service worker
 firebase.initializeApp({
@@ -25,32 +24,12 @@ messaging.onBackgroundMessage(async (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const data = payload.data || {};
-  let commentText = data.commentText || '';
-  let taskText = data.taskText || '';
   const fromUserName = data.fromUserName || '';
-  const fromUserId = data.fromUserId || '';
   const notificationId = data.notificationId || '';
   const type = data.type || 'default';
   
-  // Decrypt if content is encrypted (e1: prefix or base64)
-  if (typeof self.decryptNotificationContent === 'function' && fromUserId) {
-    const encTask = taskText && self.isEncrypted && self.isEncrypted(taskText) ? taskText : '';
-    const encComment = commentText && self.isEncrypted && self.isEncrypted(commentText) ? commentText : '';
-    if (encTask || encComment) {
-      try {
-        const decrypted = await self.decryptNotificationContent(encTask, encComment, fromUserId);
-        if (decrypted) {
-          if (decrypted.taskText) taskText = decrypted.taskText;
-          if (decrypted.commentText) commentText = decrypted.commentText;
-          console.log('[firebase-messaging-sw.js] Decryption succeeded for fromUserId:', fromUserId);
-        } else {
-          console.warn('[firebase-messaging-sw.js] Decryption returned null (no keys for fromUserId):', fromUserId);
-        }
-      } catch (err) {
-        console.warn('[firebase-messaging-sw.js] Decrypt failed:', err);
-      }
-    }
-  }
+  // Option B: Always use generic message - no SW decryption. Click opens app to task comments.
+  // Body comes from Cloud Function (e.g. "X commented on your task")
   
   // Create unique tag for this notification
   const tag = notificationId ? `${type}-${notificationId}` : `${type}-${Date.now()}`;
@@ -79,20 +58,8 @@ messaging.onBackgroundMessage(async (payload) => {
     shownNotifications.delete(firstTag);
   }
   
-  // Format notification body - never show ciphertext
-  // Data-only messages: title/body come from payload.data (no payload.notification)
-  const fallbackBody = data.body || payload.notification?.body || 'You have a new update';
-  let notificationBody = fallbackBody;
-  const stillEncrypted = (s) => s && typeof s === 'string' && (
-    s.startsWith('e1:') || (s.length >= 30 && /^[A-Za-z0-9+/]+=*$/.test(s))
-  );
-  if (commentText && fromUserName && !stillEncrypted(commentText) && !stillEncrypted(taskText)) {
-    const taskSuffix = taskText ? ` on "${taskText}"` : '';
-    notificationBody = `${fromUserName}: "${commentText}"${taskSuffix}`;
-  } else if (stillEncrypted(commentText) || stillEncrypted(taskText)) {
-    notificationBody = fromUserName ? `${fromUserName} sent you a message` : 'You have a new notification';
-  }
-  
+  // Use body from Cloud Function (generic "X commented on your task" for comment type)
+  const notificationBody = data.body || payload.notification?.body || 'You have a new update';
   const notificationTitle = data.title || payload.notification?.title || 'New Notification';
   
   console.log('[firebase-messaging-sw.js] Showing notification with tag:', tag);
@@ -121,25 +88,35 @@ messaging.onBackgroundMessage(async (payload) => {
     });
 });
 
-// Handle notification clicks
+// Handle notification clicks - open app, optionally to task with comments
 self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification clicked', event);
   
   event.notification.close();
   
-  // Navigate to the app or specific task
-  const urlToOpen = event.notification.data?.url || '/';
+  const data = event.notification.data || {};
+  let urlToOpen = data.url || '/';
+  if (!urlToOpen || urlToOpen === '/') {
+    const taskId = data.taskId;
+    const type = data.type;
+    if (taskId && type === 'comment') {
+      urlToOpen = `/?taskId=${encodeURIComponent(taskId)}&openComments=1`;
+    } else if (type === 'encouragement' || type === 'bugReport') {
+      urlToOpen = '/?openNotifications=1';
+    }
+  }
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if app is already open
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          if (client.navigate) {
+            return client.navigate(urlToOpen).then(() => client.focus());
+          }
           return client.focus();
         }
       }
-      // If not, open new window
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }

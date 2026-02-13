@@ -1594,7 +1594,7 @@ export function useTasks() {
           userId: friendId,
           type: 'encouragement',
           title: `💪 ${userData.displayName} sent you encouragement!`,
-          message: message,
+          message: `${userData.displayName} sent you encouragement`,
           fromUserId: user.uid,
           fromUserName: userData.displayName,
           commentText: commentTextToStore,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
 import { FaTimes, FaPaperPlane, FaComment } from 'react-icons/fa';
 import CommentReactionPicker from './CommentReactionPicker';
@@ -37,7 +37,16 @@ export default function CommentsModal({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Smart auto-scroll: only scroll if user is already near the bottom
+  // Scroll to bottom when modal opens - useLayoutEffect runs before paint so no visible transition
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [isOpen, task.id, task.comments?.length]);
+
+  // Smart auto-scroll when new comments arrive: only scroll if user is already near the bottom
   useEffect(() => {
     if (!isOpen || !commentsEndRef.current || !scrollContainerRef.current) return;
     
@@ -53,8 +62,6 @@ export default function CommentsModal({
     if (isNearBottom) {
       commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    // If user scrolled up, new messages appear but don't force scroll
-    
   }, [task.comments, isOpen]);
 
   // Focus input when modal opens

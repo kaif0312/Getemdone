@@ -13,6 +13,7 @@ interface TaskContextMenuProps {
   onEdit?: () => void;
   onSetDeadline?: () => void;
   onDefer?: () => void;
+  onSetRecurrence?: () => void;
   onToggleNotes?: () => void;
   onToggleCommitment?: () => void;
   onTogglePrivacy?: () => void;
@@ -20,6 +21,8 @@ interface TaskContextMenuProps {
   hasNotes?: boolean;
   isCommitted?: boolean;
   isPrivate?: boolean;
+  /** When true, show Set recurrence even for completed tasks (e.g. calendar view) */
+  showRecurrenceForCompleted?: boolean;
 }
 
 export default function TaskContextMenu({
@@ -31,6 +34,7 @@ export default function TaskContextMenu({
   onEdit,
   onSetDeadline,
   onDefer,
+  onSetRecurrence,
   onToggleNotes,
   onToggleCommitment,
   onTogglePrivacy,
@@ -38,6 +42,7 @@ export default function TaskContextMenu({
   hasNotes = false,
   isCommitted = false,
   isPrivate = false,
+  showRecurrenceForCompleted = false,
 }: TaskContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -135,6 +140,22 @@ export default function TaskContextMenu({
             >
               <FaCalendarPlus size={16} className="text-amber-500" />
               <span className="text-sm font-medium">Defer task</span>
+            </button>
+          )}
+
+          {/* Set Recurrence - For incomplete tasks, or completed when in calendar view */}
+          {onSetRecurrence && (!task.completed || showRecurrenceForCompleted) && (
+            <button
+              onClick={() => {
+                onSetRecurrence();
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <span className="text-base">🔁</span>
+              <span className="text-sm font-medium">
+                {task.recurrence ? 'Change recurrence' : 'Set recurrence'}
+              </span>
             </button>
           )}
 

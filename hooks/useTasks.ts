@@ -815,7 +815,7 @@ export function useTasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, userDataId, stableFriendsKey, setupKey]); // setupKey already includes reconnectTrigger via useMemo
 
-  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, tags?: string[]) => {
+  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null, tags?: string[]) => {
     if (!user) return;
 
     // Get current max order for user's tasks
@@ -837,6 +837,9 @@ export function useTasks() {
       }
     }
 
+    const today = new Date();
+    const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     const newTask = {
       userId: user.uid,
       text: encryptedText,
@@ -849,6 +852,7 @@ export function useTasks() {
       deleted: false, // Explicitly set deleted to false
       ...(dueDate && { dueDate }), // Only include if set
       ...(scheduledFor && { deferredTo: scheduledFor }), // Schedule task for future date
+      ...(recurrence && { recurrence: { ...recurrence, startDate: recurrence.startDate || startDate, completedDates: [], skippedDates: [] } }),
       ...(tags && tags.length > 0 && { tags }), // Emoji tags from active filter when adding
     };
     
@@ -867,8 +871,29 @@ export function useTasks() {
     }
   };
 
-  const toggleComplete = async (taskId: string, completed: boolean) => {
+  const toggleComplete = async (taskId: string, completed: boolean, task?: Task, dateStr?: string) => {
     const taskRef = doc(db, 'tasks', taskId);
+
+    // Recurring tasks: add date to completedDates when completing
+    if (task?.recurrence && completed) {
+      const today = new Date();
+      const targetStr = dateStr ?? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const completedDates = [...(task.recurrence.completedDates || []), targetStr];
+      await updateDoc(taskRef, {
+        recurrence: { ...task.recurrence, completedDates },
+      });
+      return;
+    }
+
+    // Recurring tasks: remove date from completedDates when uncompleting (e.g. from calendar)
+    if (task?.recurrence && !completed && dateStr) {
+      const completedDates = (task.recurrence.completedDates || []).filter(d => d !== dateStr);
+      await updateDoc(taskRef, {
+        recurrence: { ...task.recurrence, completedDates },
+      });
+      return;
+    }
+
     await updateDoc(taskRef, {
       completed,
       completedAt: completed ? Date.now() : null,
@@ -964,6 +989,43 @@ export function useTasks() {
     }
     const taskRef = doc(db, 'tasks', taskId);
     await updateDoc(taskRef, { tags });
+  };
+
+  const updateTaskRecurrence = async (taskId: string, recurrence: import('@/lib/types').Recurrence | null, completedDateStr?: string) => {
+    if (!user) return;
+    const taskRef = doc(db, 'tasks', taskId);
+    const taskDoc = await getDoc(taskRef);
+    const existing = taskDoc.exists() ? (taskDoc.data() as Task) : null;
+    const today = new Date();
+    const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (recurrence) {
+      let completedDates = existing?.recurrence?.completedDates ?? [];
+      // Converting completed task to recurring: add completion date to completedDates
+      if (completedDateStr || (existing?.completed && existing?.completedAt)) {
+        const dateToAdd = completedDateStr ?? (() => {
+          const d = new Date(existing!.completedAt!);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        })();
+        if (!completedDates.includes(dateToAdd)) {
+          completedDates = [...completedDates, dateToAdd];
+        }
+      }
+      const updateData: Record<string, unknown> = {
+        recurrence: {
+          ...recurrence,
+          startDate: recurrence.startDate || startDate,
+          completedDates,
+          skippedDates: existing?.recurrence?.skippedDates ?? [],
+        },
+      };
+      if (completedDateStr || (existing?.completed && existing?.completedAt)) {
+        updateData.completed = false;
+        updateData.completedAt = null;
+      }
+      await updateDoc(taskRef, updateData);
+    } else {
+      await updateDoc(taskRef, { recurrence: null });
+    }
   };
 
   const recordRecentlyUsedTag = async (emoji: string) => {
@@ -1294,15 +1356,19 @@ export function useTasks() {
               taskTextToStore = plainTaskText ? plainTaskText.substring(0, 50) : '';
               commentTextToStore = plainCommentText ? plainCommentText.substring(0, 150) : '';
             }
+            const fromName = userData.displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'A friend';
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[addCommentReaction] Notification fromName:', fromName, '| userData.displayName:', userData.displayName);
+            }
             const notificationData = {
               userId: commentOwnerId,
               type: 'comment',
-              title: `${emoji} ${userData.displayName} reacted to your comment`,
-              message: `${userData.displayName} reacted ${emoji} to your comment`,
+              title: `${emoji} ${fromName} reacted to your comment`,
+              message: `${fromName} reacted ${emoji} to your comment`,
               taskId: taskId,
               taskText: taskTextToStore,
               fromUserId: user.uid,
-              fromUserName: userData.displayName,
+              fromUserName: fromName,
               commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
@@ -1436,20 +1502,24 @@ export function useTasks() {
               commentTextToStore = text.substring(0, 150);
             }
 
+            const fromName = userData.displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'A friend';
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[addComment] Notification fromName:', fromName, '| userData.displayName:', userData.displayName);
+            }
             const notificationData = {
               userId: task.userId,
               type: 'comment',
-              title: `💬 ${userData.displayName} commented`,
-              message: `${userData.displayName} commented on your task`,
+              title: `💬 ${fromName} commented`,
+              message: `${fromName} commented on your task`,
               taskId: taskId,
               taskText: taskTextToStore,
               fromUserId: user.uid,
-              fromUserName: userData.displayName,
+              fromUserName: fromName,
               commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
             };
-            console.log('[addComment] Creating notification:', notificationData);
+            console.log('[addComment] Creating notification:', { ...notificationData, commentText: '[encrypted]', taskText: taskTextToStore ? '[encrypted]' : '' });
             
             await addDoc(collection(db, 'notifications'), notificationData);
             console.log('[addComment] ✅ Notification created successfully for task owner');
@@ -1469,10 +1539,22 @@ export function useTasks() {
     }
   };
 
-  const deferTask = async (taskId: string, deferToDate: string) => {
+  const deferTask = async (taskId: string, deferToDate: string, task?: Task) => {
     if (!user) return;
 
     const taskRef = doc(db, 'tasks', taskId);
+
+    // Recurring tasks: skip today's instance (add to skippedDates) - doesn't break streak
+    if (task?.recurrence) {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const skippedDates = [...(task.recurrence.skippedDates || []), todayStr];
+      await updateDoc(taskRef, {
+        recurrence: { ...task.recurrence, skippedDates },
+      });
+      return;
+    }
+
     await updateDoc(taskRef, {
       deferredTo: deferToDate,
       completed: false,
@@ -1582,6 +1664,10 @@ export function useTasks() {
       
       // Check if friend has encouragement notifications enabled
       if (friendData.notificationSettings?.enabled && friendData.notificationSettings?.friendEncouragement !== false) {
+        const fromName = userData.displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'A friend';
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[sendEncouragement] Notification fromName:', fromName, '| userData.displayName:', userData.displayName);
+        }
         let commentTextToStore = message;
         if (encryptionInitialized) {
           try {
@@ -1593,10 +1679,10 @@ export function useTasks() {
         const notificationData = {
           userId: friendId,
           type: 'encouragement',
-          title: `💪 ${userData.displayName} sent you encouragement!`,
-          message: `${userData.displayName} sent you encouragement`,
+          title: `💪 ${fromName} sent you encouragement!`,
+          message: `${fromName} sent you encouragement`,
           fromUserId: user.uid,
-          fromUserName: userData.displayName,
+          fromUserName: fromName,
           commentText: commentTextToStore,
           createdAt: Date.now(),
           read: false,
@@ -1641,5 +1727,6 @@ export function useTasks() {
     updateTaskTags,
     recordRecentlyUsedTag,
     updateTaskSubtasks,
+    updateTaskRecurrence,
   };
 }

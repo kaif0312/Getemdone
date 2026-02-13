@@ -103,6 +103,18 @@ export interface BugReport {
   adminNotes?: string;
 }
 
+/** Recurrence: template spawns fresh instance each scheduled day */
+export interface Recurrence {
+  frequency: 'daily' | 'weekdays' | 'weekly' | 'custom';
+  /** For weekly/custom: 0=Sun, 1=Mon, ... 6=Sat */
+  days?: number[];
+  startDate: string; // YYYY-MM-DD
+  /** Dates when user completed this recurring task */
+  completedDates?: string[];
+  /** Dates when user deferred/skipped today's instance */
+  skippedDates?: string[];
+}
+
 export interface Task {
   id: string;
   userId: string;
@@ -128,6 +140,8 @@ export interface Task {
   tags?: string[];
   /** Subtasks (one level only, no sub-subtasks) */
   subtasks?: Subtask[];
+  /** Recurrence: template spawns instance each scheduled day */
+  recurrence?: Recurrence;
 }
 
 export interface TaskWithUser extends Task {

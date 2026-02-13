@@ -8,6 +8,7 @@ import EmojiPicker from './EmojiPicker';
 import EmojiTagPicker from './EmojiTagPicker';
 import Confetti from './Confetti';
 import TaskContextMenu from './TaskContextMenu';
+import RecurrenceBottomSheet from './RecurrenceBottomSheet';
 import AttachmentUpload from './AttachmentUpload';
 import AttachmentGallery from './AttachmentGallery';
 import SortableSubtaskList from './SortableSubtaskList';
@@ -176,6 +177,9 @@ interface TaskItemProps {
   recordRecentlyUsedTag?: (emoji: string) => Promise<void>;
   recentUsedTags?: string[];
   onUpdateTaskSubtasks?: (taskId: string, subtasks: Subtask[]) => Promise<void>;
+  onUpdateTaskRecurrence?: (taskId: string, recurrence: import('@/lib/types').Recurrence | null, completedDateStr?: string) => Promise<void>;
+  /** When set (e.g. calendar view), show Set recurrence for completed tasks and pass date when converting */
+  recurrenceDateContext?: string;
   userStorageUsed?: number;
   userStorageLimit?: number;
   currentUserId?: string;
@@ -202,6 +206,8 @@ export default function TaskItem({
   recordRecentlyUsedTag,
   recentUsedTags = [],
   onUpdateTaskSubtasks,
+  onUpdateTaskRecurrence,
+  recurrenceDateContext,
   userStorageUsed,
   userStorageLimit,
   currentUserId,
@@ -227,6 +233,7 @@ export default function TaskItem({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [isLongPressing, setIsLongPressing] = useState(false); // Track long-press state for animation
+  const [showRecurrenceSheet, setShowRecurrenceSheet] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [removingTag, setRemovingTag] = useState<string | null>(null);
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -898,6 +905,9 @@ export default function TaskItem({
                 title="Committed Task - Must Complete Today!" 
                 style={{ minWidth: '12px', minHeight: '12px' }}
               />
+            )}
+            {task.recurrence && (
+              <span className="mt-0.5 flex-shrink-0 text-sm" title="Recurring task">🔁</span>
             )}
             {isEditing ? (
               <div className="flex-1 flex items-center gap-1.5">
@@ -1717,6 +1727,12 @@ export default function TaskItem({
             setShowDeferPicker(true);
           }
         }}
+        onSetRecurrence={() => {
+          if (onUpdateTaskRecurrence && (!task.completed || recurrenceDateContext)) {
+            setShowRecurrenceSheet(true);
+          }
+        }}
+        showRecurrenceForCompleted={!!recurrenceDateContext}
         onToggleNotes={() => {
           if (!showNotes) {
             setShowNotes(true);
@@ -1742,6 +1758,20 @@ export default function TaskItem({
       />
 
       {/* Defer Picker - Keep existing defer picker logic */}
+      <RecurrenceBottomSheet
+        isOpen={showRecurrenceSheet}
+        onClose={() => setShowRecurrenceSheet(false)}
+        onSelect={(r) => {
+          onUpdateTaskRecurrence?.(task.id, r, recurrenceDateContext);
+          setShowRecurrenceSheet(false);
+        }}
+        onRemove={task.recurrence ? () => {
+          onUpdateTaskRecurrence?.(task.id, null);
+          setShowRecurrenceSheet(false);
+        } : undefined}
+        currentRecurrence={task.recurrence}
+      />
+
       {showDeferPicker && onDeferTask && !task.completed && (
         <>
           <div 

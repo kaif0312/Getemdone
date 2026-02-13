@@ -1,4 +1,5 @@
 import { Task } from '@/lib/types';
+import { dateMatchesRecurrence } from './recurrence';
 
 /**
  * Get today's date string in YYYY-MM-DD format
@@ -36,12 +37,21 @@ export function getDateString(timestamp: number): string {
  * Check if a task should be shown in today's focus view
  * Implements smart rollover logic:
  * - Completed tasks: only show if completed today
+ * - Recurring tasks: show if today matches schedule and not completed/skipped today
  * - Incomplete tasks: show if created today, deferred to today, or should rollover
  */
 export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
   // Skip deleted tasks
   if (task.deleted === true) {
     return false;
+  }
+
+  // Recurring tasks: template spawns instance each scheduled day
+  if (task.recurrence) {
+    if (!dateMatchesRecurrence(task.recurrence, todayStr)) return false;
+    if (task.recurrence.completedDates?.includes(todayStr)) return false; // Completed today - hide
+    if (task.recurrence.skippedDates?.includes(todayStr)) return false;   // Deferred today - hide
+    return true; // Today's instance is due
   }
 
   // Completed tasks: only show if completed today

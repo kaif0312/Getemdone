@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { StreakData, TaskWithUser } from '@/lib/types';
 import { FaChevronLeft, FaChevronRight, FaTimes, FaArrowLeft } from 'react-icons/fa';
 import TaskItem from './TaskItem';
+import { dateMatchesRecurrence } from '@/utils/recurrence';
 
 interface StreakCalendarProps {
   streakData: StreakData;
   tasks: TaskWithUser[];
   currentUserId: string;
   onClose: () => void;
-  onToggleComplete: (taskId: string, completed: boolean) => void;
+  onToggleComplete: (taskId: string, completed: boolean, dateStr?: string) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
   onDelete: (taskId: string) => void;
   onUpdateTask?: (taskId: string, text: string) => Promise<void>;
@@ -19,6 +20,7 @@ interface StreakCalendarProps {
   onAddReaction: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
   onDeferTask: (taskId: string, deferToDate: string) => void;
+  onUpdateTaskRecurrence?: (taskId: string, recurrence: import('@/lib/types').Recurrence | null, completedDateStr?: string) => Promise<void>;
 }
 
 export default function StreakCalendar({ 
@@ -34,7 +36,8 @@ export default function StreakCalendar({
   onUpdateNotes,
   onAddReaction,
   onOpenComments,
-  onDeferTask
+  onDeferTask,
+  onUpdateTaskRecurrence,
 }: StreakCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -77,8 +80,15 @@ export default function StreakCalendar({
     return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
   };
 
-  const getTasksForDate = (dateStr: string) => {
+  const getTasksForDate = (dateStr: string): TaskWithUser[] => {
     return tasks.filter(task => {
+      // Recurring tasks: show if completed on this date OR due on this date (not skipped)
+      if (task.recurrence) {
+        if (task.recurrence.completedDates?.includes(dateStr)) return true;
+        if (task.recurrence.skippedDates?.includes(dateStr)) return false;
+        return dateMatchesRecurrence(task.recurrence, dateStr);
+      }
+
       // For completed tasks, check completion date
       if (task.completed && task.completedAt) {
         const date = new Date(task.completedAt);
@@ -106,6 +116,16 @@ export default function StreakCalendar({
     });
   };
 
+  /** For recurring tasks completed on a date, show as completed in the calendar */
+  const getDisplayTasksForDate = (dateStr: string): TaskWithUser[] => {
+    return getTasksForDate(dateStr).map(task => {
+      if (task.recurrence?.completedDates?.includes(dateStr)) {
+        return { ...task, completed: true, completedAt: new Date(dateStr + 'T12:00:00').getTime() };
+      }
+      return task;
+    });
+  };
+
   const handleDateClick = (day: number) => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     setSelectedDate(dateStr);
@@ -113,7 +133,7 @@ export default function StreakCalendar({
 
   // If a date is selected, show tasks for that date
   if (selectedDate) {
-    const dateTasks = getTasksForDate(selectedDate);
+    const dateTasks = getDisplayTasksForDate(selectedDate);
     const selectedDateObj = new Date(selectedDate + 'T12:00:00');
     const isSelectedToday = selectedDateObj.getDate() === new Date().getDate() && 
                             selectedDateObj.getMonth() === new Date().getMonth() && 
@@ -173,7 +193,7 @@ export default function StreakCalendar({
                     key={task.id}
                     task={task}
                     isOwnTask={true}
-                    onToggleComplete={onToggleComplete}
+                    onToggleComplete={(taskId, completed) => onToggleComplete(taskId, completed, selectedDate)}
                     onTogglePrivacy={onTogglePrivacy}
                     onUpdateTask={onUpdateTask}
                     onUpdateDueDate={onUpdateDueDate}
@@ -182,6 +202,8 @@ export default function StreakCalendar({
                     onAddReaction={onAddReaction}
                     onOpenComments={onOpenComments}
                     onDeferTask={onDeferTask}
+                    onUpdateTaskRecurrence={onUpdateTaskRecurrence}
+                    recurrenceDateContext={selectedDate}
                     currentUserId={currentUserId}
                   />
                 ))}

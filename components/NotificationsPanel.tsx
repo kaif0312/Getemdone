@@ -78,7 +78,7 @@ export default function NotificationsPanel({
             taskText = toPlaceholder(taskText, '[Task]');
           }
           
-          notifs.push({
+          const notif = {
             id: docSnap.id,
             userId: data.userId,
             type: data.type,
@@ -91,7 +91,11 @@ export default function NotificationsPanel({
             commentText: commentText,
             createdAt: data.createdAt,
             read: data.read || false,
-          });
+          };
+          if (process.env.NODE_ENV === 'development' && (!data.fromUserName || !data.title)) {
+            console.log('[NotificationsPanel] Notification missing name/title:', { id: docSnap.id, type: data.type, fromUserName: data.fromUserName, title: data.title });
+          }
+          notifs.push(notif);
         }
         setNotifications(notifs);
         setLoading(false);

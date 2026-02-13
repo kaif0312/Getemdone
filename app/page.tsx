@@ -42,6 +42,7 @@ import { useDataMigration } from '@/hooks/useDataMigration';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
+import { dateMatchesRecurrence } from '@/utils/recurrence';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
 import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
@@ -97,7 +98,7 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -304,9 +305,15 @@ function MainApp() {
     const allFriendTasks = tasks.filter(task => {
       if (task.userId === uid) return false;
       if (task.deleted === true) return false;
+
+      // Recurring: show only if due today and not completed/skipped (completed ones disappear)
+      if (task.recurrence) {
+        if (task.recurrence.completedDates?.includes(todayStr)) return false;
+        if (task.recurrence.skippedDates?.includes(todayStr)) return false;
+        return dateMatchesRecurrence(task.recurrence, todayStr);
+      }
       
       // For friends' tasks, only show completed tasks from today
-      // (we want to see what they accomplished today!)
       if (task.completed && task.completedAt) {
         const completedDate = new Date(task.completedAt);
         const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
@@ -359,8 +366,9 @@ function MainApp() {
     }
   }, [friendEntriesOrdered.length, expandedFriends.size, hasManuallyInteracted]);
 
-  const handleToggleComplete = async (taskId: string, completed: boolean) => {
-    await toggleComplete(taskId, completed);
+  const handleToggleComplete = async (taskId: string, completed: boolean, dateStr?: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    await toggleComplete(taskId, completed, task, dateStr);
     // Update streak data after completing a task
     if (completed) {
       await updateStreakData();
@@ -371,9 +379,14 @@ function MainApp() {
     }
   };
 
-  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => {
+  const handleDeferTask = (taskId: string, deferToDate: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    deferTask(taskId, deferToDate, task);
+  };
+
+  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null) => {
     const tags = activeTagFilters.length > 0 ? activeTagFilters.slice(0, 5) : undefined;
-    await addTask(text, isPrivate, dueDate, scheduledFor, tags);
+    await addTask(text, isPrivate, dueDate, scheduledFor, recurrence, tags);
     // Mark first task as seen
     if (!onboarding.state.hasSeenFirstTask) {
       onboarding.markFeatureSeen('hasSeenFirstTask');
@@ -1050,13 +1063,14 @@ function MainApp() {
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
                             onOpenComments={setSelectedTaskForComments}
-                            onDeferTask={deferTask}
+                            onDeferTask={handleDeferTask}
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
                             onUpdateTaskTags={updateTaskTags}
                             recordRecentlyUsedTag={recordRecentlyUsedTag}
                             recentUsedTags={data.recentlyUsedTags || []}
                             onUpdateTaskSubtasks={updateTaskSubtasks}
+                            onUpdateTaskRecurrence={updateTaskRecurrence}
                             userStorageUsed={data.storageUsed}
                             userStorageLimit={data.storageLimit}
                             currentUserId={uid}
@@ -1091,13 +1105,14 @@ function MainApp() {
                         onDelete={deleteTask}
                         onAddReaction={addReaction}
                         onOpenComments={setSelectedTaskForComments}
-                        onDeferTask={deferTask}
+                        onDeferTask={handleDeferTask}
                         onAddAttachment={addAttachment}
                         onDeleteAttachment={deleteAttachment}
                         onUpdateTaskTags={updateTaskTags}
                         recordRecentlyUsedTag={recordRecentlyUsedTag}
                         recentUsedTags={data.recentlyUsedTags || []}
                         onUpdateTaskSubtasks={updateTaskSubtasks}
+                        onUpdateTaskRecurrence={updateTaskRecurrence}
                         userStorageUsed={data.storageUsed}
                         userStorageLimit={data.storageLimit}
                         currentUserId={uid}
@@ -1213,7 +1228,7 @@ function MainApp() {
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
                             onOpenComments={setSelectedTaskForComments}
-                            onDeferTask={deferTask}
+                            onDeferTask={handleDeferTask}
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
                             onSendEncouragement={sendEncouragement}
@@ -1297,7 +1312,8 @@ function MainApp() {
           onDelete={deleteTask}
           onAddReaction={addReaction}
           onOpenComments={setSelectedTaskForComments}
-          onDeferTask={deferTask}
+          onDeferTask={handleDeferTask}
+          onUpdateTaskRecurrence={updateTaskRecurrence}
         />
       )}
 

@@ -129,7 +129,8 @@ service cloud.firestore {
         (!request.resource.data.keys().hasAny(['notes']) || request.resource.data.notes is string) &&
         (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
         (!request.resource.data.keys().hasAny(['tags']) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 5)) &&
-        (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100));
+        (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100)) &&
+        (!request.resource.data.keys().hasAny(['recurrence']) || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate'])));
       
       // Users can update their own tasks OR add reactions/comments to friends' tasks
       allow update: if isAuthenticated() && (
@@ -160,7 +161,8 @@ service cloud.firestore {
           (!request.resource.data.keys().hasAny(['deletedAt']) || request.resource.data.deletedAt is number || request.resource.data.deletedAt == null) &&
           (!request.resource.data.keys().hasAny(['friendContent']) || request.resource.data.friendContent is map) &&
           (!request.resource.data.keys().hasAny(['tags']) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 5)) &&
-          (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100))
+          (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100)) &&
+          (!request.resource.data.keys().hasAny(['recurrence']) || request.resource.data.recurrence == null || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate'])))
         ) ||
         // Friends can ONLY add reactions
         (areFriends(resource.data.userId) && 

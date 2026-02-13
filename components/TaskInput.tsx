@@ -4,9 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes, FaClock } from 'react-icons/fa';
 import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
+import RecurrenceChip from './RecurrenceChip';
+import RecurrenceBottomSheet from './RecurrenceBottomSheet';
+import { Recurrence } from '@/lib/types';
+import { parseRecurrenceFromText } from '@/utils/recurrence';
 
 interface TaskInputProps {
-  onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null) => Promise<void>;
+  onAddTask: (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: Recurrence | null) => Promise<void>;
   disabled?: boolean;
   recentTasks?: string[];
   inputRef?: React.RefObject<HTMLInputElement | null>;
@@ -20,6 +24,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   const [scheduledFor, setScheduledFor] = useState<string | null>(null); // YYYY-MM-DD format
   const [showUnifiedPicker, setShowUnifiedPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'schedule' | 'deadline'>('schedule');
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(null);
+  const [showRecurrenceSheet, setShowRecurrenceSheet] = useState(false);
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef || internalInputRef;
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -35,10 +41,11 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     
     if (text.trim() && !disabled) {
       try {
-        await onAddTask(text.trim(), isPrivate, dueDate, scheduledFor);
+        await onAddTask(text.trim(), isPrivate, dueDate, scheduledFor, recurrence);
         setText('');
         setDueDate(null);
         setScheduledFor(null);
+        setRecurrence(null);
         setShowUnifiedPicker(false);
         inputRef.current?.focus();
       } catch (error: any) {
@@ -154,6 +161,28 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     inputRef.current?.focus();
   };
 
+  // Parse recurrence from text as user types
+  const handleTextChange = (value: string) => {
+    const parsed = parseRecurrenceFromText(value);
+    if (parsed) {
+      setRecurrence(parsed.recurrence);
+      setText(parsed.cleanedText);
+    } else {
+      setText(value);
+    }
+  };
+
+  // Parse recurrence when voice input is received
+  const handleVoiceTranscript = (transcript: string) => {
+    const parsed = parseRecurrenceFromText(transcript);
+    if (parsed) {
+      setRecurrence(parsed.recurrence);
+      setText(parsed.cleanedText);
+    } else {
+      setText(transcript);
+    }
+  };
+
   // Close unified picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -207,10 +236,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
             {/* Voice Button - Smaller on mobile */}
             <div className="flex-shrink-0">
               <VoiceButton
-                onTranscript={(transcript) => {
-                  console.log('TaskInput received transcript:', transcript);
-                  setText(transcript);
-                }}
+                onTranscript={handleVoiceTranscript}
                 disabled={disabled}
               />
             </div>
@@ -220,7 +246,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               ref={inputRef}
               type="text"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => handleTextChange(e.target.value)}
               placeholder="Type or speak a task..."
               disabled={disabled}
               className="flex-1 min-w-0 px-2 sm:px-3 py-2 sm:py-2.5 md:px-4 md:py-3 text-sm md:text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
@@ -438,6 +464,23 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               <FaPaperPlane size={14} className="md:w-[18px] md:h-[18px]" />
             </button>
           </div>
+
+          {/* Recurrence chip - shown when recurrence is set */}
+          {recurrence && (
+            <RecurrenceChip
+              recurrence={recurrence}
+              onEdit={() => setShowRecurrenceSheet(true)}
+              onRemove={() => setRecurrence(null)}
+            />
+          )}
+
+          <RecurrenceBottomSheet
+            isOpen={showRecurrenceSheet}
+            onClose={() => setShowRecurrenceSheet(false)}
+            onSelect={(r) => setRecurrence(r)}
+            onRemove={recurrence ? () => setRecurrence(null) : undefined}
+            currentRecurrence={recurrence}
+          />
         </div>
       </form>
 

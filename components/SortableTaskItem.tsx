@@ -26,6 +26,7 @@ interface SortableTaskItemProps {
   recordRecentlyUsedTag?: (emoji: string) => Promise<void>;
   recentUsedTags?: string[];
   onUpdateTaskSubtasks?: (taskId: string, subtasks: { id: string; title: string; completed: boolean }[]) => Promise<void>;
+  onUpdateTaskRecurrence?: (taskId: string, recurrence: import('@/lib/types').Recurrence | null) => Promise<void>;
   userStorageUsed?: number;
   userStorageLimit?: number;
   currentUserId?: string;

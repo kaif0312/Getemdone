@@ -17,7 +17,13 @@ export const sendPushNotification = functions.firestore
     const notificationId = context.params.notificationId;
 
     console.log(`[sendPushNotification] Processing notification ${notificationId}`);
-    console.log('[sendPushNotification] Notification data:', notification);
+    console.log('[sendPushNotification] Notification data:', {
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      fromUserName: notification.fromUserName,
+      fromUserId: notification.fromUserId,
+    });
 
     try {
       // Get the recipient user's FCM token
@@ -45,7 +51,40 @@ export const sendPushNotification = functions.firestore
       const taskText = (notification as any).taskText || '';
       const commentText = notification.commentText || '';
       const taskId = notification.taskId || '';
-      const fromUserName = notification.fromUserName || '';
+      let fromUserName = notification.fromUserName || '';
+      // Fallback: fetch sender's display name if missing (e.g. client sent empty)
+      if (!fromUserName && notification.fromUserId) {
+        try {
+          const senderDoc = await admin.firestore().collection('users').doc(notification.fromUserId).get();
+          if (senderDoc.exists) {
+            fromUserName = (senderDoc.data() as any)?.displayName || '';
+          }
+        } catch (e) {
+          console.warn('[sendPushNotification] Could not fetch sender name:', e);
+        }
+      }
+      if (!fromUserName) {
+        fromUserName = 'A friend';
+        console.warn('[sendPushNotification] fromUserName empty, using fallback');
+      }
+
+      // Rebuild title if it looks broken (e.g. "💬 undefined commented")
+      let notificationTitle = notification.title || '';
+      if (!notificationTitle || notificationTitle.includes('undefined') || notificationTitle === 'New Notification') {
+        switch (notification.type) {
+          case 'comment':
+            notificationTitle = `💬 ${fromUserName} commented`;
+            break;
+          case 'encouragement':
+            notificationTitle = `💪 ${fromUserName} sent you encouragement!`;
+            break;
+          default:
+            notificationTitle = notification.title || 'New Notification';
+        }
+        if (notificationTitle !== notification.title) {
+          console.log('[sendPushNotification] Rebuilt title:', notificationTitle);
+        }
+      }
 
       let notificationBody: string;
       switch (notification.type) {
@@ -73,6 +112,10 @@ export const sendPushNotification = functions.firestore
 
       const message: admin.messaging.Message = {
         token: fcmToken,
+        notification: {
+          title: notificationTitle,
+          body: notificationBody,
+        },
         data: {
           notificationId: notificationId,
           type: notification.type,
@@ -82,12 +125,14 @@ export const sendPushNotification = functions.firestore
           taskText: taskText,
           commentText: commentText,
           bugReportId: (notification as any).bugReportId || '',
-          title: notification.title,
+          title: notificationTitle,
           body: notificationBody,
           url: url,
         },
         webpush: {
           notification: {
+            title: notificationTitle,
+            body: notificationBody,
             icon: '/icon.svg',
             badge: '/icon.svg',
             tag: `${notification.type}-${notificationId}`,

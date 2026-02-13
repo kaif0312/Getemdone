@@ -383,6 +383,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (task.deleted === true) return;
       
       const createdDateStr = getDateStr(task.createdAt);
+
+      // Recurring tasks: count completedDates toward streak; skip normal completed/incomplete logic
+      if (task.recurrence) {
+        (task.recurrence.completedDates || []).forEach((dateStr: string) => {
+          if (!dailyTaskCounts[dateStr]) {
+            dailyTaskCounts[dateStr] = { total: 0, completed: 0 };
+          }
+          dailyTaskCounts[dateStr].completed++;
+          dailyTaskCounts[dateStr].total++;
+        });
+        return;
+      }
       
       // For completed tasks, count them on the day they were completed
       if (task.completed && task.completedAt) {

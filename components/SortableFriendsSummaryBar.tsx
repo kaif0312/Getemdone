@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -11,6 +12,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -61,7 +63,8 @@ function SortableFriendCard({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.7 : 1,
+    opacity: isDragging ? 0.85 : 1,
+    ...(isDragging && { willChange: 'transform' as const }),
   };
 
   const hasActivity = friend.pendingCount > 0 || friend.completedToday > 0;
@@ -77,7 +80,7 @@ function SortableFriendCard({
           onFriendClick(friend.id);
         }}
         className={`
-          flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all touch-manipulation cursor-grab active:cursor-grabbing
+          flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors touch-manipulation cursor-grab active:cursor-grabbing
           ${isActive
             ? `bg-gradient-to-r ${friend.color.from} ${friend.color.to} text-white shadow-md scale-105`
             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -152,19 +155,37 @@ export default function SortableFriendsSummaryBar({
   onFriendClick,
   onReorder,
 }: SortableFriendsSummaryBarProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 450, tolerance: 25 },
+      activationConstraint: { delay: 400, tolerance: 20 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
+  const handleDragStart = (_event: DragStartEvent) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.overflowX = 'hidden';
+      scrollContainerRef.current.style.touchAction = 'none';
+    }
+  };
+
+  const restoreScrollContainer = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.overflowX = 'auto';
+      scrollContainerRef.current.style.touchAction = '';
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    restoreScrollContainer();
+
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -177,20 +198,30 @@ export default function SortableFriendsSummaryBar({
     onReorder(reordered);
   };
 
+  const handleDragCancel = () => {
+    restoreScrollContainer();
+  };
+
   if (friends.length === 0) return null;
 
   return (
     <div className="sticky top-[73px] md:top-[81px] z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="max-w-3xl mx-auto px-4 py-2">
         <div
+          ref={scrollContainerRef}
           className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2"
           style={{
             WebkitOverflowScrolling: 'touch',
-            scrollBehavior: 'smooth',
             overscrollBehaviorX: 'contain',
           }}
         >
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
             <SortableContext items={friends.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
               <div className="flex items-center gap-2 min-w-max">
                 {friends.map((friend) => (

@@ -1,13 +1,30 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import emojilib from 'emojilib';
 
 const CURATED_EMOJIS = [
   '📚', '💻', '🏋️', '🎵', '✍️', '🏠', '💼', '🧹', '🍳', '💊',
   '🎯', '🔬', '📧', '🛒', '💰', '📱', '🚗', '🧘', '🎨', '📖',
   '🏃', '🥗', '☕', '💡', '📝', '🗂️', '🔧', '🌸', '🐕', '👶',
 ];
+
+const MAX_SEARCH_RESULTS = 120;
+
+function searchEmojis(query: string): string[] {
+  if (!query || query.trim().length === 0) return [];
+  const q = query.trim().toLowerCase();
+  const words = q.split(/\s+/).filter(Boolean);
+  const results: string[] = [];
+  for (const [emoji, keywords] of Object.entries(emojilib)) {
+    const kw = (keywords as string[]).map((k) => k.toLowerCase());
+    const matches = words.every((w) => kw.some((k) => k.includes(w) || w.includes(k)));
+    if (matches) results.push(emoji);
+    if (results.length >= MAX_SEARCH_RESULTS) break;
+  }
+  return results;
+}
 
 interface EmojiTagPickerProps {
   anchorRef: React.RefObject<HTMLElement | null>;
@@ -40,12 +57,25 @@ export default function EmojiTagPicker({
     return match ? match[0] : null;
   };
 
-  // Filter curated + recent by search
+  // Search results: when searching, use emojilib; otherwise show curated 30
+  const displayEmojis = useMemo(() => {
+    const trimmed = search.trim();
+    if (!trimmed) {
+      return CURATED_EMOJIS.filter((e) => !currentTags.includes(e));
+    }
+    const searchResults = searchEmojis(trimmed);
+    // Prioritize curated emojis that match, then rest of search results
+    const curatedMatches = CURATED_EMOJIS.filter(
+      (e) => searchResults.includes(e) && !currentTags.includes(e)
+    );
+    const otherMatches = searchResults.filter(
+      (e) => !CURATED_EMOJIS.includes(e) && !currentTags.includes(e)
+    );
+    return [...curatedMatches, ...otherMatches];
+  }, [search, currentTags]);
+
   const filteredRecent = recentlyUsed.filter(
-    (e) => !currentTags.includes(e) && (!search || e.includes(search) || search.includes(e))
-  );
-  const filteredCurated = CURATED_EMOJIS.filter(
-    (e) => !currentTags.includes(e) && (!search || e.includes(search) || search.includes(e))
+    (e) => !currentTags.includes(e) && (!search.trim() || displayEmojis.includes(e))
   );
 
   // Handle paste in search - use first emoji found
@@ -114,7 +144,7 @@ export default function EmojiTagPicker({
           if (!anchorRef.current) return {};
           const rect = anchorRef.current.getBoundingClientRect();
           const pw = Math.min(320, window.innerWidth - 32);
-          const ph = 280;
+          const ph = search.trim() ? 340 : 280;
           let left = rect.left;
           if (left + pw > window.innerWidth - 16) left = window.innerWidth - pw - 16;
           if (left < 16) left = 16;
@@ -135,7 +165,7 @@ export default function EmojiTagPicker({
           onChange={(e) => setSearch(e.target.value)}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
-          placeholder="Search or paste emoji"
+          placeholder="Search emojis (e.g. book, heart, fire)"
           className="w-full px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none mb-3"
         />
         {filteredRecent.length > 0 && (
@@ -157,21 +187,31 @@ export default function EmojiTagPicker({
             </div>
           </div>
         )}
-        <div>
+        <div className="flex-1 min-h-0 flex flex-col">
           <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
-            Emojis
+            {search.trim() ? `Emojis (${displayEmojis.length})` : 'Emojis'}
           </div>
-          <div className="grid grid-cols-6 gap-1">
-            {(search ? filteredCurated : CURATED_EMOJIS).map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => handleEmojiClick(emoji)}
-                disabled={!canAddMore || currentTags.includes(emoji)}
-                className="w-11 h-11 flex items-center justify-center text-2xl rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all min-w-[44px] min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {emoji}
-              </button>
-            ))}
+          <div
+            className="overflow-y-auto max-h-[240px] -mx-1 px-1 overscroll-contain"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="grid grid-cols-6 gap-1">
+              {displayEmojis.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => handleEmojiClick(emoji)}
+                  disabled={!canAddMore || currentTags.includes(emoji)}
+                  className="w-11 h-11 flex items-center justify-center text-2xl rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-all min-w-[44px] min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            {search.trim() && displayEmojis.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                No emojis found for &quot;{search}&quot;
+              </p>
+            )}
           </div>
         </div>
       </div>

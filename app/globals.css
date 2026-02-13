@@ -70,6 +70,15 @@ body {
   -webkit-touch-callout: default !important;
 }
 
+/* Prevent date/time inputs from overflowing on mobile */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* iOS Safari datetime-local input fixes */
 @supports (-webkit-touch-callout: none) {
   input[type="datetime-local"] {
@@ -116,6 +125,16 @@ body {
   input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     margin-left: 8px;
     opacity: 1;
+  }
+
+  input[type="date"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 

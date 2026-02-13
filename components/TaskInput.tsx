@@ -287,7 +287,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                     className="fixed inset-0 z-[99998]" 
                     onClick={() => setShowUnifiedPicker(false)}
                   />
-                  <div className="fixed inset-x-4 bottom-20 md:absolute md:bottom-full md:mb-2 md:right-0 md:inset-x-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 z-[99999] min-w-[280px] max-w-[calc(100vw-2rem)] md:max-w-none max-h-[80vh] overflow-y-auto">
+                  <div className="fixed inset-x-4 bottom-20 md:absolute md:bottom-full md:mb-2 md:right-0 md:inset-x-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 z-[99999] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] md:w-auto md:min-w-[280px] md:max-w-none max-h-[80vh] overflow-y-auto overflow-x-hidden">
                     {/* Tabs */}
                     <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
                       <button
@@ -351,7 +351,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                         
                         <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date (time optional)</div>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-2 min-w-0 overflow-hidden">
                           <input
                             ref={scheduleInputRef}
                             type="date"
@@ -362,12 +362,12 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                               const timeVal = scheduleTimeRef.current?.value;
                               setScheduledFor(dateVal ? (timeVal ? `${dateVal}T${timeVal}` : dateVal) : null);
                             }}
-                            className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                            className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 box-border"
                           />
                           <input
                             ref={scheduleTimeRef}
                             type="time"
-                            className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400"
+                            className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 box-border"
                             defaultValue={scheduledFor && scheduledFor.includes('T') ? scheduledFor.split('T')[1]?.slice(0, 5) : ''}
                             onChange={(e) => {
                               const timeVal = e.target.value;
@@ -421,14 +421,16 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                             </button>
                           )}
                         </div>
-                        <input
-                          ref={dateInputRef}
-                          type="datetime-local"
-                          onChange={handleDateChange}
-                          min={new Date().toISOString().slice(0, 16)}
-                          defaultValue={dueDate ? new Date(dueDate).toISOString().slice(0, 16) : ''}
-                          className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400"
-                        />
+                        <div className="min-w-0 overflow-hidden">
+                          <input
+                            ref={dateInputRef}
+                            type="datetime-local"
+                            onChange={handleDateChange}
+                            min={new Date().toISOString().slice(0, 16)}
+                            defaultValue={dueDate ? new Date(dueDate).toISOString().slice(0, 16) : ''}
+                            className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 box-border"
+                          />
+                        </div>
                         {dueDate && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
                             {new Date(dueDate).toLocaleDateString('en-US', { 

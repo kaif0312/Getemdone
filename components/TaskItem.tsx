@@ -1596,7 +1596,7 @@ export default function TaskItem({
             onClick={() => setShowUnifiedDatePicker(false)}
           />
           <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none p-4">
-            <div ref={unifiedDatePickerRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-full max-w-[90vw] sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200 max-h-[85vh] overflow-y-auto">
+            <div ref={unifiedDatePickerRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200 max-h-[85vh] overflow-y-auto overflow-x-hidden">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
                   Schedule & Deadline
@@ -1676,13 +1676,13 @@ export default function TaskItem({
                     </button>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date (time optional)</div>
-                  <div className="unified-date-picker space-y-2">
+                  <div className="unified-date-picker space-y-2 min-w-0 overflow-hidden">
                     <input
                       ref={scheduleDateRef}
                       type="date"
                       min={getTodayString()}
                       defaultValue={task.deferredTo ? (task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo) : ''}
-                      className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 box-border"
                       onChange={async () => {
                         const dateVal = scheduleDateRef.current?.value;
                         const timeVal = scheduleTimeRef.current?.value;
@@ -1696,7 +1696,7 @@ export default function TaskItem({
                       ref={scheduleTimeRef}
                       type="time"
                       defaultValue={task.deferredTo && task.deferredTo.includes('T') ? task.deferredTo.split('T')[1]?.slice(0, 5) : ''}
-                      className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 box-border"
                       onChange={async () => {
                         const dateVal = scheduleDateRef.current?.value;
                         const timeVal = scheduleTimeRef.current?.value;
@@ -1727,12 +1727,13 @@ export default function TaskItem({
                       </button>
                     )}
                   </div>
-                  <input
-                    ref={dueDateInputRef}
-                    type="datetime-local"
-                    min={new Date().toISOString().slice(0, 16)}
-                    defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
-                    className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  <div className="min-w-0 overflow-hidden">
+                    <input
+                      ref={dueDateInputRef}
+                      type="datetime-local"
+                      min={new Date().toISOString().slice(0, 16)}
+                      defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
+                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 box-border"
                     onChange={async (e) => {
                       const value = e.target.value;
                       if (value && onUpdateDueDate) {
@@ -1740,7 +1741,8 @@ export default function TaskItem({
                         await onUpdateDueDate(task.id, date.getTime());
                       }
                     }}
-                  />
+                    />
+                  </div>
                 </div>
               )}
               <button

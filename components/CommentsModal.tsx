@@ -14,7 +14,7 @@ interface CommentsModalProps {
   currentUserId: string;
   currentUserName: string;
   onClose: () => void;
-  onAddComment: (taskId: string, text: string, replyTo?: { id: string; userName: string }) => void;
+  onAddComment: (taskId: string, text: string, replyTo?: { id: string; userName: string; text?: string }) => void;
   onAddCommentReaction: (taskId: string, commentId: string, emoji: string) => void;
   onEditComment?: (taskId: string, commentId: string, newText: string) => void;
   onDeleteComment?: (taskId: string, commentId: string) => void;
@@ -43,7 +43,7 @@ export default function CommentsModal({
     userId: string;
   } | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string; text: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -181,7 +181,8 @@ export default function CommentsModal({
     if (deltaX > 60 && !showCommentMenu) {
       setIsAnimatingReplySwipe(true);
       setSwipeDeltaX(80);
-      setReplyingTo({ id: commentId, userName: commentUserName });
+        const comment = comments.find((c) => c.id === commentId);
+        setReplyingTo({ id: commentId, userName: commentUserName, text: comment?.text ?? '' });
       if ('vibrate' in navigator) navigator.vibrate(20);
       focusInputForMobile();
         setTimeout(() => setSwipeDeltaX(0), 30);
@@ -235,7 +236,7 @@ export default function CommentsModal({
 
   const handleReplyFromMenu = () => {
     if (selectedCommentForMenu) {
-      setReplyingTo({ id: selectedCommentForMenu.id, userName: selectedCommentForMenu.userName });
+      setReplyingTo({ id: selectedCommentForMenu.id, userName: selectedCommentForMenu.userName, text: selectedCommentForMenu.text });
       setShowCommentMenu(false);
       setSelectedCommentForMenu(null);
       setSelectedCommentRect(null);
@@ -278,22 +279,31 @@ export default function CommentsModal({
     e.preventDefault();
     if (!commentText.trim() || isSending) return;
 
-    setIsSending(true);
-    try {
-      if (editingCommentId && onEditComment) {
-        await onEditComment(task.id, editingCommentId, commentText.trim());
-        setEditingCommentId(null);
-      } else {
-        await onAddComment(task.id, commentText.trim(), replyingTo ?? undefined);
-        setReplyingTo(null);
-      }
-      setCommentText('');
+    const textToSend = commentText.trim();
+    const replyToSend = replyingTo ? { id: replyingTo.id, userName: replyingTo.userName, text: replyingTo.text } : undefined;
+    const editId = editingCommentId;
 
-      if ('vibrate' in navigator) {
-        navigator.vibrate(30);
+    // Clear immediately for smooth UX - optimistic update
+    setCommentText('');
+    setReplyingTo(null);
+    setEditingCommentId(null);
+    setIsSending(true);
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
+
+    try {
+      if (editId && onEditComment) {
+        await onEditComment(task.id, editId, textToSend);
+      } else {
+        await onAddComment(task.id, textToSend, replyToSend);
       }
     } catch (error) {
       console.error('[CommentsModal] Error:', error);
+      setCommentText(textToSend);
+      if (replyToSend) setReplyingTo({ id: replyToSend.id, userName: replyToSend.userName, text: replyToSend.text ?? '' });
+      if (editId) setEditingCommentId(editId);
       alert('Failed to save. Please try again.');
     } finally {
       setIsSending(false);
@@ -449,11 +459,22 @@ export default function CommentsModal({
                           onMouseLeave={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
                         >
                           {comment.replyToUserName && (
-                            <div className={`text-xs mb-1 flex items-center gap-1 ${
-                              isOwnComment ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                            <div className={`mb-1.5 pl-2 border-l-2 ${
+                              isOwnComment ? 'border-blue-300/60' : 'border-gray-400/50 dark:border-gray-500/50'
                             }`}>
-                              <FaReply size={10} />
-                              <span>Replying to {comment.replyToUserName}</span>
+                              <div className={`text-xs font-medium flex items-center gap-1 ${
+                                isOwnComment ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                              }`}>
+                                <FaReply size={10} />
+                                {comment.replyToUserName}
+                              </div>
+                              {comment.replyToText && (
+                                <p className={`text-xs mt-0.5 line-clamp-2 ${
+                                  isOwnComment ? 'text-blue-100/90' : 'text-gray-600 dark:text-gray-500'
+                                }`}>
+                                  {comment.replyToText}
+                                </p>
+                              )}
                             </div>
                           )}
                           {!isOwnComment && (
@@ -500,7 +521,7 @@ export default function CommentsModal({
                           <button
                             type="button"
                             onClick={() => {
-                              setReplyingTo({ id: comment.id, userName: comment.userName });
+                              setReplyingTo({ id: comment.id, userName: comment.userName, text: comment.text });
                               inputRef.current?.focus();
                             }}
                             className="hidden md:inline-flex text-xs text-blue-500 dark:text-blue-400 hover:underline items-center gap-0.5"
@@ -524,15 +545,20 @@ export default function CommentsModal({
           {/* Input Area */}
           <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
             {replyingTo && (
-              <div className="flex items-center justify-between mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <span className="text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                  <FaReply size={12} />
-                  Replying to {replyingTo.userName}
-                </span>
+              <div className="flex items-start justify-between gap-2 mb-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-0.5">
+                    <FaReply size={10} />
+                    Replying to {replyingTo.userName}
+                  </div>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
+                    {replyingTo.text || '...'}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setReplyingTo(null)}
-                  className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors"
+                  className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors flex-shrink-0"
                   aria-label="Cancel reply"
                 >
                   <FaTimes size={12} className="text-blue-600 dark:text-blue-400" />

@@ -75,6 +75,8 @@ export interface Comment {
   /** Reply to another comment - WhatsApp-style threading */
   replyToId?: string;
   replyToUserName?: string;
+  /** Quoted message text for preview when replying */
+  replyToText?: string;
 }
 
 export interface Attachment {

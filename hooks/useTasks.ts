@@ -1390,7 +1390,7 @@ export function useTasks() {
   const addComment = async (
     taskId: string,
     text: string,
-    replyTo?: { id: string; userName: string }
+    replyTo?: { id: string; userName: string; text?: string }
   ) => {
     if (!user || !userData) {
       console.error('[addComment] No user or userData');
@@ -1454,7 +1454,11 @@ export function useTasks() {
         text: encryptedCommentText,
         ...(commentFriendContent && Object.keys(commentFriendContent).length > 0 && { friendContent: commentFriendContent }),
         timestamp: Date.now(),
-        ...(replyTo && { replyToId: replyTo.id, replyToUserName: replyTo.userName }),
+        ...(replyTo && {
+          replyToId: replyTo.id,
+          replyToUserName: replyTo.userName,
+          ...(replyTo.text && { replyToText: replyTo.text.substring(0, 200) }),
+        }),
       };
 
       comments.push(newComment);

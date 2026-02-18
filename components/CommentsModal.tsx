@@ -51,6 +51,10 @@ export default function CommentsModal({
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipingCommentRef = useRef<string | null>(null);
+  const [swipingCommentId, setSwipingCommentId] = useState<string | null>(null);
+  const [swipeDeltaX, setSwipeDeltaX] = useState(0);
+  const [isAnimatingReplySwipe, setIsAnimatingReplySwipe] = useState(false);
 
   // Scroll to bottom when modal opens - useLayoutEffect runs before paint so no visible transition
   useLayoutEffect(() => {
@@ -95,6 +99,7 @@ export default function CommentsModal({
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     swipeStartRef.current = { x: clientX, y: clientY };
+    swipingCommentRef.current = comment.id;
 
     longPressTimerRef.current = setTimeout(() => {
       setCommentMenuPosition({ x: clientX, y: clientY });
@@ -115,31 +120,50 @@ export default function CommentsModal({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!swipeStartRef.current || !longPressTimerRef.current) return;
+    if (!swipeStartRef.current || !swipingCommentRef.current) return;
     const dx = e.touches[0].clientX - swipeStartRef.current.x;
-    if (Math.abs(dx) > 30) {
+    if (Math.abs(dx) > 30 && longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+    // Swipe right: animate message to the right (WhatsApp-style)
+    if (dx > 0) {
+      setSwipingCommentId(swipingCommentRef.current);
+      setSwipeDeltaX(Math.min(dx, 80));
     }
   };
 
   const handleLongPressEnd = (commentId: string, commentUserName: string, e: React.TouchEvent | React.MouseEvent) => {
-    if (longPressTimerRef.current) {
-      const endX = 'changedTouches' in e ? e.changedTouches[0]?.clientX : (e as React.MouseEvent).clientX;
-      const startX = swipeStartRef.current?.x ?? endX;
-      const deltaX = endX - startX;
+    const endX = 'changedTouches' in e ? e.changedTouches[0]?.clientX : (e as React.MouseEvent).clientX;
+    const startX = swipeStartRef.current?.x ?? endX;
+    const deltaX = endX - startX;
 
+    if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
 
-      // Swipe right to reply (deltaX > 60)
+      // Swipe right to reply (deltaX > 60) - message animates right, then back, then focus keypad
       if (deltaX > 60 && !showCommentMenu) {
+        setIsAnimatingReplySwipe(true);
+        setSwipeDeltaX(80);
         setReplyingTo({ id: commentId, userName: commentUserName });
-        inputRef.current?.focus();
         if ('vibrate' in navigator) navigator.vibrate(20);
+        setTimeout(() => setSwipeDeltaX(0), 50);
+        setTimeout(() => {
+          setSwipingCommentId(null);
+          setSwipeDeltaX(0);
+          swipingCommentRef.current = null;
+          setIsAnimatingReplySwipe(false);
+          inputRef.current?.focus();
+        }, 220);
       }
+    } else {
+      // Reset swipe animation
+      setSwipingCommentId(null);
+      setSwipeDeltaX(0);
     }
     swipeStartRef.current = null;
+    swipingCommentRef.current = null;
   };
 
   const handleEditComment = () => {
@@ -346,6 +370,10 @@ export default function CommentsModal({
                               ? 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border border-blue-200 dark:border-blue-800 rounded-bl-sm'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
                           }`}
+                          style={{
+                            transform: comment.id === swipingCommentId ? `translateX(${swipeDeltaX}px)` : undefined,
+                            transition: isAnimatingReplySwipe ? 'transform 0.15s ease-out' : 'none',
+                          }}
                           onTouchStart={(e) => handleLongPressStart(comment, e)}
                           onTouchMove={handleTouchMove}
                           onTouchEnd={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
@@ -408,7 +436,7 @@ export default function CommentsModal({
                               setReplyingTo({ id: comment.id, userName: comment.userName });
                               inputRef.current?.focus();
                             }}
-                            className="text-xs text-blue-500 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                            className="hidden md:inline-flex text-xs text-blue-500 dark:text-blue-400 hover:underline items-center gap-0.5"
                           >
                             <FaReply size={10} />
                             Reply
@@ -503,7 +531,9 @@ export default function CommentsModal({
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Hold comment for Edit/Delete · Swipe right to reply · Enter to send
+              <span className="md:hidden">Swipe right to reply · </span>
+              <span className="hidden md:inline">Reply button · </span>
+              Hold for Edit/Delete · Enter to send
             </p>
           </form>
         </div>

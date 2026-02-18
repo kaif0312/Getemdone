@@ -94,6 +94,33 @@ export default function CommentsModal({
     }
   }, [isOpen]);
 
+  // iOS workaround: programmatic focus from touch on non-input doesn't open keyboard.
+  // Focus a temp input first (in user gesture), then transfer to real input after ~100ms.
+  const focusInputForMobile = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    const isTouchDevice = 'ontouchstart' in window;
+    if (isTouchDevice) {
+      const temp = document.createElement('input');
+      temp.setAttribute('type', 'text');
+      temp.setAttribute('aria-hidden', 'true');
+      temp.style.cssText = 'position:absolute;opacity:0;pointer-events:none;top:-999px;left:-999px;';
+      document.body.appendChild(temp);
+      temp.focus();
+      setTimeout(() => {
+        el.focus();
+        el.click();
+        try {
+          document.body.removeChild(temp);
+        } catch {
+          /* already removed */
+        }
+      }, 120);
+    } else {
+      el.focus();
+    }
+  };
+
   // Handle long press for comment menu (Edit / Delete / React), swipe right for reply
   const handleLongPressStart = (comment: Comment, e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -142,19 +169,20 @@ export default function CommentsModal({
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
 
-      // Swipe right to reply (deltaX > 60) - message animates right, then back, then focus keypad
+      // Swipe right to reply (deltaX > 60) - message animates right, then back
+      // Use focusInputForMobile: iOS blocks focus from touch on non-input; temp-input workaround opens keyboard
       if (deltaX > 60 && !showCommentMenu) {
         setIsAnimatingReplySwipe(true);
         setSwipeDeltaX(80);
         setReplyingTo({ id: commentId, userName: commentUserName });
         if ('vibrate' in navigator) navigator.vibrate(20);
+        focusInputForMobile();
         setTimeout(() => setSwipeDeltaX(0), 50);
         setTimeout(() => {
           setSwipingCommentId(null);
           setSwipeDeltaX(0);
           swipingCommentRef.current = null;
           setIsAnimatingReplySwipe(false);
-          inputRef.current?.focus();
         }, 220);
       }
     } else {

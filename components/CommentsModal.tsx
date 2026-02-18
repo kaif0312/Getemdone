@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
-import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash, FaCopy } from 'react-icons/fa';
 import Avatar from './Avatar';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -35,6 +35,7 @@ export default function CommentsModal({
   const [isSending, setIsSending] = useState(false);
   const [showCommentMenu, setShowCommentMenu] = useState(false);
   const [commentMenuPosition, setCommentMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedCommentRect, setSelectedCommentRect] = useState<DOMRect | null>(null);
   const [selectedCommentForMenu, setSelectedCommentForMenu] = useState<{
     id: string;
     userName: string;
@@ -127,6 +128,7 @@ export default function CommentsModal({
     swipingCommentRef.current = comment.id;
 
     longPressTimerRef.current = setTimeout(() => {
+      const commentEl = commentRefs.current.get(comment.id);
       setCommentMenuPosition({ x: clientX, y: clientY });
       setSelectedCommentForMenu({
         id: comment.id,
@@ -134,6 +136,7 @@ export default function CommentsModal({
         text: comment.text,
         userId: comment.userId,
       });
+      setSelectedCommentRect(commentEl?.getBoundingClientRect() ?? null);
       setShowCommentMenu(true);
       swipeStartRef.current = null;
 
@@ -203,6 +206,7 @@ export default function CommentsModal({
     setReplyingTo(null);
     setShowCommentMenu(false);
     setSelectedCommentForMenu(null);
+    setSelectedCommentRect(null);
     inputRef.current?.focus();
   };
 
@@ -212,6 +216,7 @@ export default function CommentsModal({
       await onDeleteComment(task.id, selectedCommentForMenu.id);
       setShowCommentMenu(false);
       setSelectedCommentForMenu(null);
+      setSelectedCommentRect(null);
       setEditingCommentId(null);
     } catch (err) {
       console.error(err);
@@ -224,6 +229,7 @@ export default function CommentsModal({
       onAddCommentReaction(task.id, selectedCommentForMenu.id, emoji);
       setShowCommentMenu(false);
       setSelectedCommentForMenu(null);
+      setSelectedCommentRect(null);
     }
   };
 
@@ -232,7 +238,30 @@ export default function CommentsModal({
       setReplyingTo({ id: selectedCommentForMenu.id, userName: selectedCommentForMenu.userName });
       setShowCommentMenu(false);
       setSelectedCommentForMenu(null);
+      setSelectedCommentRect(null);
       focusInputForMobile();
+    }
+  };
+
+  const handleCopyComment = async () => {
+    if (!selectedCommentForMenu) return;
+    try {
+      await navigator.clipboard.writeText(selectedCommentForMenu.text);
+      setShowCommentMenu(false);
+      setSelectedCommentForMenu(null);
+      setSelectedCommentRect(null);
+      if ('vibrate' in navigator) navigator.vibrate(20);
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = selectedCommentForMenu.text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setShowCommentMenu(false);
+      setSelectedCommentForMenu(null);
+      setSelectedCommentRect(null);
     }
   };
 
@@ -339,7 +368,7 @@ export default function CommentsModal({
           </div>
 
           {/* Comments List */}
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div ref={scrollContainerRef} className="comment-touchable flex-1 overflow-y-auto p-4 space-y-4">
             {comments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
@@ -375,7 +404,13 @@ export default function CommentsModal({
                         if (el) commentRefs.current.set(comment.id, el);
                         else commentRefs.current.delete(comment.id);
                       }}
-                      className={`flex gap-3 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom duration-200`}
+                      className={`flex gap-3 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom duration-200 transition-all duration-300 ease-out ${
+                        showCommentMenu && selectedCommentForMenu?.id === comment.id
+                          ? 'scale-[1.01] opacity-100'
+                          : showCommentMenu
+                          ? 'opacity-40'
+                          : ''
+                      }`}
                     >
                       {/* Avatar - profile picture when available */}
                       <Avatar
@@ -571,76 +606,95 @@ export default function CommentsModal({
         </div>
       </div>
 
-      {/* Comment context menu: emojis above, Reply/Edit/Delete below */}
+      {/* Comment context menu: floating emojis above, vertical action stack below */}
       {showCommentMenu && selectedCommentForMenu && (
         <>
           <div
-            className="fixed inset-0 z-[102]"
+            className="fixed inset-0 z-[102] backdrop-blur-md bg-black/25 transition-all duration-300 ease-out"
             onClick={() => {
               setShowCommentMenu(false);
               setSelectedCommentForMenu(null);
+              setSelectedCommentRect(null);
             }}
           />
+          {/* Floating emojis - no background, above the comment */}
           <div
-            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="fixed z-[103] flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
             style={{
-              left: typeof window !== 'undefined'
-                ? Math.max(12, Math.min(commentMenuPosition.x - 120, window.innerWidth - 264))
-                : commentMenuPosition.x - 120,
-              top: typeof window !== 'undefined' && commentMenuPosition.y > window.innerHeight - 200
-                ? commentMenuPosition.y - 180
-                : commentMenuPosition.y - 12,
+              left: selectedCommentRect
+                ? selectedCommentRect.left + selectedCommentRect.width / 2
+                : commentMenuPosition.x,
+              top: selectedCommentRect
+                ? selectedCommentRect.top - 48
+                : commentMenuPosition.y - 48,
+              transform: 'translateX(-50%)',
             }}
           >
-            {/* Emoji row - above */}
-            <div className="flex items-center justify-center gap-1 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50">
-              {QUICK_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => handleQuickEmoji(emoji)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-xl hover:scale-110 active:scale-95 transition-transform duration-150 hover:bg-gray-200 dark:hover:bg-gray-600"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-            {/* Action row - below */}
-            <div className="flex items-center border-t border-gray-200 dark:border-gray-600">
-              {selectedCommentForMenu.userId === currentUserId ? (
-                <>
-                  {onEditComment && (
-                    <button
-                      type="button"
-                      onClick={handleEditComment}
-                      className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <FaEdit size={14} />
-                      Edit
-                    </button>
-                  )}
-                  {onDeleteComment && (
-                    <button
-                      type="button"
-                      onClick={handleDeleteComment}
-                      className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      <FaTrash size={14} />
-                      Delete
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleReplyFromMenu}
-                  className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                >
-                  <FaReply size={14} />
-                  Reply
-                </button>
-              )}
-            </div>
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => handleQuickEmoji(emoji)}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-2xl transition-all duration-200 hover:scale-125 active:scale-95 drop-shadow-lg"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          {/* Vertical action menu - WhatsApp style */}
+          <div
+            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200/80 dark:border-gray-600/80 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 min-w-[180px]"
+            style={{
+              left: selectedCommentRect
+                ? Math.max(16, Math.min(selectedCommentRect.left + selectedCommentRect.width / 2 - 90, (typeof window !== 'undefined' ? window.innerWidth : 400) - 196))
+                : Math.max(16, commentMenuPosition.x - 90),
+              top: selectedCommentRect
+                ? selectedCommentRect.bottom + 12
+                : commentMenuPosition.y + 12,
+            }}
+          >
+            {/* Copy - available for all comments */}
+            <button
+              type="button"
+              onClick={handleCopyComment}
+              className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors duration-150 text-[15px]"
+            >
+              <FaCopy size={15} className="text-gray-500 dark:text-gray-400" />
+              Copy
+            </button>
+            {selectedCommentForMenu.userId === currentUserId ? (
+              <>
+                {onEditComment && (
+                  <button
+                    type="button"
+                    onClick={handleEditComment}
+                    className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors duration-150 text-[15px]"
+                  >
+                    <FaEdit size={15} className="text-gray-500 dark:text-gray-400" />
+                    Edit
+                  </button>
+                )}
+                {onDeleteComment && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteComment}
+                    className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-[15px]"
+                  >
+                    <FaTrash size={15} />
+                    Delete for everyone
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleReplyFromMenu}
+                className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-150 text-[15px]"
+              >
+                <FaReply size={15} />
+                Reply
+              </button>
+            )}
           </div>
         </>
       )}

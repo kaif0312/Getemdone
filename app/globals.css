@@ -70,6 +70,23 @@ body {
   -webkit-touch-callout: default !important;
 }
 
+/* Prevent text selection on comments during long-press/swipe */
+.comment-touchable {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+.comment-touchable * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
 /* Prevent date/time inputs from overflowing on mobile */
 input[type="date"],
 input[type="time"],

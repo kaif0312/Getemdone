@@ -1387,7 +1387,11 @@ export function useTasks() {
     }
   };
 
-  const addComment = async (taskId: string, text: string) => {
+  const addComment = async (
+    taskId: string,
+    text: string,
+    replyTo?: { id: string; userName: string }
+  ) => {
     if (!user || !userData) {
       console.error('[addComment] No user or userData');
       return;
@@ -1450,6 +1454,7 @@ export function useTasks() {
         text: encryptedCommentText,
         ...(commentFriendContent && Object.keys(commentFriendContent).length > 0 && { friendContent: commentFriendContent }),
         timestamp: Date.now(),
+        ...(replyTo && { replyToId: replyTo.id, replyToUserName: replyTo.userName }),
       };
 
       comments.push(newComment);
@@ -1535,6 +1540,82 @@ export function useTasks() {
       }
     } catch (error) {
       console.error('[addComment] Error adding comment:', error);
+      throw error;
+    }
+  };
+
+  const editComment = async (taskId: string, commentId: string, newText: string) => {
+    if (!user || !userData) return;
+
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskDoc = await getDoc(taskRef);
+      if (!taskDoc.exists()) return;
+
+      const task = taskDoc.data() as Task;
+      const comments = task.comments || [];
+      const idx = comments.findIndex((c) => c.id === commentId);
+      if (idx === -1 || comments[idx].userId !== user.uid) return;
+
+      let taskOwnerData: User | null = null;
+      if (task.userId !== user.uid) {
+        const ownerSnap = await getDoc(doc(db, 'users', task.userId));
+        taskOwnerData = ownerSnap.exists() ? (ownerSnap.data() as User) : null;
+      }
+
+      const text = newText.substring(0, 500);
+      let encryptedText = text;
+      let friendContent: Record<string, string> | undefined;
+
+      if (encryptionInitialized) {
+        if (task.userId === user.uid) {
+          encryptedText = await encryptForSelf(text);
+          if (userData.friends?.length) {
+            friendContent = {};
+            for (const friendId of userData.friends) {
+              friendContent[friendId] = await encryptForFriend(text, friendId);
+            }
+          }
+        } else {
+          encryptedText = await encryptForFriend(text, task.userId);
+          const ownerFriends = taskOwnerData?.friends || [];
+          if (ownerFriends.length > 0) {
+            friendContent = {};
+            for (const friendId of ownerFriends) {
+              if (friendId !== task.userId) {
+                friendContent[friendId] = await encryptForFriend(text, friendId);
+              }
+            }
+          }
+        }
+      }
+
+      const updated = { ...comments[idx], text: encryptedText, ...(friendContent && { friendContent }) };
+      comments[idx] = updated;
+      await updateDoc(taskRef, { comments });
+    } catch (error) {
+      console.error('[editComment] Error:', error);
+      throw error;
+    }
+  };
+
+  const deleteComment = async (taskId: string, commentId: string) => {
+    if (!user) return;
+
+    try {
+      const taskRef = doc(db, 'tasks', taskId);
+      const taskDoc = await getDoc(taskRef);
+      if (!taskDoc.exists()) return;
+
+      const task = taskDoc.data() as Task;
+      const comments = task.comments || [];
+      const comment = comments.find((c) => c.id === commentId);
+      if (!comment || comment.userId !== user.uid) return;
+
+      const filtered = comments.filter((c) => c.id !== commentId);
+      await updateDoc(taskRef, { comments: filtered });
+    } catch (error) {
+      console.error('[deleteComment] Error:', error);
       throw error;
     }
   };
@@ -1719,6 +1800,8 @@ export function useTasks() {
     addReaction,
     addComment,
     addCommentReaction,
+    editComment,
+    deleteComment,
     deferTask,
     reorderTasks,
     addAttachment,

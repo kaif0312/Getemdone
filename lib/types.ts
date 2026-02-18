@@ -72,6 +72,9 @@ export interface Comment {
   friendContent?: Record<string, string>;
   timestamp: number;
   reactions?: Reaction[]; // Emoji reactions to the comment
+  /** Reply to another comment - WhatsApp-style threading */
+  replyToId?: string;
+  replyToUserName?: string;
 }
 
 export interface Attachment {

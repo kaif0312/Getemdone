@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
-import { FaTimes, FaPaperPlane, FaComment } from 'react-icons/fa';
+import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash, FaSmile } from 'react-icons/fa';
 import CommentReactionPicker from './CommentReactionPicker';
 import Avatar from './Avatar';
 import LinkifyText from './LinkifyText';
@@ -13,8 +13,10 @@ interface CommentsModalProps {
   currentUserId: string;
   currentUserName: string;
   onClose: () => void;
-  onAddComment: (taskId: string, text: string) => void;
+  onAddComment: (taskId: string, text: string, replyTo?: { id: string; userName: string }) => void;
   onAddCommentReaction: (taskId: string, commentId: string, emoji: string) => void;
+  onEditComment?: (taskId: string, commentId: string, newText: string) => void;
+  onDeleteComment?: (taskId: string, commentId: string) => void;
 }
 
 export default function CommentsModal({
@@ -25,17 +27,30 @@ export default function CommentsModal({
   onClose,
   onAddComment,
   onAddCommentReaction,
+  onEditComment,
+  onDeleteComment,
 }: CommentsModalProps) {
   const [commentText, setCommentText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 });
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [showCommentMenu, setShowCommentMenu] = useState(false);
+  const [commentMenuPosition, setCommentMenuPosition] = useState({ x: 0, y: 0 });
+  const [selectedCommentForMenu, setSelectedCommentForMenu] = useState<{
+    id: string;
+    userName: string;
+    text: string;
+    userId: string;
+  } | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Scroll to bottom when modal opens - useLayoutEffect runs before paint so no visible transition
   useLayoutEffect(() => {
@@ -64,36 +79,98 @@ export default function CommentsModal({
     }
   }, [task.comments, isOpen]);
 
-  // Focus input when modal opens
+  // Focus input when modal opens; clear reply/edit when closing
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      // Delay to avoid iOS keyboard issues
       setTimeout(() => inputRef.current?.focus(), 100);
+    } else {
+      setReplyingTo(null);
+      setEditingCommentId(null);
+      setShowCommentMenu(false);
     }
   }, [isOpen]);
 
-  // Handle long press for emoji picker
-  const handleLongPressStart = (commentId: string, e: React.TouchEvent | React.MouseEvent) => {
+  // Handle long press for comment menu (Edit / Delete / React), swipe right for reply
+  const handleLongPressStart = (comment: Comment, e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    swipeStartRef.current = { x: clientX, y: clientY };
 
     longPressTimerRef.current = setTimeout(() => {
-      setReactionPickerPosition({ x: clientX, y: clientY });
-      setSelectedCommentId(commentId);
-      setShowReactionPicker(true);
-      
-      // Haptic feedback
+      setCommentMenuPosition({ x: clientX, y: clientY });
+      setSelectedCommentForMenu({
+        id: comment.id,
+        userName: comment.userName,
+        text: comment.text,
+        userId: comment.userId,
+      });
+      setSelectedCommentId(comment.id);
+      setShowCommentMenu(true);
+      swipeStartRef.current = null;
+
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
-    }, 300); // 300ms long press
+    }, 300);
   };
 
-  const handleLongPressEnd = () => {
-    if (longPressTimerRef.current) {
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!swipeStartRef.current || !longPressTimerRef.current) return;
+    const dx = e.touches[0].clientX - swipeStartRef.current.x;
+    if (Math.abs(dx) > 30) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+  };
+
+  const handleLongPressEnd = (commentId: string, commentUserName: string, e: React.TouchEvent | React.MouseEvent) => {
+    if (longPressTimerRef.current) {
+      const endX = 'changedTouches' in e ? e.changedTouches[0]?.clientX : (e as React.MouseEvent).clientX;
+      const startX = swipeStartRef.current?.x ?? endX;
+      const deltaX = endX - startX;
+
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+
+      // Swipe right to reply (deltaX > 60)
+      if (deltaX > 60 && !showCommentMenu) {
+        setReplyingTo({ id: commentId, userName: commentUserName });
+        inputRef.current?.focus();
+        if ('vibrate' in navigator) navigator.vibrate(20);
+      }
+    }
+    swipeStartRef.current = null;
+  };
+
+  const handleEditComment = () => {
+    if (!selectedCommentForMenu || !onEditComment) return;
+    setCommentText(selectedCommentForMenu.text);
+    setEditingCommentId(selectedCommentForMenu.id);
+    setReplyingTo(null);
+    setShowCommentMenu(false);
+    setSelectedCommentForMenu(null);
+    inputRef.current?.focus();
+  };
+
+  const handleDeleteComment = async () => {
+    if (!selectedCommentForMenu || !onDeleteComment) return;
+    try {
+      await onDeleteComment(task.id, selectedCommentForMenu.id);
+      setShowCommentMenu(false);
+      setSelectedCommentForMenu(null);
+      setEditingCommentId(null);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete comment.');
+    }
+  };
+
+  const handleAddReactionFromMenu = () => {
+    if (!selectedCommentForMenu) return;
+    setReactionPickerPosition(commentMenuPosition);
+    setShowCommentMenu(false);
+    setShowReactionPicker(true);
+    // selectedCommentId already set
   };
 
   const handleEmojiSelect = (emoji: string) => {
@@ -119,18 +196,21 @@ export default function CommentsModal({
 
     setIsSending(true);
     try {
-      console.log('[CommentsModal] Submitting comment:', commentText.trim());
-      await onAddComment(task.id, commentText.trim());
+      if (editingCommentId && onEditComment) {
+        await onEditComment(task.id, editingCommentId, commentText.trim());
+        setEditingCommentId(null);
+      } else {
+        await onAddComment(task.id, commentText.trim(), replyingTo ?? undefined);
+        setReplyingTo(null);
+      }
       setCommentText('');
-      
-      // Haptic feedback
+
       if ('vibrate' in navigator) {
         navigator.vibrate(30);
       }
-      console.log('[CommentsModal] Comment submitted successfully');
     } catch (error) {
-      console.error('[CommentsModal] Error submitting comment:', error);
-      alert('Failed to add comment. Please try again.');
+      console.error('[CommentsModal] Error:', error);
+      alert('Failed to save. Please try again.');
     } finally {
       setIsSending(false);
     }
@@ -266,12 +346,21 @@ export default function CommentsModal({
                               ? 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border border-blue-200 dark:border-blue-800 rounded-bl-sm'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
                           }`}
-                          onTouchStart={(e) => handleLongPressStart(comment.id, e)}
-                          onTouchEnd={handleLongPressEnd}
-                          onMouseDown={(e) => handleLongPressStart(comment.id, e)}
-                          onMouseUp={handleLongPressEnd}
-                          onMouseLeave={handleLongPressEnd}
+                          onTouchStart={(e) => handleLongPressStart(comment, e)}
+                          onTouchMove={handleTouchMove}
+                          onTouchEnd={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
+                          onMouseDown={(e) => handleLongPressStart(comment, e)}
+                          onMouseUp={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
+                          onMouseLeave={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
                         >
+                          {comment.replyToUserName && (
+                            <div className={`text-xs mb-1 flex items-center gap-1 ${
+                              isOwnComment ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                            }`}>
+                              <FaReply size={10} />
+                              <span>Replying to {comment.replyToUserName}</span>
+                            </div>
+                          )}
                           {!isOwnComment && (
                             <div className={`text-xs font-semibold mb-1 ${
                               isTaskOwnerComment
@@ -312,11 +401,22 @@ export default function CommentsModal({
                           </div>
                         )}
                         
-                        <span className={`text-xs text-gray-500 dark:text-gray-400 mt-1 px-1 ${
-                          isOwnComment ? 'text-right' : 'text-left'
-                        }`}>
-                          {formatTime(comment.timestamp)}
-                        </span>
+                        <div className={`flex items-center gap-2 mt-1 ${isOwnComment ? 'justify-end' : 'justify-start'}`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingTo({ id: comment.id, userName: comment.userName });
+                              inputRef.current?.focus();
+                            }}
+                            className="text-xs text-blue-500 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+                          >
+                            <FaReply size={10} />
+                            Reply
+                          </button>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatTime(comment.timestamp)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -328,6 +428,41 @@ export default function CommentsModal({
 
           {/* Input Area */}
           <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
+            {replyingTo && (
+              <div className="flex items-center justify-between mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <span className="text-sm text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                  <FaReply size={12} />
+                  Replying to {replyingTo.userName}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors"
+                  aria-label="Cancel reply"
+                >
+                  <FaTimes size={12} className="text-blue-600 dark:text-blue-400" />
+                </button>
+              </div>
+            )}
+            {editingCommentId && (
+              <div className="flex items-center justify-between mb-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <span className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                  <FaEdit size={12} />
+                  Editing comment
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingCommentId(null);
+                    setCommentText('');
+                  }}
+                  className="p-1 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-full transition-colors"
+                  aria-label="Cancel edit"
+                >
+                  <FaTimes size={12} className="text-amber-600 dark:text-amber-400" />
+                </button>
+              </div>
+            )}
             <div className="flex gap-2 items-end">
               <div className="flex-1 relative">
                 <textarea
@@ -340,7 +475,7 @@ export default function CommentsModal({
                       handleSubmit(e);
                     }
                   }}
-                  placeholder={isOwnTask ? "Add an update..." : "Add a comment..."}
+                  placeholder={editingCommentId ? "Edit your comment..." : isOwnTask ? "Add an update..." : "Add a comment..."}
                   className="w-full px-4 py-3 pr-12 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all max-h-32"
                   rows={1}
                   style={{
@@ -368,11 +503,64 @@ export default function CommentsModal({
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Press Enter to send, Shift+Enter for new line
+              Hold comment for Edit/Delete · Swipe right to reply · Enter to send
             </p>
           </form>
         </div>
       </div>
+
+      {/* Comment context menu (Edit / Delete / React) */}
+      {showCommentMenu && selectedCommentForMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-[102]"
+            onClick={() => {
+              setShowCommentMenu(false);
+              setSelectedCommentForMenu(null);
+            }}
+          />
+          <div
+            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-150"
+            style={{
+              left: typeof window !== 'undefined'
+                ? Math.max(12, Math.min(commentMenuPosition.x - 90, window.innerWidth - 192))
+                : commentMenuPosition.x - 90,
+              top: typeof window !== 'undefined' && commentMenuPosition.y > window.innerHeight - 160
+                ? commentMenuPosition.y - 130
+                : commentMenuPosition.y - 8,
+            }}
+          >
+            {selectedCommentForMenu.userId === currentUserId && onEditComment && (
+              <button
+                type="button"
+                onClick={handleEditComment}
+                className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <FaEdit size={14} className="text-gray-500 dark:text-gray-400" />
+                Edit
+              </button>
+            )}
+            {selectedCommentForMenu.userId === currentUserId && onDeleteComment && (
+              <button
+                type="button"
+                onClick={handleDeleteComment}
+                className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <FaTrash size={14} />
+                Delete for everyone
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAddReactionFromMenu}
+              className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <FaSmile size={14} className="text-gray-500 dark:text-gray-400" />
+              Add reaction
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Emoji Reaction Picker */}
       <CommentReactionPicker

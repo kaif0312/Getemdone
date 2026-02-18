@@ -29,8 +29,7 @@ export function useTasks() {
     decryptForSelf, 
     decryptComment,
     encryptForFriend, 
-    decryptFromFriend,
-    getSharedKey,
+    decryptFromFriend 
   } = useEncryption();
   // When encryption finishes loading, listener must reconnect so tasks are decrypted (see setupKey)
   const encryptionReady = Boolean(encryptionInitialized);
@@ -49,7 +48,6 @@ export function useTasks() {
   const listenersActiveRef = useRef<boolean>(false);
   const lastEncReconnectRef = useRef<number>(0);
   const autoBackfillRanRef = useRef<boolean>(false);
-  const lastBackfilledFriendsRef = useRef<string>('');
   // Ref so snapshot listener always uses latest encryption (avoids stale closure when key loads later)
   const encryptionRef = useRef({
     encryptionInitialized,
@@ -255,18 +253,10 @@ export function useTasks() {
   }, [user?.uid]);
 
   // Auto-backfill friendContent when app loads so friends can decrypt older tasks
-  // Re-run when friends list changes (e.g. new friend added) so their tasks get friendContent
   useEffect(() => {
-    if (!userId || !userDataId || !encryptionInitialized) return;
+    if (!userId || !userDataId || !encryptionInitialized || autoBackfillRanRef.current) return;
     const friends = userData?.friends || [];
     if (friends.length === 0) return;
-
-    const friendsKey = [...friends].sort().join(',');
-    if (lastBackfilledFriendsRef.current !== friendsKey) {
-      autoBackfillRanRef.current = false;
-      lastBackfilledFriendsRef.current = friendsKey;
-    }
-    if (autoBackfillRanRef.current) return;
 
     const timer = setTimeout(async () => {
       // Abort if user signed out before backfill started
@@ -840,10 +830,6 @@ export function useTasks() {
     // Encrypt for each friend so they can decrypt (public tasks only)
     let friendContent: Record<string, string> | undefined;
     if (!isPrivate && encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
-      // Ensure shared keys exist before encrypting (fixes race with new friends)
-      for (const friendId of userData!.friends) {
-        await getSharedKey(friendId);
-      }
       friendContent = {};
       for (const friendId of userData!.friends) {
         const enc = await encryptForFriend(text, friendId);
@@ -925,9 +911,6 @@ export function useTasks() {
       if (task?.text) {
         const plaintext = await decryptForSelf(task.text);
         if (plaintext && !plaintext.includes("Couldn't decrypt")) {
-          for (const friendId of userData!.friends) {
-            await getSharedKey(friendId);
-          }
           const friendContent: Record<string, string> = {};
           for (const friendId of userData!.friends) {
             friendContent[friendId] = await encryptForFriend(plaintext, friendId);
@@ -969,9 +952,6 @@ export function useTasks() {
     const taskDoc = await getDoc(taskRef);
     const isPrivate = taskDoc.exists() ? (taskDoc.data() as Task).isPrivate : false;
     if (!isPrivate && encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
-      for (const friendId of userData!.friends) {
-        await getSharedKey(friendId);
-      }
       const friendContent: Record<string, string> = {};
       for (const friendId of userData!.friends) {
         friendContent[friendId] = await encryptForFriend(trimmedText, friendId);
@@ -1443,22 +1423,15 @@ export function useTasks() {
           encryptedCommentText = await encryptForSelf(commentText);
           // Encrypt for each friend so they can decrypt owner's comments (owner uses master key, friends can't)
           if (userData.friends?.length) {
-            for (const friendId of userData.friends) {
-              await getSharedKey(friendId);
-            }
             commentFriendContent = {};
             for (const friendId of userData.friends) {
               commentFriendContent[friendId] = await encryptForFriend(commentText, friendId);
             }
           }
         } else {
-          await getSharedKey(task.userId);
           encryptedCommentText = await encryptForFriend(commentText, task.userId);
           const ownerFriends = taskOwnerData?.friends || [];
           if (ownerFriends.length > 0) {
-            for (const friendId of ownerFriends) {
-              if (friendId !== task.userId) await getSharedKey(friendId);
-            }
             commentFriendContent = {};
             for (const friendId of ownerFriends) {
               if (friendId !== task.userId) {

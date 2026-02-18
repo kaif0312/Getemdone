@@ -1333,8 +1333,8 @@ export default function TaskItem({
             (!isOwnTask && showSubtasks && (task.subtasks?.length ?? 0) > 0)) && (
             <div
               ref={subtaskSectionRef}
-              className={`overflow-hidden transition-[max-height] duration-200 ease-out ${
-                showSubtasks ? 'max-h-[500px]' : 'max-h-0'
+              className={`transition-[max-height] duration-200 ease-out ${
+                showSubtasks ? 'max-h-[min(50vh,500px)] overflow-y-auto overflow-x-hidden' : 'max-h-0 overflow-hidden'
               }`}
             >
               <div

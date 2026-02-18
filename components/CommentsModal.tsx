@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
-import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash, FaSmile } from 'react-icons/fa';
-import CommentReactionPicker from './CommentReactionPicker';
+import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash } from 'react-icons/fa';
 import Avatar from './Avatar';
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 import LinkifyText from './LinkifyText';
 
 interface CommentsModalProps {
@@ -32,9 +33,6 @@ export default function CommentsModal({
 }: CommentsModalProps) {
   const [commentText, setCommentText] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [showReactionPicker, setShowReactionPicker] = useState(false);
-  const [reactionPickerPosition, setReactionPickerPosition] = useState({ x: 0, y: 0 });
-  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [showCommentMenu, setShowCommentMenu] = useState(false);
   const [commentMenuPosition, setCommentMenuPosition] = useState({ x: 0, y: 0 });
   const [selectedCommentForMenu, setSelectedCommentForMenu] = useState<{
@@ -136,7 +134,6 @@ export default function CommentsModal({
         text: comment.text,
         userId: comment.userId,
       });
-      setSelectedCommentId(comment.id);
       setShowCommentMenu(true);
       swipeStartRef.current = null;
 
@@ -146,18 +143,25 @@ export default function CommentsModal({
     }, 300);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleSwipeMove = (clientX: number) => {
     if (!swipeStartRef.current || !swipingCommentRef.current) return;
-    const dx = e.touches[0].clientX - swipeStartRef.current.x;
+    const dx = clientX - swipeStartRef.current.x;
     if (Math.abs(dx) > 30 && longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    // Swipe right: animate message to the right (WhatsApp-style)
     if (dx > 0) {
       setSwipingCommentId(swipingCommentRef.current);
       setSwipeDeltaX(Math.min(dx, 80));
     }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handleSwipeMove(e.touches[0].clientX);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    handleSwipeMove(e.clientX);
   };
 
   const handleLongPressEnd = (commentId: string, commentUserName: string, e: React.TouchEvent | React.MouseEvent) => {
@@ -168,25 +172,23 @@ export default function CommentsModal({
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
 
-      // Swipe right to reply (deltaX > 60) - message animates right, then back
-      // Use focusInputForMobile: iOS blocks focus from touch on non-input; temp-input workaround opens keyboard
-      if (deltaX > 60 && !showCommentMenu) {
-        setIsAnimatingReplySwipe(true);
-        setSwipeDeltaX(80);
-        setReplyingTo({ id: commentId, userName: commentUserName });
-        if ('vibrate' in navigator) navigator.vibrate(20);
-        focusInputForMobile();
-        setTimeout(() => setSwipeDeltaX(0), 50);
+    // Swipe right to reply (deltaX > 60) - runs whether timer fired or was cleared by swipe move
+    if (deltaX > 60 && !showCommentMenu) {
+      setIsAnimatingReplySwipe(true);
+      setSwipeDeltaX(80);
+      setReplyingTo({ id: commentId, userName: commentUserName });
+      if ('vibrate' in navigator) navigator.vibrate(20);
+      focusInputForMobile();
+        setTimeout(() => setSwipeDeltaX(0), 30);
         setTimeout(() => {
           setSwipingCommentId(null);
           setSwipeDeltaX(0);
           swipingCommentRef.current = null;
           setIsAnimatingReplySwipe(false);
-        }, 220);
-      }
+        }, 260);
     } else {
-      // Reset swipe animation
       setSwipingCommentId(null);
       setSwipeDeltaX(0);
     }
@@ -217,19 +219,20 @@ export default function CommentsModal({
     }
   };
 
-  const handleAddReactionFromMenu = () => {
-    if (!selectedCommentForMenu) return;
-    setReactionPickerPosition(commentMenuPosition);
-    setShowCommentMenu(false);
-    setShowReactionPicker(true);
-    // selectedCommentId already set
+  const handleQuickEmoji = (emoji: string) => {
+    if (selectedCommentForMenu) {
+      onAddCommentReaction(task.id, selectedCommentForMenu.id, emoji);
+      setShowCommentMenu(false);
+      setSelectedCommentForMenu(null);
+    }
   };
 
-  const handleEmojiSelect = (emoji: string) => {
-    if (selectedCommentId) {
-      onAddCommentReaction(task.id, selectedCommentId, emoji);
-      setShowReactionPicker(false);
-      setSelectedCommentId(null);
+  const handleReplyFromMenu = () => {
+    if (selectedCommentForMenu) {
+      setReplyingTo({ id: selectedCommentForMenu.id, userName: selectedCommentForMenu.userName });
+      setShowCommentMenu(false);
+      setSelectedCommentForMenu(null);
+      focusInputForMobile();
     }
   };
 
@@ -400,12 +403,13 @@ export default function CommentsModal({
                           }`}
                           style={{
                             transform: comment.id === swipingCommentId ? `translateX(${swipeDeltaX}px)` : undefined,
-                            transition: isAnimatingReplySwipe ? 'transform 0.15s ease-out' : 'none',
+                            transition: isAnimatingReplySwipe ? 'transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
                           }}
                           onTouchStart={(e) => handleLongPressStart(comment, e)}
                           onTouchMove={handleTouchMove}
                           onTouchEnd={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
                           onMouseDown={(e) => handleLongPressStart(comment, e)}
+                          onMouseMove={handleMouseMove}
                           onMouseUp={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
                           onMouseLeave={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
                         >
@@ -567,7 +571,7 @@ export default function CommentsModal({
         </div>
       </div>
 
-      {/* Comment context menu (Edit / Delete / React) */}
+      {/* Comment context menu: emojis above, Reply/Edit/Delete below */}
       {showCommentMenu && selectedCommentForMenu && (
         <>
           <div
@@ -578,58 +582,68 @@ export default function CommentsModal({
             }}
           />
           <div
-            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             style={{
               left: typeof window !== 'undefined'
-                ? Math.max(12, Math.min(commentMenuPosition.x - 90, window.innerWidth - 192))
-                : commentMenuPosition.x - 90,
-              top: typeof window !== 'undefined' && commentMenuPosition.y > window.innerHeight - 160
-                ? commentMenuPosition.y - 130
-                : commentMenuPosition.y - 8,
+                ? Math.max(12, Math.min(commentMenuPosition.x - 120, window.innerWidth - 264))
+                : commentMenuPosition.x - 120,
+              top: typeof window !== 'undefined' && commentMenuPosition.y > window.innerHeight - 200
+                ? commentMenuPosition.y - 180
+                : commentMenuPosition.y - 12,
             }}
           >
-            {selectedCommentForMenu.userId === currentUserId && onEditComment && (
-              <button
-                type="button"
-                onClick={handleEditComment}
-                className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <FaEdit size={14} className="text-gray-500 dark:text-gray-400" />
-                Edit
-              </button>
-            )}
-            {selectedCommentForMenu.userId === currentUserId && onDeleteComment && (
-              <button
-                type="button"
-                onClick={handleDeleteComment}
-                className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <FaTrash size={14} />
-                Delete for everyone
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleAddReactionFromMenu}
-              className="w-full px-4 py-2.5 flex items-center gap-3 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaSmile size={14} className="text-gray-500 dark:text-gray-400" />
-              Add reaction
-            </button>
+            {/* Emoji row - above */}
+            <div className="flex items-center justify-center gap-1 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50">
+              {QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleQuickEmoji(emoji)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-xl hover:scale-110 active:scale-95 transition-transform duration-150 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            {/* Action row - below */}
+            <div className="flex items-center border-t border-gray-200 dark:border-gray-600">
+              {selectedCommentForMenu.userId === currentUserId ? (
+                <>
+                  {onEditComment && (
+                    <button
+                      type="button"
+                      onClick={handleEditComment}
+                      className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <FaEdit size={14} />
+                      Edit
+                    </button>
+                  )}
+                  {onDeleteComment && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteComment}
+                      className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <FaTrash size={14} />
+                      Delete
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleReplyFromMenu}
+                  className="flex-1 px-4 py-3 flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                >
+                  <FaReply size={14} />
+                  Reply
+                </button>
+              )}
+            </div>
           </div>
         </>
       )}
-
-      {/* Emoji Reaction Picker */}
-      <CommentReactionPicker
-        isOpen={showReactionPicker}
-        position={reactionPickerPosition}
-        onSelectEmoji={handleEmojiSelect}
-        onClose={() => {
-          setShowReactionPicker(false);
-          setSelectedCommentId(null);
-        }}
-      />
     </>
   );
 }

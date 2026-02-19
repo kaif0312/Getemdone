@@ -1036,8 +1036,8 @@ function MainApp() {
                           const key = sectionKey(group.tag);
                           const isCollapsed = collapsedSections.has(key);
                           const isInbox = group.tag === null;
-                          const Icon = isInbox ? LuInbox : getIconForTag(group.tag);
-                          const label = isInbox ? 'Inbox' : getLabelForTag(group.tag);
+                          const Icon = isInbox ? LuInbox : getIconForTag(group.tag!);
+                          const label = isInbox ? 'Inbox' : getLabelForTag(group.tag!);
                           return (
                           <div key={key}>
                             <button
@@ -1111,8 +1111,8 @@ function MainApp() {
                       const key = `done-${sectionKey(group.tag)}`;
                       const isCollapsed = collapsedSections.has(key);
                       const isInbox = group.tag === null;
-                      const Icon = isInbox ? LuInbox : getIconForTag(group.tag);
-                      const label = isInbox ? 'Inbox' : getLabelForTag(group.tag);
+                      const Icon = isInbox ? LuInbox : getIconForTag(group.tag!);
+                      const label = isInbox ? 'Inbox' : getLabelForTag(group.tag!);
                       return (
                       <div key={key}>
                         <button

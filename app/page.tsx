@@ -829,8 +829,8 @@ function MainApp() {
               >
                 <FaBell className={unreadNotifications > 0 ? 'text-primary' : ''} size={18} />
                 {unreadNotifications > 0 && (
-                  <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] bg-error text-on-accent text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-error text-on-accent text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadNotifications > 99 ? '9+' : unreadNotifications}
                   </span>
                 )}
               </button>

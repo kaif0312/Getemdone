@@ -11,7 +11,6 @@ import { isEncrypted } from '@/utils/crypto';
 import { db } from '@/lib/firebase';
 import LinkifyText from './LinkifyText';
 import Avatar from './Avatar';
-import { getAccentForId } from '@/lib/theme';
 
 interface NotificationsPanelProps {
   isOpen: boolean;
@@ -259,8 +258,8 @@ export default function NotificationsPanel({
           paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0px)',
         }}
       >
-        {/* Drag handle pill - mobile only: 36px wide, 4px tall, tertiary 30% opacity */}
-        <div className="flex justify-center pt-3 pb-2 md:hidden flex-shrink-0">
+        {/* Drag handle pill - mobile only: 36px wide, 4px tall, tertiary 30% opacity, 8px top margin */}
+        <div className="flex justify-center pt-2 pb-2 md:hidden flex-shrink-0">
           <div className="w-9 h-1 rounded-full bg-fg-tertiary/30" aria-hidden />
         </div>
 
@@ -332,14 +331,12 @@ export default function NotificationsPanel({
               {grouped.map((group) => {
                 const isDeleting = group.items.some((i) => deletingIds.has(i.id));
                 const photoURL = getPhotoURL(group.items[0]);
-                const accent = group.fromUserId ? getAccentForId(group.fromUserId) : { from: 'from-blue-500', to: 'to-purple-600' };
 
                 return (
                   <NotificationRow
                     key={group.id}
                     group={group}
                     photoURL={photoURL}
-                    accent={accent}
                     formatTime={formatTime}
                     onClick={() => handleNotificationClick(group)}
                     onDelete={() => handleDeleteGroup(group)}
@@ -359,7 +356,6 @@ export default function NotificationsPanel({
 interface NotificationRowProps {
   group: GroupedNotification;
   photoURL?: string;
-  accent: { from: string; to: string };
   formatTime: (ts: number) => string;
   onClick: () => void;
   onDelete: () => void;
@@ -370,7 +366,6 @@ interface NotificationRowProps {
 function NotificationRow({
   group,
   photoURL,
-  accent,
   formatTime,
   onClick,
   onDelete,
@@ -411,42 +406,36 @@ function NotificationRow({
   return (
     <div
       {...swipeHandlers}
-      className={`relative overflow-hidden transition-all duration-200 ease-out ${
+      className={`relative overflow-hidden transition-all duration-200 ease-out rounded-lg md:rounded-none ${
         isDeleting ? 'opacity-0 -translate-x-full' : ''
-      } ${!group.read ? 'border-l-[3px] border-l-primary bg-primary/[0.03]' : ''} border-b border-border-subtle last:border-b-0`}
+      } ${!group.read ? 'border-l-[3px] border-l-primary bg-primary/[0.03]' : 'bg-surface'} border-b border-border-subtle last:border-b-0`}
     >
-      {/* Swipe delete area - mobile (iOS Mail pattern) */}
+      {/* Mobile: content + delete in flex row, delete off-screen by default; swipe reveals. Desktop: normal row */}
       <div
-        className="absolute inset-y-0 right-0 w-20 bg-error flex items-center justify-center md:hidden z-10"
+        className="flex flex-row w-[calc(100%+80px)] md:w-full"
+        style={{
+          transform: swipeOffset < 0 ? `translateX(${swipeOffset}px)` : undefined,
+        }}
       >
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="text-on-accent text-sm font-medium px-4"
+        {/* Content - full width when not swiped */}
+        <div
+          className="flex flex-1 min-w-0 items-start gap-3 py-3 px-4 cursor-pointer hover:bg-surface-muted/50 transition-colors duration-200 group bg-surface md:bg-elevated"
+          onClick={onClick}
         >
-          Delete
-        </button>
-      </div>
+          {/* Avatar */}
+          <div className="flex-shrink-0 mt-0.5">
+            <Avatar
+              photoURL={photoURL}
+              displayName={firstName}
+              size="xs"
+              letterVariant="primary"
+              className="w-7 h-7"
+            />
+          </div>
 
-      <div
-        className="relative flex items-start gap-3 py-3 px-4 cursor-pointer hover:bg-surface-muted/50 transition-colors duration-200 group bg-elevated"
-        style={{ transform: swipeOffset < 0 ? `translateX(${swipeOffset}px)` : undefined }}
-        onClick={onClick}
-      >
-        {/* Avatar */}
-        <div className="flex-shrink-0 mt-0.5">
-          <Avatar
-            photoURL={photoURL}
-            displayName={firstName}
-            size="xs"
-            gradientFrom={accent.from}
-            gradientTo={accent.to}
-            className="w-7 h-7"
-          />
-        </div>
-
-        {/* Content - padding 12px 16px */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-[14px] leading-snug ${group.read ? 'text-fg-secondary' : 'text-fg-primary'}`}>
+          {/* Content - full width, text wraps */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className={`text-[14px] leading-snug break-words ${group.read ? 'text-fg-secondary' : 'text-fg-primary'}`}>
             <span className="font-semibold">{firstName}</span>
             {isReaction ? (
               count > 1 ? (
@@ -479,11 +468,11 @@ function NotificationRow({
             )}
           </p>
           {previewText && (
-            <p className="text-[13px] text-fg-tertiary italic mt-0.5 line-clamp-2">
+            <p className="text-[13px] text-fg-tertiary italic mt-0.5 break-words line-clamp-3">
               &quot;<LinkifyText text={previewText} linkClassName="text-primary" />&quot;
             </p>
           )}
-          <p className="text-[12px] text-fg-tertiary mt-1 flex items-center gap-1 flex-wrap">
+          <p className="text-[12px] text-fg-tertiary mt-1 flex items-center gap-1 flex-wrap break-words">
             {group.taskText && count === 1 && (
               <>
                 <span>on &quot;{group.taskText}&quot;</span>
@@ -492,6 +481,7 @@ function NotificationRow({
             )}
             <span>{formatTime(group.createdAt)}</span>
           </p>
+        </div>
         </div>
 
         {/* Delete - desktop: hover only, tertiary → error on hover */}
@@ -502,6 +492,19 @@ function NotificationRow({
         >
           <LuTrash2 size={16} />
         </button>
+
+        {/* Swipe delete area - mobile: off-screen, revealed on swipe, rounded to match card */}
+        <div
+          className="md:hidden w-20 flex-shrink-0 flex items-center justify-center rounded-r-lg"
+          style={{ backgroundColor: 'var(--color-error)' }}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            className="text-on-accent p-2 flex flex-col items-center justify-center"
+          >
+            <LuTrash2 size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

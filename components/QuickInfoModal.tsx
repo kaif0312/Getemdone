@@ -22,6 +22,17 @@ interface VersionGroup {
 
 const UPDATES: VersionGroup[] = [
   {
+    version: '1.1.0',
+    date: 'Feb 2026',
+    items: [
+      { type: 'feature', text: 'Rebrand to Nudge — new logo and app identity' },
+      { type: 'feature', text: 'Category grouping — Inbox for uncategorized, collapsible sections' },
+      { type: 'feature', text: 'Improved task list — relative timestamps, compact metadata with icons' },
+      { type: 'feature', text: 'Redesigned login and PWA install screens' },
+      { type: 'fix', text: 'Change icon moved to context menu — cleaner task cards' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: 'Feb 2026',
     items: [
@@ -98,7 +109,7 @@ export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps)
             {/* Made with love */}
             <div className="text-[13px] text-fg-secondary mb-4 pb-4 border-b border-border-subtle">
               Made with <LuHeart size={14} className="inline text-error align-middle" /> by{' '}
-              <span className="font-semibold text-fg-primary">Kaifuten</span> · v1.0.0
+              <span className="font-semibold text-fg-primary">Kaifuten</span> · v1.1.0
             </div>
 
             {/* Recent Updates */}

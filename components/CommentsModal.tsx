@@ -307,6 +307,14 @@ export default function CommentsModal({
       alert('Failed to save. Please try again.');
     } finally {
       setIsSending(false);
+      // Keep keyboard open after send so user can keep typing
+      setTimeout(() => {
+        if ('ontouchstart' in window) {
+          focusInputForMobile();
+        } else {
+          inputRef.current?.focus();
+        }
+      }, 50);
     }
   };
 

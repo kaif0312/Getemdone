@@ -301,7 +301,7 @@ export function useEncryption() {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[useEncryption] Decryption failed (key mismatch or corrupted). Showing placeholder.');
       }
-      return "Couldn't decrypt — try Reload encryption key in Settings";
+      return "Couldn't decrypt";
     }
   }, [masterKey]);
 
@@ -360,7 +360,7 @@ export function useEncryption() {
     }
   }, [getSharedKey]);
 
-  const SELF_PLACEHOLDER = "Couldn't decrypt — try Reload encryption key in Settings";
+  const SELF_PLACEHOLDER = "Couldn't decrypt";
   const FRIEND_PLACEHOLDER = "[Couldn't decrypt]";
 
   /**

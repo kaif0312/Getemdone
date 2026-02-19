@@ -100,10 +100,9 @@ export default function FriendTaskCard({
               <h2 className="text-white font-semibold text-base md:text-lg text-left truncate">{friendName}</h2>
               <div className="flex items-center gap-2 text-white text-opacity-90 text-xs md:text-sm">
                 <span>
-                  {pendingCount} {pendingCount === 1 ? 'task' : 'tasks'} pending
-                  {completedToday > 0 && (
-                    <span className="ml-1">• {completedToday} done today</span>
-                  )}
+                  {tasks.length === 0
+                    ? 'No tasks yet'
+                    : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} pending${completedToday > 0 ? ` • ${completedToday} done today` : ''}`}
                 </span>
                 {privateTotal > 0 && (
                   <span className="flex items-center gap-1 ml-1">
@@ -152,6 +151,11 @@ export default function FriendTaskCard({
           {publicTasks.length === 0 && privateTotal > 0 && (
             <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
               Only private tasks for today.
+            </p>
+          )}
+          {publicTasks.length === 0 && privateTotal === 0 && (
+            <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+              No tasks yet.
             </p>
           )}
           {publicGroups.map((group) => (

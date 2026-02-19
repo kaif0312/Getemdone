@@ -98,7 +98,7 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -294,15 +294,15 @@ function MainApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, tasks.length]); // Only depend on user ID and task count, not entire tasks array
 
-  // Calculate friend entries for friends' tasks section
+  // Calculate friend entries for friends' tasks section - include ALL friends (even with no tasks)
   const friendEntries = useMemo(() => {
-    if (!uid) return [];
-    
+    if (!uid || friendUsers.length === 0) return [];
+
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
+
     // Get all friend tasks (both private and public)
-    const allFriendTasks = tasks.filter(task => {
+    const allFriendTasks = tasks.filter((task) => {
       if (task.userId === uid) return false;
       if (task.deleted === true) return false;
 
@@ -312,31 +312,33 @@ function MainApp() {
         if (task.recurrence.skippedDates?.includes(todayStr)) return false;
         return dateMatchesRecurrence(task.recurrence, todayStr);
       }
-      
+
       // For friends' tasks, only show completed tasks from today
       if (task.completed && task.completedAt) {
         const completedDate = new Date(task.completedAt);
         const completedStr = `${completedDate.getFullYear()}-${String(completedDate.getMonth() + 1).padStart(2, '0')}-${String(completedDate.getDate()).padStart(2, '0')}`;
         return completedStr === todayStr;
       }
-      
+
       // Show incomplete tasks (they're working on them)
       return !task.completed;
     });
-    
-    if (allFriendTasks.length === 0) return [];
 
     // Group tasks by userId
-    const tasksByUser = allFriendTasks.reduce((acc, task) => {
-      if (!acc[task.userId]) {
-        acc[task.userId] = [];
-      }
-      acc[task.userId].push(task);
-      return acc;
-    }, {} as Record<string, typeof tasks>);
+    const tasksByUser = allFriendTasks.reduce(
+      (acc, task) => {
+        if (!acc[task.userId]) {
+          acc[task.userId] = [];
+        }
+        acc[task.userId].push(task);
+        return acc;
+      },
+      {} as Record<string, (typeof tasks)[0][]>
+    );
 
-    return Object.entries(tasksByUser);
-  }, [uid, tasks]);
+    // Include ALL friends - those with tasks and those without (empty array)
+    return friendUsers.map((friend) => [friend.id, tasksByUser[friend.id] || []] as [string, (typeof tasks)[0][]]);
+  }, [uid, tasks, friendUsers]);
 
   // Apply saved friend order - friendEntriesOrdered is used for both summary bar and task cards
   const friendEntriesOrdered = useMemo(() => {
@@ -1139,15 +1141,17 @@ function MainApp() {
                 { from: 'from-amber-500', to: 'to-amber-600', text: 'text-amber-600' },
               ];
 
-              // Create a map of friend photoURLs for easy lookup
+              // Create maps for friend photoURL and displayName (for friends with no tasks)
               const friendPhotoURLMap = new Map<string, string | undefined>();
-              friendUsers.forEach(friend => {
+              const friendDisplayNameMap = new Map<string, string>();
+              friendUsers.forEach((friend) => {
                 friendPhotoURLMap.set(friend.id, friend.photoURL);
+                friendDisplayNameMap.set(friend.id, friend.displayName || 'Unknown');
               });
 
               // Prepare friend summaries for the bar (order matches friendEntriesOrdered)
               const friendSummaries = friendEntriesOrdered.map(([userId, userTasks]) => {
-                const friendName = userTasks[0]?.userName || 'Unknown';
+                const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
                 const publicTasks = userTasks.filter(t => !t.isPrivate);
                 const privateTasks = userTasks.filter(t => t.isPrivate);
                 const pendingCount = publicTasks.filter(t => !t.completed).length;
@@ -1188,7 +1192,7 @@ function MainApp() {
                   {/* Friends' Task Cards - order matches summary bar */}
                   <div className="mb-6">
                     {friendEntriesOrdered.map(([userId, userTasks]) => {
-                      const friendName = userTasks[0]?.userName || 'Unknown';
+                      const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
                       const privateTasks = userTasks.filter(t => t.isPrivate);
                       const publicTasks = userTasks.filter(t => !t.isPrivate);
                       const privateTotal = privateTasks.length;
@@ -1330,6 +1334,11 @@ function MainApp() {
         onPermanentDelete={async (taskId) => {
           await permanentlyDeleteTask(taskId);
           // Refresh deleted count
+          const deletedTasks = await getDeletedTasks();
+          setDeletedCount(deletedTasks.length);
+        }}
+        onPermanentDeleteAll={async () => {
+          await permanentlyDeleteAllTasks();
           const deletedTasks = await getDeletedTasks();
           setDeletedCount(deletedTasks.length);
         }}

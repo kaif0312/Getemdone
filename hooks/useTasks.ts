@@ -12,7 +12,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  getDocs
+  getDocs,
+  runTransaction
 } from 'firebase/firestore';
 import { db, storage, auth } from '@/lib/firebase';
 import { Task, TaskWithUser, User, Reaction, Comment, Attachment, Subtask } from '@/lib/types';
@@ -1167,36 +1168,82 @@ export function useTasks() {
     }
   };
 
-  const getDeletedTasks = () => {
-    // This will be used by the RecycleBin component
-    return new Promise<TaskWithUser[]>((resolve) => {
-      if (!user) {
-        resolve([]);
-        return;
+  const permanentlyDeleteAllTasks = async (): Promise<number> => {
+    if (!user) return 0;
+    const tasksRef = collection(db, 'tasks');
+    const deletedQuery = query(
+      tasksRef,
+      where('userId', '==', user.uid),
+      where('deleted', '==', true)
+    );
+    const snapshot = await getDocs(deletedQuery);
+    let count = 0;
+    for (const docSnap of snapshot.docs) {
+      try {
+        await permanentlyDeleteTask(docSnap.id);
+        count++;
+      } catch (error) {
+        console.error('Error permanently deleting task:', docSnap.id, error);
+      }
+    }
+    return count;
+  };
+
+  const getDeletedTasks = async (): Promise<TaskWithUser[]> => {
+    if (!user) return [];
+
+    const tasksRef = collection(db, 'tasks');
+    const deletedQuery = query(
+      tasksRef,
+      where('userId', '==', user.uid),
+      where('deleted', '==', true),
+      orderBy('deletedAt', 'desc')
+    );
+
+    try {
+      const snapshot = await getDocs(deletedQuery);
+      const rawTasks = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        userName: 'You',
+      })) as TaskWithUser[];
+
+      // Decrypt own tasks (same as main listener)
+      if (!encryptionInitialized) {
+        return rawTasks;
       }
 
-      const tasksRef = collection(db, 'tasks');
-      const deletedQuery = query(
-        tasksRef,
-        where('userId', '==', user.uid),
-        where('deleted', '==', true),
-        orderBy('deletedAt', 'desc')
+      const decryptedTasks = await Promise.all(
+        rawTasks.map(async (task) => {
+          try {
+            const decryptedTask = { ...task };
+            decryptedTask.text = await decryptForSelf(task.text);
+            if (task.notes) {
+              decryptedTask.notes = await decryptForSelf(task.notes);
+            }
+            if (task.comments?.length) {
+              decryptedTask.comments = await Promise.all(
+                task.comments.map(async (comment) => {
+                  const toDecrypt = comment.friendContent?.[user.uid] ?? comment.text;
+                  return {
+                    ...comment,
+                    text: await decryptComment(toDecrypt, task.userId, comment.userId, user.uid),
+                  };
+                })
+              );
+            }
+            return decryptedTask;
+          } catch (error) {
+            console.error('[getDeletedTasks] Failed to decrypt task:', task.id, error);
+            return task;
+          }
+        })
       );
-
-      const unsubscribe = onSnapshot(deletedQuery, (snapshot) => {
-        const deletedTasks = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          userName: 'You',
-        })) as TaskWithUser[];
-        
-        unsubscribe(); // Unsubscribe immediately after getting data
-        resolve(deletedTasks);
-      }, (error) => {
-        console.error('Error fetching deleted tasks:', error);
-        resolve([]);
-      });
-    });
+      return decryptedTasks;
+    } catch (error) {
+      console.error('Error fetching deleted tasks:', error);
+      return [];
+    }
   };
 
   const addReaction = async (taskId: string, emoji: string) => {
@@ -1447,7 +1494,7 @@ export function useTasks() {
       }
 
       const newComment: Comment = {
-        id: `${user.uid}_${Date.now()}`,
+        id: `${user.uid}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         userId: user.uid,
         userName: userData.displayName,
         ...(userData.photoURL && { photoURL: userData.photoURL }),
@@ -1461,10 +1508,14 @@ export function useTasks() {
         }),
       };
 
-      comments.push(newComment);
-      
-      console.log('[addComment] Adding comment to task:', taskId, 'Current comments:', comments.length);
-      await updateDoc(taskRef, { comments });
+      // Use transaction to avoid race: rapid sends could read stale comments and overwrite each other
+      await runTransaction(db, async (transaction) => {
+        const taskDoc = await transaction.get(taskRef);
+        if (!taskDoc.exists()) throw new Error('Task not found');
+        const latestTask = taskDoc.data() as Task;
+        const latestComments = [...(latestTask.comments || []), newComment];
+        transaction.update(taskRef, { comments: latestComments });
+      });
       console.log('[addComment] Comment added successfully');
       // Firestore listener will receive the update in real time; no need to force reconnect (avoids comment box flicker)
 
@@ -1800,6 +1851,7 @@ export function useTasks() {
     deleteTask,
     restoreTask,
     permanentlyDeleteTask,
+    permanentlyDeleteAllTasks,
     getDeletedTasks,
     addReaction,
     addComment,

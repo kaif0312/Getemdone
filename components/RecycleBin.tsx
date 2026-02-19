@@ -10,6 +10,7 @@ interface RecycleBinProps {
   onClose: () => void;
   onRestore: (taskId: string) => void;
   onPermanentDelete: (taskId: string) => void;
+  onPermanentDeleteAll: () => Promise<void>;
   getDeletedTasks: () => Promise<TaskWithUser[]>;
 }
 
@@ -18,10 +19,12 @@ export default function RecycleBin({
   onClose,
   onRestore,
   onPermanentDelete,
+  onPermanentDeleteAll,
   getDeletedTasks,
 }: RecycleBinProps) {
   const [deletedTasks, setDeletedTasks] = useState<TaskWithUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,6 +66,26 @@ export default function RecycleBin({
         // If it fails, reload the deleted tasks
         loadDeletedTasks();
       }
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const count = deletedTasks.length;
+    if (count === 0) return;
+    const msg = count === 1
+      ? 'Permanently delete this task? It cannot be recovered.'
+      : `Permanently delete all ${count} tasks? They cannot be recovered.`;
+    if (!confirm(msg)) return;
+
+    setDeletingAll(true);
+    setDeletedTasks([]); // Optimistic clear
+    try {
+      await onPermanentDeleteAll();
+    } catch (error) {
+      console.error('Failed to delete all tasks:', error);
+      loadDeletedTasks();
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -186,12 +209,31 @@ export default function RecycleBin({
             )}
           </div>
 
-          {/* Footer */}
-          {deletedTasks.length > 0 && (
-            <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                💡 Tip: Tap the green button to restore or red button to permanently delete
-              </p>
+          {/* Footer - mobile-first: Delete All prominent, full-width touch target */}
+          {(deletedTasks.length > 0 || deletingAll) && (
+            <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50 space-y-3">
+              <button
+                onClick={handleDeleteAll}
+                disabled={deletingAll}
+                className="w-full min-h-[48px] flex items-center justify-center gap-2 px-4 py-3 bg-red-500 hover:bg-red-600 disabled:bg-red-400 disabled:opacity-70 text-white font-medium rounded-xl transition-colors active:scale-[0.98] touch-manipulation"
+              >
+                {deletingAll ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FaTrash size={16} />
+                    Delete All ({deletedTasks.length})
+                  </>
+                )}
+              </button>
+              {!deletingAll && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                  💡 Tap green to restore or red to permanently delete
+                </p>
+              )}
             </div>
           )}
         </div>

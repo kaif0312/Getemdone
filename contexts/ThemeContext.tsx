@@ -16,28 +16,39 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Load theme from localStorage or use system preference
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    
-    if (savedTheme) {
-      setTheme(savedTheme);
-      if (savedTheme === 'dark') {
+    const applyTheme = (t: Theme) => {
+      setTheme(t);
+      if (t === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
+    };
+
+    const getSystemTheme = (): Theme =>
+      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+    // Load theme: manual override in localStorage, else system preference
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    const hasManualOverride = savedTheme === 'light' || savedTheme === 'dark';
+
+    if (hasManualOverride) {
+      applyTheme(savedTheme!);
     } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initialTheme = prefersDark ? 'dark' : 'light';
-      setTheme(initialTheme);
-      if (initialTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      applyTheme(getSystemTheme());
+
+      // Listen for system preference changes when no manual override
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => {
+        if (!localStorage.getItem('theme')) {
+          applyTheme(getSystemTheme());
+        }
+      };
+      mq.addEventListener('change', handler);
+      setMounted(true);
+      return () => mq.removeEventListener('change', handler);
     }
-    
+
     setMounted(true);
   }, []);
 

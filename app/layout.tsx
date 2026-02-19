@@ -11,8 +11,8 @@ const inter = Inter({
 
 
 export const metadata: Metadata = {
-  title: "Task Accountability - Share Daily Tasks with Friends",
-  description: "A simple app to share and track daily tasks with your friends. Stay accountable together!",
+  title: "Nudge",
+  description: "Stay on track, together. Gentle accountability with friends.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Task Accountability",
+    title: "Nudge",
   },
 };
 

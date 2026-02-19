@@ -15,7 +15,7 @@ interface OnboardingState {
   dismissedFeatureBadges: string[];
 }
 
-const STORAGE_KEY = 'getdone_onboarding';
+const STORAGE_KEY = 'nudge_onboarding';
 
 const defaultState: OnboardingState = {
   hasSeenFirstTask: false,

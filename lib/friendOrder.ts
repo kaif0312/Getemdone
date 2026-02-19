@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'getdone-friend-order';
+const STORAGE_KEY = 'nudge-friend-order';
 
 export function loadFriendOrder(): string[] {
   if (typeof window === 'undefined') return [];

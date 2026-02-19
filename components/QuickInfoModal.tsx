@@ -1,90 +1,144 @@
 'use client';
 
-import { FaTimes, FaRocket, FaBug, FaHeart } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { LuX, LuSparkles, LuWrench, LuHeart } from 'react-icons/lu';
+import { NudgeIcon } from '@/components/NudgeLogo';
 
 interface QuickInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps) {
-  if (!isOpen) return null;
+interface UpdateItem {
+  type: 'feature' | 'fix';
+  text: string;
+}
 
-  const updates = [
-    { type: 'feature', text: 'Friend comment notifications', version: '1.0.0' },
-    { type: 'feature', text: 'Bug reporting with screenshots', version: '1.0.0' },
-    { type: 'feature', text: 'Media attachments (images/PDFs)', version: '1.0.0' },
-    { type: 'feature', text: 'Profile picture uploads', version: '1.0.0' },
-    { type: 'feature', text: 'Storage management (100MB/user)', version: '1.0.0' },
-    { type: 'fix', text: 'Fixed storage usage real-time updates', version: '1.0.0' },
-    { type: 'fix', text: 'Fixed PDF delete button visibility', version: '1.0.0' },
-    { type: 'fix', text: 'Improved mobile button sizes', version: '1.0.0' },
-  ];
+interface VersionGroup {
+  version: string;
+  date: string;
+  items: UpdateItem[];
+}
+
+const UPDATES: VersionGroup[] = [
+  {
+    version: '1.0.0',
+    date: 'Feb 2026',
+    items: [
+      { type: 'feature', text: 'Friend comment notifications' },
+      { type: 'feature', text: 'Bug reporting with screenshots' },
+      { type: 'feature', text: 'Media attachments (images/PDFs)' },
+      { type: 'feature', text: 'Profile picture uploads' },
+      { type: 'feature', text: 'Storage management (100MB/user)' },
+      { type: 'fix', text: 'Fixed storage usage real-time updates' },
+      { type: 'fix', text: 'Fixed PDF delete button visibility' },
+      { type: 'fix', text: 'Improved mobile button sizes' },
+    ],
+  },
+];
+
+export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps) {
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setIsClosing(false);
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(onClose, 150);
+  };
+
+  if (!isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/30 z-50 animate-in fade-in duration-200"
-        onClick={onClose}
+      <div
+        className={`fixed inset-0 z-[9998] transition-opacity duration-150 ${
+          isClosing ? 'opacity-0' : 'animate-quick-info-backdrop-in'
+        }`}
+        style={{
+          background: 'rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+        }}
+        onClick={handleClose}
+        aria-hidden="true"
       />
 
-      {/* Modal - Small and Compact */}
-      <div className="fixed top-16 left-4 right-4 md:left-auto md:right-auto md:top-20 md:left-1/2 md:-translate-x-1/2 md:w-96 z-50 animate-in slide-in-from-top-2 duration-200">
-        <div className="bg-surface rounded-xl shadow-elevation-3 border border-border-subtle overflow-hidden">
-          {/* Header - Minimal */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface-muted">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 512 512" className="text-on-accent">
-                  <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+      {/* Modal - Centered */}
+      <div
+        className={`fixed left-1/2 top-1/2 z-[9999] ${
+          isClosing ? 'animate-quick-info-modal-out' : 'animate-quick-info-modal-in'
+        }`}
+        style={{
+          width: 'min(360px, calc(100vw - 32px))',
+          maxHeight: '70vh',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        }}
+      >
+        <div className="bg-elevated rounded-2xl border border-border-subtle overflow-hidden flex flex-col max-h-[70vh]">
+          <div className="p-6 overflow-y-auto subtask-scrollbar">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <NudgeIcon size={32} />
+                <h3 className="text-[18px] font-semibold text-fg-primary">Nudge</h3>
               </div>
-              <h3 className="text-sm font-bold text-fg-primary">GetDone</h3>
+              <button
+                onClick={handleClose}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 text-fg-secondary hover:text-fg-primary transition-colors rounded-lg hover:bg-surface-muted"
+                aria-label="Close"
+              >
+                <LuX size={20} />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-surface-muted rounded transition-colors"
-            >
-              <FaTimes className="text-fg-tertiary" size={14} />
-            </button>
-          </div>
 
-          {/* Created By - Very Compact */}
-          <div className="px-4 py-3 text-center text-xs text-fg-secondary border-b border-border-subtle">
-            Made with <FaHeart className="inline text-error text-xs" /> by <span className="font-semibold text-fg-primary">Kaifuten</span> • v1.0.0
-          </div>
+            {/* Made with love */}
+            <div className="text-[13px] text-fg-secondary mb-4 pb-4 border-b border-border-subtle">
+              Made with <LuHeart size={14} className="inline text-error align-middle" /> by{' '}
+              <span className="font-semibold text-fg-primary">Kaifuten</span> · v1.0.0
+            </div>
 
-          {/* Updates List - Compact */}
-          <div className="max-h-64 overflow-y-auto">
-            <div className="px-4 py-2 text-xs font-semibold text-fg-tertiary uppercase tracking-wide bg-surface-muted">
+            {/* Recent Updates */}
+            <div className="text-[11px] text-fg-tertiary uppercase tracking-[0.08em] font-medium mb-3">
               Recent Updates
             </div>
-            <div className="divide-y divide-border-subtle">
-              {updates.map((update, idx) => (
-                <div key={idx} className="px-4 py-2 hover:bg-surface-muted transition-colors">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {update.type === 'feature' ? (
-                        <FaRocket className="text-success" size={12} />
-                      ) : (
-                        <FaBug className="text-warning" size={12} />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-fg-secondary">
-                        {update.text}
-                      </p>
-                    </div>
+
+            <div className="space-y-1">
+              {UPDATES.map((group) => (
+                <div key={group.version} className="mb-4 last:mb-0">
+                  <div className="text-[12px] text-fg-secondary font-medium mb-2">
+                    v{group.version} — {group.date}
+                  </div>
+                  <div className="space-y-1">
+                    {group.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 min-h-[36px]"
+                      >
+                        <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+                          {item.type === 'feature' ? (
+                            <LuSparkles size={16} className="text-success" />
+                          ) : (
+                            <LuWrench size={16} className="text-warning" />
+                          )}
+                        </div>
+                        <span className="text-[14px] text-fg-primary">{item.text}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* Footer */}
-          <div className="px-4 py-2 text-center text-xs text-fg-tertiary bg-surface-muted">
-            © {new Date().getFullYear()} GetDone. Built with Next.js & Firebase
+            {/* Footer */}
+            <div className="mt-4 pt-4 border-t border-border-subtle text-center">
+              <p className="text-[12px] text-fg-tertiary">
+                © {new Date().getFullYear()} Nudge. Built with Next.js & Firebase
+              </p>
+            </div>
           </div>
         </div>
       </div>

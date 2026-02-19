@@ -5,7 +5,7 @@
 (function () {
   const IV_LENGTH = 12;
   const TAG_LENGTH = 128;
-  const DB_NAME = 'GetDoneNotificationKeys';
+  const DB_NAME = 'NudgeNotificationKeys';
   const STORE_NAME = 'keys';
   const KEY = 'user_keys';
 

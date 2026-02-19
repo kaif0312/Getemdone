@@ -133,8 +133,16 @@
 .shadow-elevation-3 { box-shadow: var(--shadow-elevation-3); }
 .shadow-elevation-top { box-shadow: var(--shadow-elevation-top); }
 
+html {
+  background-color: var(--color-bg-base);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 body {
-  background: var(--color-bg-base);
+  background-color: var(--color-bg-base);
+  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -414,6 +422,120 @@ input[type="datetime-local"] {
 }
 .dark .subtask-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Task context menu: scale + fade in 150ms, out 100ms */
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes context-menu-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+.animate-context-menu-in {
+  animation: context-menu-in 150ms ease forwards;
+}
+.animate-context-menu-out {
+  animation: context-menu-out 100ms ease forwards;
+}
+
+/* Auth login screen */
+.auth-login-bg {
+  background-color: var(--color-bg-base);
+}
+.auth-login-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, var(--color-primary) 0%, transparent 60%);
+  opacity: 0.06;
+  pointer-events: none;
+}
+.dark .auth-login-bg::before {
+  opacity: 0.08;
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-auth-card-in {
+  animation: auth-card-in 300ms ease forwards;
+}
+
+.shadow-auth-card {
+  box-shadow: none;
+}
+@media (min-width: 768px) {
+  .shadow-auth-card {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  }
+  .dark .shadow-auth-card {
+    box-shadow: none;
+  }
+}
+
+/* Splash / loading screen pulse */
+@keyframes nudge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.animate-nudge-pulse {
+  animation: nudge-pulse 2s ease-in-out infinite;
+}
+
+/* Quick info / about modal */
+@keyframes quick-info-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes quick-info-modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes quick-info-modal-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+.animate-quick-info-backdrop-in {
+  animation: quick-info-backdrop-in 150ms ease forwards;
+}
+.animate-quick-info-modal-in {
+  animation: quick-info-modal-in 200ms ease forwards;
+}
+.animate-quick-info-modal-out {
+  animation: quick-info-modal-out 150ms ease forwards;
 }
 
 /* Bottom fade gradient when subtask list is scrollable (>5 items) */

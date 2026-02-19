@@ -30,6 +30,7 @@ interface SortableTaskItemProps {
   userStorageUsed?: number;
   userStorageLimit?: number;
   currentUserId?: string;
+  hideCategoryIcon?: boolean;
 }
 
 export default function SortableTaskItem(props: SortableTaskItemProps) {

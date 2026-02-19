@@ -5,7 +5,7 @@ import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser, Attachment, Subtask } from '@/lib/types';
 import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaEllipsisV, FaPlus, FaPaperclip } from 'react-icons/fa';
 import { LuChevronDown } from 'react-icons/lu';
-import { LuRepeat, LuCheck } from 'react-icons/lu';
+import { LuRepeat, LuCheck, LuMessageCircle, LuSquareCheck, LuClock } from 'react-icons/lu';
 import ScheduleDeadlinePicker from './ScheduleDeadlinePicker';
 import EmojiPicker from './EmojiPicker';
 import TagIconPicker from './TagIconPicker';
@@ -155,16 +155,11 @@ function SubtaskRow({
                 longPressTimerRef.current = null;
               }
             }}
-            className={`flex-1 min-w-0 text-[14px] overflow-hidden ${
+            className={`flex-1 min-w-0 text-[14px] overflow-hidden line-clamp-2 ${
               subtask.completed
                 ? 'line-through text-fg-secondary opacity-60'
                 : 'text-fg-primary'
             }`}
-            style={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical' as const,
-            }}
           >
             {subtask.title}
           </div>
@@ -223,6 +218,8 @@ interface TaskItemProps {
   userStorageLimit?: number;
   currentUserId?: string;
   dragHandleProps?: DragHandleProps;
+  /** When true (grouped by category), hide category icons on card - section header shows category */
+  hideCategoryIcon?: boolean;
 }
 
 export default function TaskItem({ 
@@ -250,7 +247,8 @@ export default function TaskItem({
   userStorageUsed,
   userStorageLimit,
   currentUserId,
-  dragHandleProps
+  dragHandleProps,
+  hideCategoryIcon = false,
 }: TaskItemProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUnifiedDatePicker, setShowUnifiedDatePicker] = useState(false);
@@ -270,7 +268,8 @@ export default function TaskItem({
   const [notesText, setNotesText] = useState(task.notes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuAnchorRect, setContextMenuAnchorRect] = useState<DOMRect | null>(null);
+  const contextMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const [isLongPressing, setIsLongPressing] = useState(false); // Track long-press state for animation
   const [showRecurrenceSheet, setShowRecurrenceSheet] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -282,7 +281,6 @@ export default function TaskItem({
   const subtaskSectionLongPressRef = useRef<NodeJS.Timeout | null>(null);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
-  const tagPickerAnchorRef = useRef<HTMLButtonElement>(null);
   const subtaskInputRef = useRef<HTMLInputElement>(null);
   const subtaskLongPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const subtaskSectionRef = useRef<HTMLDivElement>(null);
@@ -464,10 +462,8 @@ export default function TaskItem({
           // Start long-press animation
           setIsLongPressing(true);
           
-          setContextMenuPosition({ 
-            x: longPressStartRef.current.x, 
-            y: longPressStartRef.current.y 
-          });
+          const rect = contextMenuAnchorRef.current?.getBoundingClientRect();
+          setContextMenuAnchorRect(rect ?? null);
           setShowContextMenu(true);
           
           // Prevent text selection only when long-press is confirmed
@@ -560,7 +556,8 @@ export default function TaskItem({
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!isOwnTask) return; // Allow for completed tasks too
     e.preventDefault();
-    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    const rect = contextMenuAnchorRef.current?.getBoundingClientRect();
+    setContextMenuAnchorRect(rect ?? null);
     setShowContextMenu(true);
   };
 
@@ -610,26 +607,18 @@ export default function TaskItem({
       }
     }, 150);
   };
-  const formatTime = (timestamp: number) => {
+  const formatRelativeTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.floor((today.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (isToday) {
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
-    } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    }
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays > 1 && diffDays < 14) return `${diffDays}d ago`;
+    if (diffDays >= 14) return `${Math.floor(diffDays / 7)}w ago`;
+    return 'today';
   };
 
   const formatDueDate = (dueDate: number) => {
@@ -1003,8 +992,8 @@ export default function TaskItem({
                 >
                   {task.text}
                 </p>
-                {/* Tags + progress chip - compact row below title */}
-                {((task.tags?.length ?? 0) > 0 || (task.subtasks?.length ?? 0) > 0 || (isOwnTask && onUpdateTaskTags)) && (
+                {/* Tags + progress chip - compact row below title (hidden when grouped by category) */}
+                {!hideCategoryIcon && ((task.tags?.length ?? 0) > 0 || (task.subtasks?.length ?? 0) > 0 || (isOwnTask && onUpdateTaskTags)) && (
                   <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                     {(() => {
                       const displayTags = [...new Map((task.tags || []).map((t) => [normalizeTagToIconId(t), t])).values()];
@@ -1043,38 +1032,6 @@ export default function TaskItem({
                         );
                       });
                     })()}
-                    {isOwnTask && onUpdateTaskTags && (task.tags?.length ?? 0) < 5 && (
-                      <>
-                        <button
-                          ref={tagPickerAnchorRef}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowTagPicker(true);
-                          }}
-                          className="w-7 h-7 flex items-center justify-center text-fg-tertiary hover:text-fg-primary rounded-lg hover:bg-surface-muted transition-all text-sm"
-                        >
-                          +
-                        </button>
-                        <TagIconPicker
-                          isOpen={showTagPicker}
-                          onClose={() => setShowTagPicker(false)}
-                          onSelect={async (iconId, tintId) => {
-                            const current = task.tags || [];
-                            const currentIds = new Set(current.map(normalizeTagToIconId));
-                            if (currentIds.has(iconId) || current.length >= 5) return;
-                            const tagValue = tintId && tintId !== 'primary' ? `${iconId}:${tintId}` : iconId;
-                            const next = [...current, tagValue];
-                            await onUpdateTaskTags(task.id, next);
-                            await recordRecentlyUsedTag?.(iconId);
-                            setShowTagPicker(false);
-                            if ('vibrate' in navigator) navigator.vibrate(30);
-                          }}
-                          recentlyUsed={recentUsedTags}
-                          currentTags={task.tags || []}
-                          maxTags={5}
-                        />
-                      </>
-                    )}
                   </div>
                 )}
               </div>
@@ -1567,43 +1524,42 @@ export default function TaskItem({
             </div>
           )}
           
-          {/* Metadata row - 12px, tertiary, dot separators */}
-          <div className="flex items-center gap-0.5 mt-1 flex-wrap text-xs text-fg-tertiary leading-[1.4]">
-            <span suppressHydrationWarning>{formatTime(task.createdAt)}</span>
+          {/* Metadata row - 12px icons, tertiary text, 12px gaps */}
+          <div className="flex items-center gap-3 mt-1 flex-wrap text-[12px] text-fg-tertiary leading-[1.4]">
+            <span className="flex items-center gap-1" suppressHydrationWarning>
+              <LuClock size={12} className="flex-shrink-0" />
+              {formatRelativeTime(task.createdAt)}
+            </span>
             {task.completed && task.completedAt && (
-              <>
-                <span>·</span>
-                <span className="text-success flex items-center gap-1" suppressHydrationWarning><LuCheck size={12} /> {formatTime(task.completedAt)}</span>
-              </>
+              <span className="text-success flex items-center gap-1" suppressHydrationWarning>
+                <LuCheck size={12} className="flex-shrink-0" />
+                {formatRelativeTime(task.completedAt)}
+              </span>
             )}
             {onOpenComments && (
-              <>
-                <span>·</span>
-                <button
-                  onClick={() => onOpenComments(task.id)}
-                  className="hover:text-fg-secondary transition-colors"
-                  title="View comments"
-                >
-                  {task.comments?.length ? `${task.comments.length} comment${task.comments.length !== 1 ? 's' : ''}` : 'Comment'}
-                </button>
-              </>
+              <button
+                onClick={() => onOpenComments(task.id)}
+                className="flex items-center gap-1 hover:text-fg-secondary transition-colors"
+                title="View comments"
+              >
+                <LuMessageCircle size={12} className="flex-shrink-0" />
+                {task.comments?.length ?? 0}
+              </button>
             )}
             {(task.subtasks?.length ?? 0) > 0 && (
-              <>
-                <span>·</span>
-                <button
-                  onClick={() => setShowSubtasks((s) => !s)}
-                  className="flex items-center gap-0.5 hover:text-fg-secondary transition-colors tabular-nums"
-                >
-                  {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length} subtasks
-                  <LuChevronDown
-                    size={12}
-                    className={`text-fg-tertiary transition-transform duration-200 ease-out ${
-                      showSubtasks ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-              </>
+              <button
+                onClick={() => setShowSubtasks((s) => !s)}
+                className="flex items-center gap-1 hover:text-fg-secondary transition-colors tabular-nums"
+              >
+                <LuSquareCheck size={12} className="flex-shrink-0" />
+                {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
+                <LuChevronDown
+                  size={12}
+                  className={`flex-shrink-0 transition-transform duration-200 ease-out ${
+                    showSubtasks ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
             )}
             {/* Reactions - compact, after metadata */}
             {task.reactions && task.reactions.length > 0 && (
@@ -1683,9 +1639,11 @@ export default function TaskItem({
         {/* Context Menu Button - top-right, tertiary, visible on hover (desktop) or 0.3 opacity (mobile) */}
         {isOwnTask && (
           <button
+            ref={contextMenuAnchorRef}
             onClick={(e) => {
               e.stopPropagation();
-              setContextMenuPosition({ x: e.clientX, y: e.clientY });
+              const rect = contextMenuAnchorRef.current?.getBoundingClientRect();
+              setContextMenuAnchorRect(rect ?? null);
               setShowContextMenu(true);
               if ('vibrate' in navigator) navigator.vibrate(10);
             }}
@@ -1770,7 +1728,7 @@ export default function TaskItem({
         task={task}
         isOwnTask={isOwnTask}
         isOpen={showContextMenu}
-        position={contextMenuPosition}
+        anchorRect={contextMenuAnchorRect}
         onClose={() => setShowContextMenu(false)}
         onEdit={() => {
           if (onUpdateTask && !task.completed) {
@@ -1796,6 +1754,7 @@ export default function TaskItem({
         onTogglePrivacy={() => {
           onTogglePrivacy(task.id, !task.isPrivate);
         }}
+        onChangeIcon={onUpdateTaskTags ? () => setShowTagPicker(true) : undefined}
         onDelete={() => {
           onDelete(task.id);
         }}
@@ -1817,6 +1776,28 @@ export default function TaskItem({
         } : undefined}
         currentRecurrence={task.recurrence}
       />
+
+      {/* Tag icon picker - opened from context menu "Change icon" */}
+      {isOwnTask && onUpdateTaskTags && (
+        <TagIconPicker
+          isOpen={showTagPicker}
+          onClose={() => setShowTagPicker(false)}
+          onSelect={async (iconId, tintId) => {
+            const current = task.tags || [];
+            const currentIds = new Set(current.map(normalizeTagToIconId));
+            if (currentIds.has(iconId) || current.length >= 5) return;
+            const tagValue = tintId && tintId !== 'primary' ? `${iconId}:${tintId}` : iconId;
+            const next = [...current, tagValue];
+            await onUpdateTaskTags(task.id, next);
+            await recordRecentlyUsedTag?.(iconId);
+            setShowTagPicker(false);
+            if ('vibrate' in navigator) navigator.vibrate(30);
+          }}
+          recentlyUsed={recentUsedTags}
+          currentTags={task.tags || []}
+          maxTags={5}
+        />
+      )}
 
     </>
   );

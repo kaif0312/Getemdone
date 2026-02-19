@@ -78,7 +78,15 @@ export default function CommentsModal({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string; text: string } | null>(null);
   const [reactionTooltip, setReactionTooltip] = useState<{ emoji: string; names: string[]; x: number; y: number } | null>(null);
-  const [hintDismissed, setHintDismissed] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('comments-hint-dismissed') === '1';
+  });
+
+  const dismissHintPermanently = () => {
+    setHintDismissed(true);
+    if (typeof window !== 'undefined') localStorage.setItem('comments-hint-dismissed', '1');
+  };
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -220,6 +228,7 @@ export default function CommentsModal({
   const handleQuickEmoji = (emoji: string) => {
     if (selectedCommentForMenu) {
       onAddCommentReaction(task.id, selectedCommentForMenu.id, emoji);
+      dismissHintPermanently();
       setShowCommentMenu(false);
       setSelectedCommentForMenu(null);
       setSelectedCommentRect(null);
@@ -273,7 +282,7 @@ export default function CommentsModal({
     setReplyingTo(null);
     setEditingCommentId(null);
     setIsSending(true);
-    setHintDismissed(true);
+    dismissHintPermanently();
 
     if ('vibrate' in navigator) navigator.vibrate(30);
 

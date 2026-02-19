@@ -1,7 +1,7 @@
 {
-  "name": "Task Accountability",
-  "short_name": "TaskAcc",
-  "description": "Share daily tasks with friends and stay accountable",
+  "name": "Nudge",
+  "short_name": "Nudge",
+  "description": "Stay on track, together. Gentle accountability with friends.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

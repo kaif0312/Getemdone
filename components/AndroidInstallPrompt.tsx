@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaTimes, FaMobileAlt, FaBell, FaCheck, FaBars, FaCommentDots } from 'react-icons/fa';
+import { LuX, LuMenu, LuSmartphone, LuCheck } from 'react-icons/lu';
+import { NudgeIcon } from '@/components/NudgeLogo';
 
 interface AndroidInstallPromptProps {
   onDismiss?: () => void;
@@ -21,156 +22,134 @@ export default function AndroidInstallPrompt({ onDismiss, allowDismiss = false, 
     };
   }, []);
 
+  const stepCardClass = (step: number) =>
+    `flex items-start gap-3 p-4 rounded-xl transition-all cursor-pointer bg-surface border
+     ${currentStep === step ? 'border-primary border-[1.5px]' : 'border-border-subtle'}
+     hover:border-border-emphasized`;
+
+  const stepNumClass = (step: number) =>
+    `flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-semibold text-[12px]
+     ${currentStep === step ? 'bg-primary text-on-accent' : 'bg-primary/15 text-primary'}`;
+
   return (
-    <div 
-      className="fixed inset-0 z-[9999] bg-gradient-to-br from-green-600 via-teal-600 to-blue-600"
-      style={{ 
+    <div
+      className="fixed inset-0 z-[9999] bg-background"
+      style={{
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
         touchAction: 'pan-y',
-        height: '100dvh', // Dynamic viewport height for mobile (fallback to 100vh if not supported)
+        height: '100dvh',
       } as React.CSSProperties}
     >
       <div className="min-h-full flex items-start justify-center p-4 py-8">
-        <div className="bg-white rounded-3xl shadow-elevation-3 max-w-md w-full p-6 md:p-8 relative overflow-hidden my-8">
-          {/* Decorative background */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-green-100 to-teal-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
-          
+        <div className="bg-surface rounded-2xl shadow-elevation-2 max-w-md w-full p-6 md:p-8 relative border border-border-subtle my-8">
           {/* Close button (only if dismissable) */}
           {allowDismiss && onDismiss && (
             <button
               onClick={onDismiss}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+              className="absolute top-4 right-4 text-fg-tertiary hover:text-fg-primary transition-colors z-10"
               aria-label="Close"
             >
-              <FaTimes className="w-6 h-6" />
+              <LuX className="w-6 h-6" />
             </button>
           )}
 
           {/* Content */}
           <div className="relative z-10">
-          {/* App Icon */}
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl shadow-elevation-2 flex items-center justify-center">
-              <FaBell className="w-8 h-8 md:w-10 md:h-10 text-white" />
-            </div>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-2">
-            Install GetEmDone
-          </h1>
-          
-          <p className="text-sm md:text-base text-gray-600 text-center mb-6">
-            {allowDismiss 
-              ? "Get instant notifications and a better experience by installing our app!"
-              : "To use GetEmDone on Android, please install it as an app. This enables instant notifications and offline access!"
-            }
-          </p>
-
-          {/* Steps */}
-          <div className="space-y-4 mb-6">
-            {/* Step 1 */}
-            <div 
-              className={`flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer ${
-                currentStep === 1 ? 'bg-green-50 border-2 border-green-500' : 'bg-gray-50 border-2 border-transparent'
-              }`}
-              onClick={() => setCurrentStep(1)}
-            >
-              <div className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm md:text-base ${
-                currentStep === 1 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
-              }`}>
-                1
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm md:text-base text-gray-900 mb-1">
-                  Tap the Menu button
-                </p>
-                <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600 flex-wrap">
-                  <span>Look for</span>
-                  <div className="bg-green-500 rounded-lg p-1.5">
-                    <FaBars className="w-4 h-4 md:w-5 md:h-5 text-white" />
-                  </div>
-                  <span>in the browser toolbar</span>
-                </div>
-              </div>
+            {/* App Icon */}
+            <div className="flex justify-center mb-4">
+              <NudgeIcon size={56} />
             </div>
 
-            {/* Step 2 */}
-            <div 
-              className={`flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer ${
-                currentStep === 2 ? 'bg-teal-50 border-2 border-teal-500' : 'bg-gray-50 border-2 border-transparent'
-              }`}
-              onClick={() => setCurrentStep(2)}
-            >
-              <div className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm md:text-base ${
-                currentStep === 2 ? 'bg-teal-500 text-white' : 'bg-gray-300 text-gray-600'
-              }`}>
-                2
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm md:text-base text-gray-900 mb-1">
-                  Select "Install app" or "Add to Home screen"
-                </p>
-                <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600">
-                  <FaMobileAlt className="w-4 h-4 md:w-5 md:h-5 text-teal-500 flex-shrink-0" />
-                  <span>Look for this option in the menu</span>
-                </div>
-              </div>
-            </div>
+            {/* Title */}
+            <h1 className="text-2xl md:text-3xl font-bold text-fg-primary text-center mb-2">
+              Install Nudge
+            </h1>
 
-            {/* Step 3 */}
-            <div 
-              className={`flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer ${
-                currentStep === 3 ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50 border-2 border-transparent'
-              }`}
-              onClick={() => setCurrentStep(3)}
-            >
-              <div className={`flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-bold text-sm md:text-base ${
-                currentStep === 3 ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'
-              }`}>
-                3
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm md:text-base text-gray-900 mb-1">
-                  Tap "Install" or "Add"
-                </p>
-                <div className="flex items-center gap-2 text-xs md:text-sm text-gray-600">
-                  <FaCheck className="w-4 h-4 md:w-5 md:h-5 text-blue-500 flex-shrink-0" />
-                  <span>Confirm to add the app to your home screen</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Benefits */}
-          <div className="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-3 mb-4">
-            <p className="text-xs md:text-sm font-semibold text-gray-900 mb-1.5">✨ Why install?</p>
-            <ul className="text-xs md:text-sm text-gray-700 space-y-0.5">
-              <li>🔔 <strong>Instant notifications</strong> for comments & encouragement</li>
-              <li>⚡ <strong>Faster performance</strong> with offline support</li>
-              <li>📱 <strong>Full-screen experience</strong> without browser UI</li>
-              <li>🎯 <strong>Quick access</strong> from your home screen</li>
-            </ul>
-          </div>
-
-          {/* Footer note */}
-          {!allowDismiss && (
-            <p className="text-xs text-center text-gray-500 mb-3">
-              This is required for Android users to receive push notifications
+            <p className="text-sm md:text-base text-fg-secondary text-center mb-6">
+              To use Nudge on Android, install it as an app for instant notifications and offline access.
             </p>
-          )}
 
-          {/* Feedback button */}
-          {onFeedback && (
-            <button
-              onClick={onFeedback}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl text-gray-700 font-medium text-sm transition-colors"
-            >
-              <FaCommentDots className="w-4 h-4" />
-              <span>Having trouble? Send feedback</span>
-            </button>
-          )}
+            {/* Steps */}
+            <div className="space-y-2 mb-6">
+              {/* Step 1 */}
+              <div className={stepCardClass(1)} onClick={() => setCurrentStep(1)}>
+                <div className={stepNumClass(1)}>1</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-fg-primary mb-0.5">
+                    Tap the Menu button
+                  </p>
+                  <div className="flex items-center gap-2 text-[13px] text-fg-secondary flex-wrap">
+                    <span>Look for</span>
+                    <div className="inline-flex items-center justify-center p-1.5 rounded-lg bg-surface-muted">
+                      <LuMenu size={16} className="text-fg-secondary" />
+                    </div>
+                    <span>in the browser toolbar</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className={stepCardClass(2)} onClick={() => setCurrentStep(2)}>
+                <div className={stepNumClass(2)}>2</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-fg-primary mb-0.5">
+                    Select &quot;Install app&quot; or &quot;Add to Home screen&quot;
+                  </p>
+                  <div className="flex items-center gap-2 text-[13px] text-fg-secondary">
+                    <LuSmartphone size={16} className="text-fg-secondary flex-shrink-0" />
+                    <span>Look for this option in the menu</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className={stepCardClass(3)} onClick={() => setCurrentStep(3)}>
+                <div className={stepNumClass(3)}>3</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-fg-primary mb-0.5">
+                    Tap &quot;Install&quot; or &quot;Add&quot;
+                  </p>
+                  <div className="flex items-center gap-2 text-[13px] text-fg-secondary">
+                    <LuCheck size={16} className="text-fg-secondary flex-shrink-0" />
+                    <span>Confirm to add the app to your home screen</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Why install? */}
+            <div className="bg-surface rounded-xl p-4 mb-6 border border-border-subtle">
+              <p className="text-[14px] font-semibold text-fg-primary mb-3">Why install?</p>
+              <ul className="text-[13px] text-fg-secondary space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                  <span><strong className="font-semibold text-fg-primary">Push notifications</strong> keep you accountable with your friends.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                  <span><strong className="font-semibold text-fg-primary">Faster performance</strong> with offline support.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                  <span><strong className="font-semibold text-fg-primary">Full-screen experience</strong> without browser UI.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                  <span><strong className="font-semibold text-fg-primary">Quick access</strong> from your home screen.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Feedback link */}
+            {onFeedback && (
+              <button
+                onClick={onFeedback}
+                className="w-full text-[13px] text-primary font-medium text-center mt-4 hover:underline transition-colors"
+              >
+                Having trouble? Send feedback
+              </button>
+            )}
           </div>
         </div>
       </div>

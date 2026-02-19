@@ -94,12 +94,12 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
   };
 
   const shareProfile = async () => {
-    const shareText = `Add me on Task Accountability! My friend code is: ${userData?.friendCode}`;
+    const shareText = `Add me on Nudge! My friend code is: ${userData?.friendCode}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Add me on Task Accountability',
+          title: 'Add me on Nudge',
           text: shareText,
         });
       } catch (err) {

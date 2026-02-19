@@ -3,7 +3,7 @@
  * Keys are stored when the app loads so the SW can decrypt notifications when the app is closed.
  */
 
-const DB_NAME = 'GetDoneNotificationKeys';
+const DB_NAME = 'NudgeNotificationKeys';
 const DB_VERSION = 1;
 const STORE_NAME = 'keys';
 const KEY = 'user_keys';

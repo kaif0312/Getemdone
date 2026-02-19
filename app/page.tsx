@@ -33,8 +33,9 @@ import IOSInstallPrompt from '@/components/IOSInstallPrompt';
 import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
 import AccessRemovedScreen from '@/components/AccessRemovedScreen';
 import { FaBell } from 'react-icons/fa';
-import { LuFlame } from 'react-icons/lu';
+import { LuFlame, LuInbox, LuChevronDown } from 'react-icons/lu';
 import ProfileAvatarDropdown from '@/components/ProfileAvatarDropdown';
+import { NudgeWordmark, NudgeIcon } from '@/components/NudgeLogo';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
 import NotificationPrompt from '@/components/NotificationPrompt';
@@ -49,10 +50,10 @@ import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateStr
 import { dateMatchesRecurrence } from '@/utils/recurrence';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
-import { normalizeTagToIconId, getIconForTag } from '@/lib/tagIcons';
+import { normalizeTagToIconId, getIconForTag, getLabelForTag } from '@/lib/tagIcons';
 import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
 import { getAccentForId } from '@/lib/theme';
-import { groupTasksByTag } from '@/utils/taskGrouping';
+import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionKey } from '@/utils/taskGrouping';
 import SortableTagBar from '@/components/SortableTagBar';
 
 export default function Home() {
@@ -62,9 +63,11 @@ export default function Home() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-fg-secondary">Loading...</p>
+        <div className="text-center flex flex-col items-center">
+          <div className="animate-nudge-pulse mb-4">
+            <NudgeIcon size={64} />
+          </div>
+          <p className="text-[24px] font-bold text-fg-primary">Nudge</p>
         </div>
       </div>
     );
@@ -81,8 +84,11 @@ export default function Home() {
   if (isWhitelisted === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <div className="text-center flex flex-col items-center">
+          <div className="animate-nudge-pulse mb-4">
+            <NudgeIcon size={64} />
+          </div>
+          <p className="text-[24px] font-bold text-fg-primary mb-2">Nudge</p>
           <p className="text-fg-secondary">Verifying access...</p>
         </div>
       </div>
@@ -122,10 +128,24 @@ function MainApp() {
   const [hasManuallyInteracted, setHasManuallyInteracted] = useState(false); // Track if user has manually expanded/collapsed
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [tagOrder, setTagOrder] = useState<string[]>(() => loadTagOrder());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => loadCollapsedSections());
 
   useEffect(() => {
     saveTagOrder(tagOrder);
   }, [tagOrder]);
+
+  useEffect(() => {
+    saveCollapsedSections(collapsedSections);
+  }, [collapsedSections]);
+
+  const toggleSectionCollapsed = (key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   // Open comments or notifications when arriving from notification click
   useEffect(() => {
@@ -769,18 +789,13 @@ function MainApp() {
       <header className="bg-surface border-b border-border-emphasized sticky top-0 z-40 shadow-elevation-1 transition-[background-color,color,border-color] duration-200 ease-out" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-3xl mx-auto px-4 py-3 md:py-4" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>
           <div className="flex items-center justify-between gap-2 min-h-[44px]">
-            {/* Left: Logo + GetDone */}
+            {/* Left: Logo + Nudge */}
             <button
               onClick={() => setShowQuickInfo(true)}
               className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0 min-w-0"
               title="About & Updates"
             >
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                <svg width="16" height="16" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="text-primary">
-                  <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <h1 className="text-lg sm:text-xl font-semibold text-fg-primary tracking-tight">GetDone</h1>
+              <NudgeWordmark iconSize={28} />
             </button>
 
             {/* Center: Streak pill (compact) */}
@@ -836,13 +851,19 @@ function MainApp() {
             </div>
           </div>
 
-          {/* Tag filter bar - sortable, only when any task has tags */}
+          {/* Tag filter bar - sortable, only tags with tasks in today's view */}
           {(() => {
+            const todayStr = getTodayString();
+            const tasksInView = tasks.filter(
+              (t) =>
+                t.userId === uid &&
+                t.deleted !== true &&
+                t.tags?.length &&
+                shouldShowInTodayView(t, todayStr)
+            );
             const usedTags = Array.from(
               new Set(
-                tasks
-                  .filter((t) => t.userId === uid && t.deleted !== true && t.tags?.length)
-                  .flatMap((t) => (t.tags || []).map(normalizeTagToIconId))
+                tasksInView.flatMap((t) => (t.tags || []).map(normalizeTagToIconId))
               )
             );
             if (usedTags.length === 0) return null;
@@ -969,8 +990,13 @@ function MainApp() {
               const incompleteTasks = filteredTasks.filter(t => !t.completed);
               const completedTasks = filteredTasks.filter(t => t.completed);
 
-              // Group by tag: no-tag first, then by tagOrder
-              const incompleteGroups = groupTasksByTag(incompleteTasks, tagOrder);
+              const now = Date.now();
+              const overdueTaskIds = new Set(
+                incompleteTasks.filter((t) => t.dueDate && t.dueDate < now).map((t) => t.id)
+              );
+
+              // Group by tag: Inbox first, overdue categories higher, then by tagOrder
+              const incompleteGroups = groupTasksByTag(incompleteTasks, tagOrder, overdueTaskIds);
               const completedGroups = groupTasksByTag(completedTasks, tagOrder);
               const flatIncomplete = incompleteGroups.flatMap((g) => g.tasks);
               
@@ -982,8 +1008,8 @@ function MainApp() {
                   <button 
                     onClick={() => setShowProfileSettings(true)}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-t-xl
-                      bg-primary/5 dark:bg-primary/[0.08] border border-border-subtle border-b-0
-                      hover:bg-primary/[0.08] dark:hover:bg-primary/[0.12] transition-colors group"
+                      bg-surface border border-border-subtle border-b-0
+                      hover:bg-surface-muted transition-colors group"
                     title="Profile Settings"
                   >
                     <Avatar
@@ -1006,27 +1032,49 @@ function MainApp() {
                         items={flatIncomplete.map(t => t.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {incompleteGroups.map((group) => (
-                          <div key={group.tag ?? 'no-tag'}>
-                            {group.tag && (
-                              <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
-                                {(() => {
-                                  const Icon = getIconForTag(group.tag);
-                                  return (
-                                    <>
-                                      <Icon size={16} strokeWidth={1.5} className="text-fg-secondary flex-shrink-0" />
-                                      <div className="flex-1 h-px bg-border-subtle" />
-                                    </>
-                                  );
-                                })()}
+                        {incompleteGroups.map((group) => {
+                          const key = sectionKey(group.tag);
+                          const isCollapsed = collapsedSections.has(key);
+                          const isInbox = group.tag === null;
+                          const Icon = isInbox ? LuInbox : getIconForTag(group.tag);
+                          const label = isInbox ? 'Inbox' : getLabelForTag(group.tag);
+                          return (
+                          <div key={key}>
+                            <button
+                              type="button"
+                              onClick={() => toggleSectionCollapsed(key)}
+                              className="w-full flex items-center gap-2 py-4 my-0 min-h-0"
+                            >
+                              <div className="flex-1 min-w-0 h-px bg-border-subtle" />
+                              <div className="flex items-center gap-2 flex-shrink-0 px-2">
+                                <Icon size={16} strokeWidth={1.5} className="text-fg-tertiary" />
+                                <span className="text-[13px] text-fg-tertiary uppercase tracking-wider font-medium">
+                                  {label}
+                                </span>
                               </div>
-                            )}
+                              <div className="flex-1 min-w-0 h-px bg-border-subtle" />
+                              <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+                                {isCollapsed && (
+                                  <span className="text-[12px] text-fg-tertiary tabular-nums">
+                                    {group.tasks.length}
+                                  </span>
+                                )}
+                                <LuChevronDown
+                                  size={12}
+                                  className={`text-fg-tertiary transition-transform duration-200 ${
+                                    isCollapsed ? '' : 'rotate-180'
+                                  }`}
+                                />
+                              </div>
+                            </button>
+                            {!isCollapsed && (
                             <div className="space-y-2">
                             {group.tasks.map((task) => (
                           <SortableTaskItem
                             key={task.id}
                             task={task}
                             isOwnTask={true}
+                            hideCategoryIcon={true}
                             onToggleComplete={handleToggleComplete}
                             onTogglePrivacy={togglePrivacy}
                             onUpdateTask={updateTask}
@@ -1051,33 +1099,57 @@ function MainApp() {
                           />
                             ))}
                             </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </SortableContext>
                     </DndContext>
                     
                     {/* Completed tasks (not draggable) - grouped by tag */}
-                    {completedGroups.map((group) => (
-                      <div key={`done-${group.tag ?? 'no-tag'}`}>
-                        {group.tag && (
-                          <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
-                            {(() => {
-                              const Icon = getIconForTag(group.tag);
-                              return (
-                                <>
-                                  <Icon size={16} strokeWidth={1.5} className="text-fg-secondary flex-shrink-0" />
-                                  <div className="flex-1 h-px bg-border-subtle" />
-                                </>
-                              );
-                            })()}
+                    {completedGroups.map((group) => {
+                      const key = `done-${sectionKey(group.tag)}`;
+                      const isCollapsed = collapsedSections.has(key);
+                      const isInbox = group.tag === null;
+                      const Icon = isInbox ? LuInbox : getIconForTag(group.tag);
+                      const label = isInbox ? 'Inbox' : getLabelForTag(group.tag);
+                      return (
+                      <div key={key}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionCollapsed(key)}
+                          className="w-full flex items-center gap-2 py-4 my-0 min-h-0"
+                        >
+                          <div className="flex-1 min-w-0 h-px bg-border-subtle" />
+                          <div className="flex items-center gap-2 flex-shrink-0 px-2">
+                            <Icon size={16} strokeWidth={1.5} className="text-fg-tertiary" />
+                            <span className="text-[13px] text-fg-tertiary uppercase tracking-wider font-medium">
+                              {label}
+                            </span>
                           </div>
-                        )}
+                          <div className="flex-1 min-w-0 h-px bg-border-subtle" />
+                          <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+                            {isCollapsed && (
+                              <span className="text-[12px] text-fg-tertiary tabular-nums">
+                                {group.tasks.length}
+                              </span>
+                            )}
+                            <LuChevronDown
+                              size={12}
+                              className={`text-fg-tertiary transition-transform duration-200 ${
+                                isCollapsed ? '' : 'rotate-180'
+                              }`}
+                            />
+                          </div>
+                        </button>
+                        {!isCollapsed && (
                         <div className="space-y-2">
                         {group.tasks.map((task) => (
                       <TaskItem
                         key={task.id}
                         task={task}
                         isOwnTask={true}
+                        hideCategoryIcon={true}
                         onToggleComplete={handleToggleComplete}
                         onTogglePrivacy={togglePrivacy}
                         onUpdateTask={updateTask}
@@ -1102,8 +1174,10 @@ function MainApp() {
                       />
                         ))}
                         </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

@@ -1,6 +1,6 @@
 import { normalizeTagToIconId } from './tagIcons';
 
-const STORAGE_KEY = 'getdone-tag-order';
+const STORAGE_KEY = 'nudge-tag-order';
 
 /** Load tag order from localStorage, migrating any emoji to icon IDs */
 export function loadTagOrder(): string[] {

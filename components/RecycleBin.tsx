@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FaTimes, FaUndo, FaTrash, FaTrashRestoreAlt, FaClock } from 'react-icons/fa';
+import { LuLightbulb } from 'react-icons/lu';
 import { TaskWithUser } from '@/lib/types';
 import { formatExpiryInfo, DEFAULT_RETENTION_DAYS } from '@/utils/recycleCleanup';
 
@@ -101,7 +102,7 @@ export default function RecycleBin({
 
       {/* Modal */}
       <div className="fixed inset-x-4 top-[10%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-2xl z-50 animate-in slide-in-from-top duration-300">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="bg-surface rounded-2xl shadow-elevation-3 max-h-[80vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
@@ -147,7 +148,7 @@ export default function RecycleBin({
                 {deletedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 group hover:shadow-md transition-all"
+                    className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 group hover:shadow-elevation-2 transition-all"
                   >
                     <div className="flex items-start gap-3">
                       {/* Task Text */}
@@ -230,9 +231,10 @@ export default function RecycleBin({
                 )}
               </button>
               {!deletingAll && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  💡 Tap green to restore or red to permanently delete
-                </p>
+<p className="text-xs text-fg-tertiary text-center flex items-center justify-center gap-1.5">
+                <LuLightbulb size={12} className="flex-shrink-0" />
+                Tap green to restore or red to permanently delete
+              </p>
               )}
             </div>
           )}

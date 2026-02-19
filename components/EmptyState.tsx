@@ -1,6 +1,7 @@
 'use client';
 
 import { FaCheckCircle, FaUsers, FaLightbulb } from 'react-icons/fa';
+import { LuFileText } from 'react-icons/lu';
 
 interface EmptyStateProps {
   type: 'no-tasks' | 'no-friends' | 'no-completed' | 'no-friend-tasks';
@@ -19,7 +20,7 @@ export default function EmptyState({
     switch (type) {
       case 'no-tasks':
         return {
-          icon: '📝',
+          icon: <LuFileText size={48} className="text-fg-tertiary mx-auto" />,
           title: 'Ready to get things done?',
           description: 'Add your first task below to start tracking your progress',
           tips: [
@@ -31,7 +32,7 @@ export default function EmptyState({
         };
       case 'no-friends':
         return {
-          icon: '👥',
+          icon: <FaUsers size={48} className="text-fg-tertiary mx-auto" />,
           title: 'Add friends to stay accountable',
           description: 'See their tasks and motivate each other',
           tips: [
@@ -43,7 +44,7 @@ export default function EmptyState({
         };
       case 'no-completed':
         return {
-          icon: '✅',
+          icon: <FaCheckCircle size={48} className="text-success mx-auto" />,
           title: 'No completed tasks yet',
           description: 'Complete a task to see it here',
           tips: [
@@ -55,7 +56,7 @@ export default function EmptyState({
         };
       case 'no-friend-tasks':
         return {
-          icon: '👥',
+          icon: <FaUsers size={48} className="text-fg-tertiary mx-auto" />,
           title: 'No friend tasks to show',
           description: 'Friends\' tasks will appear here when they add them',
           tips: [
@@ -67,7 +68,7 @@ export default function EmptyState({
         };
       default:
         return {
-          icon: '📝',
+          icon: <LuFileText size={48} className="text-fg-tertiary mx-auto" />,
           title: 'Nothing here yet',
           description: 'Get started by adding your first item',
           tips: [],
@@ -80,23 +81,23 @@ export default function EmptyState({
 
   return (
     <div className="text-center py-12 px-4">
-      <div className="text-6xl mb-4">{content.icon}</div>
-      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex justify-center mb-4">{content.icon}</div>
+      <h3 className="text-xl font-semibold text-fg-primary mb-2">
         {content.title}
       </h3>
-      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+      <p className="text-fg-secondary mb-6 max-w-sm mx-auto">
         {content.description}
       </p>
 
       {showTips && content.tips.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6 max-w-md mx-auto">
+        <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
           <div className="flex items-center gap-2 mb-3">
-            <FaLightbulb className="text-blue-600 dark:text-blue-400" size={16} />
-            <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+            <FaLightbulb className="text-primary" size={16} />
+            <span className="text-sm font-semibold text-fg-primary">
               Quick Tips
             </span>
           </div>
-          <ul className="text-left space-y-2 text-sm text-blue-800 dark:text-blue-200">
+          <ul className="text-left space-y-2 text-sm text-fg-secondary">
             {content.tips.map((tip, index) => (
               <li key={index} className="flex items-start gap-2">
                 <FaCheckCircle className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" size={12} />
@@ -110,7 +111,7 @@ export default function EmptyState({
       {onAction && content.actionLabel && (
         <button
           onClick={onAction}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
+          className="px-6 py-3 bg-primary text-on-accent rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-elevation-1"
         >
           {content.actionLabel}
         </button>

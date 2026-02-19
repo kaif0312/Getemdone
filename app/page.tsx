@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { LuTriangleAlert } from 'react-icons/lu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTasks } from '@/hooks/useTasks';
@@ -31,7 +32,9 @@ import QuickInfoModal from '@/components/QuickInfoModal';
 import IOSInstallPrompt from '@/components/IOSInstallPrompt';
 import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
 import AccessRemovedScreen from '@/components/AccessRemovedScreen';
-import { FaUsers, FaSignOutAlt, FaFire, FaCalendarAlt, FaMoon, FaSun, FaBell } from 'react-icons/fa';
+import { FaBell } from 'react-icons/fa';
+import { LuFlame } from 'react-icons/lu';
+import ProfileAvatarDropdown from '@/components/ProfileAvatarDropdown';
 import EmptyState from '@/components/EmptyState';
 import HelpModal from '@/components/HelpModal';
 import NotificationPrompt from '@/components/NotificationPrompt';
@@ -39,13 +42,16 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { useDataMigration } from '@/hooks/useDataMigration';
+import { useTagMigration } from '@/hooks/useTagMigration';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
 import { dateMatchesRecurrence } from '@/utils/recurrence';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
+import { normalizeTagToIconId, getIconForTag } from '@/lib/tagIcons';
 import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
+import { getAccentForId } from '@/lib/theme';
 import { groupTasksByTag } from '@/utils/taskGrouping';
 import SortableTagBar from '@/components/SortableTagBar';
 
@@ -55,10 +61,10 @@ export default function Home() {
   // Early return before mounting Firestore-dependent hooks - prevents "Missing or insufficient permissions" on login screen
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-fg-secondary">Loading...</p>
         </div>
       </div>
     );
@@ -74,10 +80,10 @@ export default function Home() {
 
   if (isWhitelisted === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Verifying access...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-fg-secondary">Verifying access...</p>
         </div>
       </div>
     );
@@ -161,15 +167,16 @@ function MainApp() {
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [friendOrder, setFriendOrder] = useState<string[]>([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   const onboarding = useOnboarding();
   
   // Data migration - automatically encrypts existing data
   useDataMigration();
+  useTagMigration();
   
   // Refs
   const taskInputRef = useRef<HTMLInputElement>(null);
-  const friendsButtonRef = useRef<HTMLButtonElement>(null);
   const streakButtonRef = useRef<HTMLButtonElement>(null);
 
   // iOS Installation Detection
@@ -259,7 +266,7 @@ function MainApp() {
     });
     const filtered = activeTagFilters.length === 0
       ? myTasks
-      : myTasks.filter((t) => activeTagFilters.some((tag) => t.tags?.includes(tag)));
+      : myTasks.filter((t) => activeTagFilters.some((filterId) => t.tags?.some((tag) => normalizeTagToIconId(tag) === filterId)));
     const groups = groupTasksByTag(filtered, tagOrder);
     const flatTasks = groups.flatMap((g) => g.tasks);
 
@@ -757,140 +764,96 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-[80px] md:pb-24 safe-area-inset-bottom" style={{ paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px) + 80px)' }}>
+    <div className="min-h-screen bg-background pb-[80px] md:pb-24 safe-area-inset-bottom transition-[background-color,color] duration-200 ease-out" style={{ paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px) + 80px)' }}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-        <div className="max-w-3xl mx-auto px-2 sm:px-3 md:px-4 py-3 md:py-4" style={{ paddingLeft: 'max(env(safe-area-inset-left, 0px), 0.5rem)', paddingRight: 'max(env(safe-area-inset-right, 0px), 0.5rem)' }}>
-          <div className="flex items-center justify-between mb-3 gap-1 sm:gap-2">
+      <header className="bg-surface border-b border-border-emphasized sticky top-0 z-40 shadow-elevation-1 transition-[background-color,color,border-color] duration-200 ease-out" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="max-w-3xl mx-auto px-4 py-3 md:py-4" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>
+          <div className="flex items-center justify-between gap-2 min-h-[44px]">
+            {/* Left: Logo + GetDone */}
             <button
               onClick={() => setShowQuickInfo(true)}
               className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0 min-w-0"
               title="About & Updates"
             >
-              {/* App Icon/Logo */}
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <svg width="20" height="20" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="text-white">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+                <svg width="16" height="16" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" className="text-primary">
                   <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <div className="text-left">
-                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">GetDone</h1>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400" suppressHydrationWarning>Welcome, {data.displayName}!</p>
-              </div>
+              <h1 className="text-lg sm:text-xl font-semibold text-fg-primary tracking-tight">GetDone</h1>
             </button>
-            
-            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
-              {/* Notifications Button */}
-              <button
-                onClick={() => setShowNotificationsPanel(true)}
-                className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors relative flex-shrink-0"
-                title={unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications !== 1 ? 's' : ''}` : 'Notifications'}
-              >
-                <FaBell className={`${unreadNotifications > 0 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-600 dark:text-gray-300'} transition-colors`} size={18} />
-                {/* Unread badge */}
-                {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-in zoom-in duration-200">
-                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                  </span>
-                )}
-              </button>
 
-              {/* Settings Menu - Contains: Notification Settings, Help, Recycle Bin, WhatsApp, Feedback, Admin */}
-              <SettingsMenu
-                onNotificationSettings={() => setShowNotificationSettings(true)}
-                onHelp={() => setShowHelpModal(true)}
-                onRecycleBin={() => setShowRecycleBin(true)}
-                onAdmin={data.isAdmin ? () => router.push('/admin') : undefined}
-                onWhatsAppShare={handleShare}
-                onFeedback={() => setShowBugReportModal(true)}
-                deletedCount={deletedCount}
-                isAdmin={data.isAdmin || false}
-                notificationPermission={notifications.permission}
-                userId={uid}
-                storageUsed={userStorageUsage}
-                storageLimit={data.storageLimit}
-              />
-
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} />}
-              </button>
-
-              {/* Friends */}
-              <button
-                ref={friendsButtonRef}
-                onClick={() => {
-                  setShowFriendsModal(true);
-                  if (!onboarding.state.hasSeenFriends) {
-                    onboarding.markFeatureSeen('hasSeenFriends');
-                  }
-                }}
-                className="relative bg-blue-600 dark:bg-blue-500 text-white p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors flex-shrink-0"
-                title="Manage Friends"
-              >
-                <FaUsers size={18} />
-              </button>
-              
-              {/* Sign Out */}
-              <button
-                onClick={signOut}
-                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
-                title="Sign Out"
-              >
-                <FaSignOutAlt size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Streak Display - compact */}
-          {data.streakData && (
-            <div className="flex items-center gap-2">
+            {/* Center: Streak pill (compact) */}
+            {data.streakData && (
               <button
                 ref={streakButtonRef}
                 onClick={() => {
                   setShowStreakCalendar(true);
                   if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
                 }}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg px-3 py-2 flex items-center justify-between hover:from-orange-600 hover:to-orange-700 transition-all"
+                className="flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                  bg-primary/5 border border-primary/10
+                  hover:bg-primary/10 transition-colors flex-shrink-0"
+                title="View streak calendar"
               >
-                <div className="flex items-center gap-1.5">
-                  <FaFire size={16} />
-                  <div className="text-left">
-                    <div className="text-xl font-bold leading-tight" suppressHydrationWarning>{data.streakData.currentStreak}</div>
-                    <div className="text-[10px] opacity-90">Day Streak</div>
-                  </div>
-                </div>
-                <FaCalendarAlt size={12} className="opacity-75" />
+                <LuFlame size={12} className="text-primary shrink-0" strokeWidth={1.5} />
+                <span className="text-fg-secondary">
+                  <span className="font-semibold text-primary" suppressHydrationWarning>{data.streakData.currentStreak}</span>
+                  <span className="min-[376px]:inline hidden">{data.streakData.currentStreak === 1 ? ' day' : ' days'}</span>
+                  <span className="max-[375px]:inline hidden">d</span>
+                </span>
               </button>
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg px-3 py-2 shadow-sm">
-                <div className="text-xl font-bold leading-tight text-center" suppressHydrationWarning>{data.streakData.longestStreak}</div>
-                <div className="text-[10px] opacity-90 text-center">Best</div>
-              </div>
+            )}
+
+            {/* Right: Notification bell + Profile avatar */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setShowNotificationsPanel(true)}
+                className="p-2 hover:bg-surface-muted rounded-full transition-colors relative flex-shrink-0 text-fg-secondary hover:text-fg-primary min-w-[36px] min-h-[36px] flex items-center justify-center"
+                title={unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications !== 1 ? 's' : ''}` : 'Notifications'}
+              >
+                <FaBell className={unreadNotifications > 0 ? 'text-primary' : ''} size={18} />
+                {unreadNotifications > 0 && (
+                  <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] bg-error text-on-accent text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                  </span>
+                )}
+              </button>
+              <ProfileAvatarDropdown
+                userPhotoURL={user?.photoURL ?? data.photoURL}
+                userDisplayName={data.displayName}
+                userEmail={user?.email ?? data.email}
+                userId={uid}
+                theme={theme}
+                onThemeToggle={toggleTheme}
+                onSettings={() => setShowSettingsMenu(true)}
+                onSocial={() => {
+                  setShowFriendsModal(true);
+                  if (!onboarding.state.hasSeenFriends) onboarding.markFeatureSeen('hasSeenFriends');
+                }}
+                onLogout={signOut}
+              />
             </div>
-          )}
+          </div>
 
           {/* Tag filter bar - sortable, only when any task has tags */}
           {(() => {
-            const usedEmojis = Array.from(
+            const usedTags = Array.from(
               new Set(
                 tasks
                   .filter((t) => t.userId === uid && t.deleted !== true && t.tags?.length)
-                  .flatMap((t) => t.tags || [])
+                  .flatMap((t) => (t.tags || []).map(normalizeTagToIconId))
               )
             );
-            if (usedEmojis.length === 0) return null;
-            const orderedEmojis = mergeTagOrder(usedEmojis, tagOrder);
+            if (usedTags.length === 0) return null;
+            const orderedTags = mergeTagOrder(usedTags, tagOrder);
             return (
               <SortableTagBar
-                emojis={orderedEmojis}
+                tagIds={orderedTags}
                 activeTagFilters={activeTagFilters}
-                onTagClick={(emoji) => {
+                onTagClick={(tagId) => {
                   setActiveTagFilters((prev) =>
-                    prev.includes(emoji) ? prev.filter((e) => e !== emoji) : [...prev, emoji]
+                    prev.includes(tagId) ? prev.filter((e) => e !== tagId) : [...prev, tagId]
                   );
                 }}
                 onAllClick={() => setActiveTagFilters([])}
@@ -902,24 +865,24 @@ function MainApp() {
       </header>
 
       {/* Task Feed */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 transition-[background-color,color] duration-200 ease-out" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>
         {!data ? (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 text-center">
-            <div className="text-4xl mb-3">⚠️</div>
-            <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-200 mb-2">
+          <div className="bg-warning-bg border border-warning-border rounded-lg p-6 text-center">
+            <LuTriangleAlert className="text-warning mb-3" size={48} />
+            <h3 className="text-lg font-semibold text-warning-text mb-2">
               Firestore Quota Exceeded
             </h3>
-            <p className="text-yellow-800 dark:text-yellow-300 text-sm mb-3">
+            <p className="text-warning-text text-sm mb-3 opacity-90">
               You've hit the daily Firebase quota limit. Your tasks are safe in the database.
             </p>
-            <p className="text-yellow-700 dark:text-yellow-400 text-xs">
+            <p className="text-warning-text text-xs opacity-80">
               Quota resets at midnight PT. Try again in a few hours, or upgrade your Firebase plan.
             </p>
           </div>
         ) : tasksLoading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading tasks...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-fg-secondary">Loading tasks...</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="space-y-6">
@@ -1000,7 +963,7 @@ function MainApp() {
               // Apply tag filter (OR logic)
               const filteredTasks = activeTagFilters.length === 0
                 ? myTasks
-                : myTasks.filter((t) => activeTagFilters.some((tag) => t.tags?.includes(tag)));
+                : myTasks.filter((t) => activeTagFilters.some((filterId) => t.tags?.some((tag) => normalizeTagToIconId(tag) === filterId)));
 
               // Separate incomplete and completed tasks
               const incompleteTasks = filteredTasks.filter(t => !t.completed);
@@ -1015,24 +978,25 @@ function MainApp() {
               
               return (
                 <div className="mb-6">
-                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-xl px-4 py-3 flex items-center justify-between">
-                    <button 
-                      onClick={() => setShowProfileSettings(true)}
-                      className="flex items-center gap-3 hover:bg-white/10 rounded-lg px-2 py-1 -ml-2 transition-colors group"
-                      title="Profile Settings"
-                    >
-                      <Avatar
-                        photoURL={data.photoURL}
-                        displayName={data.displayName}
-                        size="md"
-                      />
-                      <div className="text-left">
-                        <h2 className="text-white font-semibold group-hover:underline">You</h2>
-                        <p className="text-blue-100 text-sm">{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
-                      </div>
-                    </button>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-3 space-y-2">
+                  {/* Profile section - quiet header: avatar, name, task count */}
+                  <button 
+                    onClick={() => setShowProfileSettings(true)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-t-xl
+                      bg-primary/5 dark:bg-primary/[0.08] border border-border-subtle border-b-0
+                      hover:bg-primary/[0.08] dark:hover:bg-primary/[0.12] transition-colors group"
+                    title="Profile Settings"
+                  >
+                    <Avatar
+                      photoURL={data.photoURL}
+                      displayName={data.displayName}
+                      size="md"
+                    />
+                    <div className="text-left flex-1 min-w-0">
+                      <h2 className="text-lg font-semibold text-fg-primary group-hover:underline truncate leading-tight tracking-tight">{data.displayName || 'You'}</h2>
+                      <p className="text-sm font-normal text-fg-secondary leading-normal">{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  </button>
+                  <div className="bg-surface rounded-b-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle border-t-0">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -1046,10 +1010,18 @@ function MainApp() {
                           <div key={group.tag ?? 'no-tag'}>
                             {group.tag && (
                               <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
-                                <span className="text-base">{group.tag}</span>
-                                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                                {(() => {
+                                  const Icon = getIconForTag(group.tag);
+                                  return (
+                                    <>
+                                      <Icon size={16} strokeWidth={1.5} className="text-fg-secondary flex-shrink-0" />
+                                      <div className="flex-1 h-px bg-border-subtle" />
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
+                            <div className="space-y-2">
                             {group.tasks.map((task) => (
                           <SortableTaskItem
                             key={task.id}
@@ -1078,6 +1050,7 @@ function MainApp() {
                             currentUserId={uid}
                           />
                             ))}
+                            </div>
                           </div>
                         ))}
                       </SortableContext>
@@ -1088,10 +1061,18 @@ function MainApp() {
                       <div key={`done-${group.tag ?? 'no-tag'}`}>
                         {group.tag && (
                           <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
-                            <span className="text-base">{group.tag}</span>
-                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                            {(() => {
+                              const Icon = getIconForTag(group.tag);
+                              return (
+                                <>
+                                  <Icon size={16} strokeWidth={1.5} className="text-fg-secondary flex-shrink-0" />
+                                  <div className="flex-1 h-px bg-border-subtle" />
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
+                        <div className="space-y-2">
                         {group.tasks.map((task) => (
                       <TaskItem
                         key={task.id}
@@ -1120,6 +1101,7 @@ function MainApp() {
                         currentUserId={uid}
                       />
                         ))}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1129,18 +1111,6 @@ function MainApp() {
 
             {/* Friends' Tasks - Hybrid Approach */}
             {friendEntriesOrdered.length > 0 && (() => {
-              
-              const colors = [
-                { from: 'from-green-500', to: 'to-green-600', text: 'text-green-600' },
-                { from: 'from-purple-500', to: 'to-purple-600', text: 'text-purple-600' },
-                { from: 'from-pink-500', to: 'to-pink-600', text: 'text-pink-600' },
-                { from: 'from-indigo-500', to: 'to-indigo-600', text: 'text-indigo-600' },
-                { from: 'from-orange-500', to: 'to-orange-600', text: 'text-orange-600' },
-                { from: 'from-teal-500', to: 'to-teal-600', text: 'text-teal-600' },
-                { from: 'from-cyan-500', to: 'to-cyan-600', text: 'text-cyan-600' },
-                { from: 'from-amber-500', to: 'to-amber-600', text: 'text-amber-600' },
-              ];
-
               // Create maps for friend photoURL and displayName (for friends with no tasks)
               const friendPhotoURLMap = new Map<string, string | undefined>();
               const friendDisplayNameMap = new Map<string, string>();
@@ -1159,10 +1129,7 @@ function MainApp() {
                 const privateTotal = privateTasks.length;
                 const privateCompleted = privateTasks.filter(t => t.completed).length;
                 
-                const colorIndex = userId 
-                  ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
-                  : 0;
-                const color = colors[colorIndex] || colors[0];
+                const color = getAccentForId(userId);
 
                 return {
                   id: userId,
@@ -1198,10 +1165,7 @@ function MainApp() {
                       const privateTotal = privateTasks.length;
                       const privateCompleted = privateTasks.filter(t => t.completed).length;
                       
-                      const colorIndex = userId 
-                        ? (userId.charCodeAt(0) + (userId.length > 1 ? userId.charCodeAt(userId.length - 1) : 0)) % colors.length
-                        : 0;
-                      const color = colors[colorIndex] || colors[0];
+                      const color = getAccentForId(userId);
 
                       // If "Show All" is active, check if friend is NOT in collapsed set
                       // Otherwise, check if friend is in expanded set
@@ -1265,7 +1229,7 @@ function MainApp() {
                             }
                             setActiveFriendId(null);
                           }}
-                          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm"
+                          className="px-4 py-2 bg-surface-muted text-fg-primary rounded-lg font-medium hover:bg-elevated transition-colors text-sm"
                         >
                           {showAllFriends ? 'Collapse All' : `Show All (${friendEntriesOrdered.length} friends)`}
                         </button>
@@ -1389,9 +1353,11 @@ function MainApp() {
         onClose={() => setShowNotificationsPanel(false)}
         userId={uid}
         onTaskClick={(taskId) => {
-          // Scroll to task or open comments
           setSelectedTaskForComments(taskId);
         }}
+        friendPhotoMap={Object.fromEntries(
+          (friendUsers || []).map((f) => [f.id, f.photoURL]).filter(([, v]) => v) as [string, string][]
+        )}
       />
 
       {/* Quick Info Modal */}
@@ -1415,6 +1381,24 @@ function MainApp() {
           }}
         />
       )}
+
+      {/* Settings Menu Modal (opened from profile dropdown) */}
+      <SettingsMenu
+        isOpen={showSettingsMenu}
+        onClose={() => setShowSettingsMenu(false)}
+        onNotificationSettings={() => setShowNotificationSettings(true)}
+        onHelp={() => setShowHelpModal(true)}
+        onRecycleBin={() => setShowRecycleBin(true)}
+        onAdmin={data.isAdmin ? () => router.push('/admin') : undefined}
+        onWhatsAppShare={handleShare}
+        onFeedback={() => setShowBugReportModal(true)}
+        deletedCount={deletedCount}
+        isAdmin={data.isAdmin || false}
+        notificationPermission={notifications.permission}
+        userId={uid}
+        storageUsed={userStorageUsage}
+        storageLimit={data.storageLimit}
+      />
 
       {/* Notification Settings Modal */}
       <NotificationSettings

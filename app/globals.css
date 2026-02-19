@@ -2,33 +2,188 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* ========== DESIGN TOKENS ========== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Background layers */
+  --color-bg-base: hsl(220, 20%, 97%);
+  --color-bg-surface: hsl(0, 0%, 100%);
+  --color-bg-surface-muted: hsl(220, 15%, 94%);
+  --color-bg-elevated: hsl(0, 0%, 100%);
+  /* Primary accent */
+  --color-primary: hsl(220, 85%, 50%);
+  --color-primary-muted: hsl(220, 40%, 45%);
+  /* Text */
+  --color-text-primary: hsl(220, 15%, 12%);
+  --color-text-secondary: hsl(220, 10%, 40%);
+  --color-text-tertiary: hsl(220, 8%, 58%);
+  --color-text-disabled: hsl(220, 8%, 70%);
+  /* Borders */
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border-emphasized: rgba(0, 0, 0, 0.12);
+  /* Semantic */
+  --color-success: hsl(145, 65%, 42%);
+  --color-warning: hsl(35, 85%, 55%);
+  --color-error: hsl(0, 72%, 51%);
+  --color-warning-bg: hsl(35, 85%, 96%);
+  --color-warning-border: hsl(35, 75%, 85%);
+  --color-warning-text: hsl(35, 90%, 25%);
+  --color-streak: hsl(25, 85%, 55%);
+  --color-streak-badge: hsl(262, 65%, 50%);
+  --color-on-accent: hsl(0, 0%, 100%);
+  /* Shadow - elevation levels */
+  --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-elevation-2: 0 2px 8px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-elevation-top: 0 -1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-card: var(--shadow-elevation-1);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Accent gradients - friend/avatar differentiation */
+  --accent-1-from: hsl(145, 65%, 42%);
+  --accent-1-to: hsl(145, 65%, 35%);
+  --accent-1-text: hsl(145, 65%, 30%);
+  --accent-2-from: hsl(262, 65%, 50%);
+  --accent-2-to: hsl(262, 65%, 42%);
+  --accent-2-text: hsl(262, 65%, 35%);
+  --accent-3-from: hsl(330, 65%, 55%);
+  --accent-3-to: hsl(330, 65%, 45%);
+  --accent-3-text: hsl(330, 65%, 40%);
+  --accent-4-from: hsl(239, 65%, 55%);
+  --accent-4-to: hsl(239, 65%, 45%);
+  --accent-4-text: hsl(239, 65%, 40%);
+  --accent-5-from: hsl(25, 85%, 55%);
+  --accent-5-to: hsl(25, 85%, 45%);
+  --accent-5-text: hsl(25, 85%, 40%);
+  --accent-6-from: hsl(174, 65%, 45%);
+  --accent-6-to: hsl(174, 65%, 38%);
+  --accent-6-text: hsl(174, 65%, 32%);
+  --accent-7-from: hsl(190, 65%, 50%);
+  --accent-7-to: hsl(190, 65%, 42%);
+  --accent-7-text: hsl(190, 65%, 35%);
+  --accent-8-from: hsl(45, 85%, 55%);
+  --accent-8-to: hsl(45, 85%, 45%);
+  --accent-8-text: hsl(45, 85%, 40%);
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  /* Background layers - cool undertone */
+  --color-bg-base: hsl(220, 15%, 8%);
+  --color-bg-surface: hsl(220, 13%, 12%);
+  --color-bg-surface-muted: hsl(220, 12%, 18%);
+  --color-bg-elevated: hsl(220, 12%, 16%);
+  /* Primary accent */
+  --color-primary: hsl(220, 90%, 56%);
+  --color-primary-muted: hsl(220, 40%, 45%);
+  /* Text */
+  --color-text-primary: rgba(255, 255, 255, 0.92);
+  --color-text-secondary: rgba(255, 255, 255, 0.62);
+  --color-text-tertiary: rgba(255, 255, 255, 0.42);
+  --color-text-disabled: rgba(255, 255, 255, 0.24);
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-emphasized: rgba(255, 255, 255, 0.14);
+  /* Semantic */
+  --color-success: hsl(145, 65%, 42%);
+  --color-warning: hsl(35, 85%, 55%);
+  --color-error: hsl(0, 72%, 51%);
+  --color-warning-bg: hsl(35, 50%, 15%);
+  --color-warning-border: hsl(35, 40%, 25%);
+  --color-warning-text: hsl(35, 85%, 75%);
+  --color-streak: hsl(25, 85%, 55%);
+  --color-streak-badge: hsl(262, 65%, 50%);
+  --color-on-accent: #ffffff;
+  /* Shadow - elevation levels (dark) */
+  --shadow-elevation-1: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-elevation-2: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-elevation-top: none;
+  --shadow-card: var(--shadow-elevation-1);
 }
+
+@theme inline {
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  /* Map tokens to Tailwind color scale */
+  --color-background: var(--color-bg-base);
+  --color-surface: var(--color-bg-surface);
+  --color-surface-muted: var(--color-bg-surface-muted);
+  --color-elevated: var(--color-bg-elevated);
+  --color-primary: var(--color-primary);
+  --color-primary-muted: var(--color-primary-muted);
+  --color-fg-primary: var(--color-text-primary);
+  --color-fg-secondary: var(--color-text-secondary);
+  --color-fg-tertiary: var(--color-text-tertiary);
+  --color-fg-disabled: var(--color-text-disabled);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-emphasized: var(--color-border-emphasized);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-border: var(--color-warning-border);
+  --color-warning-text: var(--color-warning-text);
+  --color-streak: var(--color-streak);
+  --color-streak-badge: var(--color-streak-badge);
+  --color-on-accent: var(--color-on-accent);
+  --shadow-card: var(--shadow-card);
+}
+
+/* Elevation shadow utilities - use these instead of arbitrary shadows */
+.shadow-elevation-1 { box-shadow: var(--shadow-elevation-1); }
+.shadow-elevation-2 { box-shadow: var(--shadow-elevation-2); }
+.shadow-elevation-3 { box-shadow: var(--shadow-elevation-3); }
+.shadow-elevation-top { box-shadow: var(--shadow-elevation-top); }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
-/* Smooth transitions for dark mode */
-* {
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+/* Typography scale */
+.text-caption { font-size: 12px; line-height: 1.4; letter-spacing: 0; }
+.text-body-secondary { font-size: 14px; line-height: 1.4; letter-spacing: 0; }
+.text-body-primary { font-size: 16px; line-height: 1.4; letter-spacing: 0; }
+.text-section { font-size: 18px; line-height: 1.2; letter-spacing: -0.01em; }
+.text-page-title { font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; }
+
+/* Interactive elements - 200ms ease for theme consistency */
+button, a, [role="button"], input, select, textarea {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
+
+/* Card elevation - use shadow instead of border in light mode */
+.card-elevated {
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-card);
+}
+
+/* Task card - light: shadow, dark: surface + border. Hover: scale + elevated shadow */
+.task-card {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.task-card:hover {
+  transform: scale(1.005);
+  box-shadow: var(--shadow-elevation-2);
+}
+.task-card:active {
+  transform: scale(1.002);
+}
+
+/* Checkbox check bounce animation */
+@keyframes checkbox-bounce {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.checkbox-checked {
+  animation: checkbox-bounce 0.25s ease-out;
+}
+
+/* Theme transition - body and major containers (200ms) handled above and in layout */
 
 /* iOS Safe Area Support */
 @supports (padding: max(0px)) {
@@ -190,4 +345,88 @@ input[type="datetime-local"] {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Tag filter bar: gradient fade hint on right edge (hints at more items) */
+.tag-bar-fade {
+  mask-image: linear-gradient(to right, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 75%, transparent 100%);
+}
+
+/* Tag bar: fade on both edges when scrollable (>8 items on desktop) */
+.tag-bar-fade-both {
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+/* Tag bar: fade on mobile only (icons-only, max 6-7 visible, always scrollable) */
+@media (max-width: 767px) {
+  .tag-bar-fade-mobile {
+    mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  }
+}
+
+.friends-bar-fade {
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+/* Comments panel: thin scrollbar, 4px, tertiary at 20%, rounded */
+.comments-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+.dark .comments-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.comments-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.comments-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.comments-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+.dark .comments-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Subtask list: thin scrollbar (4px, tertiary at ~20% opacity) */
+.subtask-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+.dark .subtask-scrollbar {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.subtask-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.subtask-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.subtask-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+.dark .subtask-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Bottom fade gradient when subtask list is scrollable (>5 items) */
+.subtask-scroll-fade::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to top, var(--color-bg-surface) 0%, transparent 100%);
+  pointer-events: none;
+}
+.dark .subtask-scroll-fade::after {
+  background: linear-gradient(to top, var(--color-bg-surface) 0%, transparent 100%);
 }

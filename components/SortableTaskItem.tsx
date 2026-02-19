@@ -65,7 +65,7 @@ export default function SortableTaskItem(props: SortableTaskItemProps) {
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`relative ${isDragging ? 'z-50 shadow-2xl scale-105' : ''} transition-transform`}
+      className={`relative ${isDragging ? 'z-50 shadow-elevation-3 scale-105' : ''} transition-transform`}
     >
       <TaskItem 
         {...props} 

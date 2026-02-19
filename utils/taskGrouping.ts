@@ -1,17 +1,19 @@
 import { TaskWithUser } from '@/lib/types';
+import { normalizeTagToIconId } from '@/lib/tagIcons';
 
 /**
- * Get primary tag for grouping - first tag that appears in tagOrder, or first tag alphabetically
+ * Get primary tag for grouping - first tag that appears in tagOrder (by normalized icon ID), or first by normalized form
  */
 function getPrimaryTag(task: TaskWithUser, tagOrder: string[]): string | null {
   const tags = task.tags || [];
   if (tags.length === 0) return null;
-  // Prefer first tag in tagOrder
-  for (const t of tagOrder) {
-    if (tags.includes(t)) return t;
+  // Prefer first tag in tagOrder (match by normalized icon ID)
+  for (const orderedId of tagOrder) {
+    if (tags.some((t) => normalizeTagToIconId(t) === orderedId)) return orderedId;
   }
-  // Fallback: first tag alphabetically
-  return tags.sort()[0];
+  // Fallback: first tag by normalized form
+  const normalized = [...new Set(tags.map(normalizeTagToIconId))].sort();
+  return normalized[0] ?? null;
 }
 
 /**

@@ -611,9 +611,9 @@ export function useTasks() {
         if (typeof window !== 'undefined' && !(window as any).__quotaMessageShown) {
           (window as any).__quotaMessageShown = true;
           const quotaMessage = document.createElement('div');
-          quotaMessage.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 max-w-md text-center';
+          quotaMessage.className = 'fixed top-4 left-1/2 -translate-x-1/2 bg-warning text-fg-primary px-4 py-3 rounded-lg shadow-elevation-2 z-50 max-w-md text-center';
           quotaMessage.innerHTML = `
-            <p class="font-semibold">⚠️ Firebase Rate Limit</p>
+            <p class="font-semibold">Firebase Rate Limit</p>
             <p class="text-sm mt-1">Showing cached tasks. Retrying in background...</p>
             <p class="text-xs mt-2 opacity-90">If you just upgraded, it may take a few minutes to activate.</p>
           `;
@@ -1029,11 +1029,12 @@ export function useTasks() {
     }
   };
 
-  const recordRecentlyUsedTag = async (emoji: string) => {
+  const recordRecentlyUsedTag = async (iconId: string) => {
     if (!user) return;
-    const current = userData?.recentlyUsedTags || [];
-    const without = current.filter((e) => e !== emoji);
-    const updated = [emoji, ...without].slice(0, 12);
+    const { normalizeTagToIconId } = await import('@/lib/tagIcons');
+    const current = (userData?.recentlyUsedTags || []).map(normalizeTagToIconId);
+    const without = current.filter((e) => e !== iconId);
+    const updated = [iconId, ...without].slice(0, 12);
     await updateDoc(doc(db, 'users', user.uid), { recentlyUsedTags: updated });
   };
 
@@ -1416,6 +1417,8 @@ export function useTasks() {
               taskText: taskTextToStore,
               fromUserId: user.uid,
               fromUserName: fromName,
+              fromUserPhotoURL: userData.photoURL,
+              reactionEmoji: emoji,
               commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
@@ -1575,6 +1578,7 @@ export function useTasks() {
               taskText: taskTextToStore,
               fromUserId: user.uid,
               fromUserName: fromName,
+              fromUserPhotoURL: userData.photoURL,
               commentText: commentTextToStore,
               createdAt: Date.now(),
               read: false,
@@ -1820,6 +1824,7 @@ export function useTasks() {
           message: `${fromName} sent you encouragement`,
           fromUserId: user.uid,
           fromUserName: fromName,
+          fromUserPhotoURL: userData.photoURL,
           commentText: commentTextToStore,
           createdAt: Date.now(),
           read: false,

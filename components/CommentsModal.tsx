@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Comment, TaskWithUser } from '@/lib/types';
-import { FaTimes, FaPaperPlane, FaComment, FaReply, FaEdit, FaTrash, FaCopy } from 'react-icons/fa';
+import { FaTimes, FaPaperPlane, FaReply, FaEdit, FaTrash, FaCopy, FaLock, FaInfoCircle } from 'react-icons/fa';
+import { LuMessageCircle } from 'react-icons/lu';
 import Avatar from './Avatar';
+import LinkifyText from './LinkifyText';
+import { getAccentForId } from '@/lib/theme';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-import LinkifyText from './LinkifyText';
+const GROUP_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
 
 interface CommentsModalProps {
   isOpen: boolean;
@@ -18,6 +21,36 @@ interface CommentsModalProps {
   onAddCommentReaction: (taskId: string, commentId: string, emoji: string) => void;
   onEditComment?: (taskId: string, commentId: string, newText: string) => void;
   onDeleteComment?: (taskId: string, commentId: string) => void;
+}
+
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatDateLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isDecryptError(text: string): boolean {
+  return !text || text.includes("[Couldn't decrypt]") || text.includes('decrypt');
 }
 
 export default function CommentsModal({
@@ -44,6 +77,8 @@ export default function CommentsModal({
   } | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; userName: string; text: string } | null>(null);
+  const [reactionTooltip, setReactionTooltip] = useState<{ emoji: string; names: string[]; x: number; y: number } | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -55,51 +90,33 @@ export default function CommentsModal({
   const [swipeDeltaX, setSwipeDeltaX] = useState(0);
   const [isAnimatingReplySwipe, setIsAnimatingReplySwipe] = useState(false);
 
-  // Scroll to bottom when modal opens - useLayoutEffect runs before paint so no visible transition
   useLayoutEffect(() => {
     if (!isOpen) return;
     const container = scrollContainerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
+    if (container) container.scrollTop = container.scrollHeight;
   }, [isOpen, task.id, task.comments?.length]);
 
-  // Smart auto-scroll when new comments arrive: only scroll if user is already near the bottom
   useEffect(() => {
     if (!isOpen || !commentsEndRef.current || !scrollContainerRef.current) return;
-    
     const container = scrollContainerRef.current;
-    const scrollHeight = container.scrollHeight;
-    const scrollTop = container.scrollTop;
-    const clientHeight = container.clientHeight;
-    
-    // Check if user is near the bottom (within 150px)
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-    
-    // Only auto-scroll if user is near the bottom (not reading older messages)
-    if (isNearBottom) {
-      commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    if (isNearBottom) commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [task.comments, isOpen]);
 
-  // Focus input when modal opens; clear reply/edit when closing
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } else {
+    if (isOpen && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);
+    else {
       setReplyingTo(null);
       setEditingCommentId(null);
       setShowCommentMenu(false);
+      setReactionTooltip(null);
     }
   }, [isOpen]);
 
-  // iOS workaround: programmatic focus from touch on non-input doesn't open keyboard.
-  // Focus a temp input first (in user gesture), then transfer to real input after ~100ms.
   const focusInputForMobile = () => {
     const el = inputRef.current;
     if (!el) return;
-    const isTouchDevice = 'ontouchstart' in window;
-    if (isTouchDevice) {
+    if ('ontouchstart' in window) {
       const temp = document.createElement('input');
       temp.setAttribute('type', 'text');
       temp.setAttribute('aria-hidden', 'true');
@@ -109,40 +126,24 @@ export default function CommentsModal({
       setTimeout(() => {
         el.focus();
         el.click();
-        try {
-          document.body.removeChild(temp);
-        } catch {
-          /* already removed */
-        }
+        try { document.body.removeChild(temp); } catch { /* already removed */ }
       }, 120);
-    } else {
-      el.focus();
-    }
+    } else el.focus();
   };
 
-  // Handle long press for comment menu (Edit / Delete / React), swipe right for reply
   const handleLongPressStart = (comment: Comment, e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     swipeStartRef.current = { x: clientX, y: clientY };
     swipingCommentRef.current = comment.id;
-
     longPressTimerRef.current = setTimeout(() => {
       const commentEl = commentRefs.current.get(comment.id);
       setCommentMenuPosition({ x: clientX, y: clientY });
-      setSelectedCommentForMenu({
-        id: comment.id,
-        userName: comment.userName,
-        text: comment.text,
-        userId: comment.userId,
-      });
+      setSelectedCommentForMenu({ id: comment.id, userName: comment.userName, text: comment.text, userId: comment.userId });
       setSelectedCommentRect(commentEl?.getBoundingClientRect() ?? null);
       setShowCommentMenu(true);
       swipeStartRef.current = null;
-
-      if ('vibrate' in navigator) {
-        navigator.vibrate(50);
-      }
+      if ('vibrate' in navigator) navigator.vibrate(50);
     }, 300);
   };
 
@@ -159,14 +160,6 @@ export default function CommentsModal({
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    handleSwipeMove(e.touches[0].clientX);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    handleSwipeMove(e.clientX);
-  };
-
   const handleLongPressEnd = (commentId: string, commentUserName: string, e: React.TouchEvent | React.MouseEvent) => {
     const endX = 'changedTouches' in e ? e.changedTouches[0]?.clientX : (e as React.MouseEvent).clientX;
     const startX = swipeStartRef.current?.x ?? endX;
@@ -177,21 +170,20 @@ export default function CommentsModal({
       longPressTimerRef.current = null;
     }
 
-    // Swipe right to reply (deltaX > 60) - runs whether timer fired or was cleared by swipe move
     if (deltaX > 60 && !showCommentMenu) {
       setIsAnimatingReplySwipe(true);
       setSwipeDeltaX(80);
-        const comment = comments.find((c) => c.id === commentId);
-        setReplyingTo({ id: commentId, userName: commentUserName, text: comment?.text ?? '' });
+      const comment = comments.find((c) => c.id === commentId);
+      setReplyingTo({ id: commentId, userName: commentUserName, text: comment?.text ?? '' });
       if ('vibrate' in navigator) navigator.vibrate(20);
       focusInputForMobile();
-        setTimeout(() => setSwipeDeltaX(0), 30);
-        setTimeout(() => {
-          setSwipingCommentId(null);
-          setSwipeDeltaX(0);
-          swipingCommentRef.current = null;
-          setIsAnimatingReplySwipe(false);
-        }, 260);
+      setTimeout(() => setSwipeDeltaX(0), 30);
+      setTimeout(() => {
+        setSwipingCommentId(null);
+        setSwipeDeltaX(0);
+        swipingCommentRef.current = null;
+        setIsAnimatingReplySwipe(false);
+      }, 260);
     } else {
       setSwipingCommentId(null);
       setSwipeDeltaX(0);
@@ -253,7 +245,6 @@ export default function CommentsModal({
       setSelectedCommentRect(null);
       if ('vibrate' in navigator) navigator.vibrate(20);
     } catch {
-      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = selectedCommentForMenu.text;
       document.body.appendChild(textArea);
@@ -266,13 +257,8 @@ export default function CommentsModal({
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
-    };
+  useEffect(() => () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -283,15 +269,13 @@ export default function CommentsModal({
     const replyToSend = replyingTo ? { id: replyingTo.id, userName: replyingTo.userName, text: replyingTo.text } : undefined;
     const editId = editingCommentId;
 
-    // Clear immediately for smooth UX - optimistic update
     setCommentText('');
     setReplyingTo(null);
     setEditingCommentId(null);
     setIsSending(true);
+    setHintDismissed(true);
 
-    if ('vibrate' in navigator) {
-      navigator.vibrate(30);
-    }
+    if ('vibrate' in navigator) navigator.vibrate(30);
 
     try {
       if (editId && onEditComment) {
@@ -307,35 +291,15 @@ export default function CommentsModal({
       alert('Failed to save. Please try again.');
     } finally {
       setIsSending(false);
-      // Keep keyboard open after send so user can keep typing
       setTimeout(() => {
-        if ('ontouchstart' in window) {
-          focusInputForMobile();
-        } else {
-          inputRef.current?.focus();
-        }
+        if ('ontouchstart' in window) focusInputForMobile();
+        else inputRef.current?.focus();
       }, 50);
     }
   };
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   if (!isOpen) return null;
 
-  // Dedupe by id (keep last) to avoid duplicate key errors from optimistic + listener overlap
   const rawComments = task.comments || [];
   const seenIds = new Set<string>();
   const comments = rawComments
@@ -347,384 +311,380 @@ export default function CommentsModal({
       return true;
     })
     .reverse();
+
   const isOwnTask = task.userId === currentUserId;
+
+  // Group comments by consecutive same-user within 2 min
+  type CommentGroup = { userId: string; userName: string; photoURL?: string; comments: Comment[] };
+  const groups: CommentGroup[] = [];
+  let currentGroup: CommentGroup | null = null;
+
+  for (const c of comments) {
+    const prev = currentGroup?.comments[currentGroup.comments.length - 1];
+    const withinWindow = prev && c.timestamp - prev.timestamp <= GROUP_WINDOW_MS;
+    if (currentGroup && c.userId === currentGroup.userId && withinWindow) {
+      currentGroup.comments.push(c);
+    } else {
+      currentGroup = { userId: c.userId, userName: c.userName, photoURL: c.photoURL, comments: [c] };
+      groups.push(currentGroup);
+    }
+  }
+
+  // Track last date for separators
+  let lastDateStr = '';
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-in fade-in duration-200"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-[100] bg-black/40 md:bg-black/30 animate-in fade-in duration-200" onClick={onClose} />
 
-      {/* Modal - Full screen on mobile, centered on desktop */}
-      <div className="fixed inset-x-0 bottom-0 md:inset-x-auto md:inset-y-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg z-[101] animate-in slide-in-from-bottom md:slide-in-from-top duration-300">
-        <div className="bg-white dark:bg-gray-800 md:rounded-2xl shadow-2xl flex flex-col h-[85vh] md:h-[600px] max-h-[85vh]">
-          
-          {/* Header */}
-          <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <FaComment className="text-blue-500 flex-shrink-0" size={16} />
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Comments
-                  </h2>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                  {task.text}
-                </p>
+      {/* Mobile: bottom sheet 90%, surface. Desktop: side panel 420px or modal 500px */}
+      <div
+        className="fixed z-[101] flex flex-col
+          md:right-0 md:top-0 md:w-[420px] md:h-full md:rounded-none md:border-l md:border-border-subtle md:shadow-[-4px_0_16px_rgba(0,0,0,0.1)]
+          inset-x-0 bottom-0 max-h-[90vh] rounded-t-2xl
+          bg-surface md:bg-elevated
+          animate-in slide-in-from-bottom md:slide-in-from-right duration-250 ease-out"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        {/* Drag handle - mobile only */}
+        <div className="flex justify-center pt-3 pb-2 md:hidden flex-shrink-0">
+          <div className="w-9 h-1 rounded-full bg-fg-tertiary/30" aria-hidden />
+        </div>
+
+        {/* Header */}
+        <div className="flex-shrink-0 border-b border-border-subtle px-4 pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <LuMessageCircle size={18} className="text-fg-secondary flex-shrink-0" />
+                <h2 className="text-base font-semibold text-fg-primary">Comments</h2>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0"
-                aria-label="Close"
-              >
-                <FaTimes className="text-gray-500 dark:text-gray-400" size={18} />
-              </button>
+              <p className="text-sm text-fg-secondary truncate">{task.text}</p>
             </div>
+            <button
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center -m-2 text-fg-secondary hover:text-fg-primary rounded-lg transition-colors"
+              aria-label="Close"
+            >
+              <FaTimes size={20} />
+            </button>
           </div>
+        </div>
 
-          {/* Comments List */}
-          <div ref={scrollContainerRef} className="comment-touchable flex-1 overflow-y-auto p-4 space-y-4">
-            {comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                  <FaComment className="text-gray-400 dark:text-gray-500" size={24} />
-                </div>
-                <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-1">
-                  No comments yet
-                </p>
-                <p className="text-gray-400 dark:text-gray-500 text-sm">
-                  Start the conversation!
-                </p>
+        {/* Comments List */}
+        <div
+          ref={scrollContainerRef}
+          className="comments-scroll comment-touchable flex-1 overflow-y-auto min-h-0 p-4"
+        >
+          {comments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center py-12">
+              <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mb-4">
+                <LuMessageCircle className="text-fg-tertiary" size={28} />
               </div>
-            ) : (
-              <>
-                {comments.map((comment, index) => {
+              <p className="text-fg-secondary text-sm font-medium mb-1">No comments yet</p>
+              <p className="text-fg-tertiary text-sm">Start the conversation!</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {groups.map((group) =>
+                group.comments.map((comment, idxInGroup) => {
                   const isOwnComment = comment.userId === currentUserId;
-                  const isTaskOwnerComment = comment.userId === task.userId;
+                  const isTaskOwner = comment.userId === task.userId;
+                  const isFirstInGroup = idxInGroup === 0;
+                  const isLastInGroup = idxInGroup === group.comments.length - 1;
                   const reactions = comment.reactions || [];
-                  
-                  // Group reactions by emoji
-                  const reactionGroups = reactions.reduce((acc, reaction) => {
-                    if (!acc[reaction.emoji]) {
-                      acc[reaction.emoji] = [];
-                    }
-                    acc[reaction.emoji].push(reaction);
+                  const reactionGroups = reactions.reduce((acc, r) => {
+                    if (!acc[r.emoji]) acc[r.emoji] = [];
+                    acc[r.emoji].push(r);
                     return acc;
                   }, {} as Record<string, typeof reactions>);
 
-                  return (
-                    <div
-                      key={`${comment.id}-${index}`}
-                      ref={(el) => {
-                        if (el) commentRefs.current.set(comment.id, el);
-                        else commentRefs.current.delete(comment.id);
-                      }}
-                      className={`flex gap-3 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom duration-200 transition-all duration-300 ease-out ${
-                        showCommentMenu && selectedCommentForMenu?.id === comment.id
-                          ? 'scale-[1.01] opacity-100'
-                          : showCommentMenu
-                          ? 'opacity-40'
-                          : ''
-                      }`}
-                    >
-                      {/* Avatar - profile picture when available */}
-                      <Avatar
-                        photoURL={comment.photoURL}
-                        displayName={comment.userName}
-                        size="sm"
-                        className={`flex-shrink-0 ${
-                          isTaskOwnerComment
-                            ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-1 dark:ring-offset-gray-800'
-                            : ''
-                        }`}
-                        gradientFrom={isTaskOwnerComment ? 'from-blue-500' : 'from-gray-500'}
-                        gradientTo={isTaskOwnerComment ? 'to-blue-600' : 'to-gray-600'}
-                      />
+                  const dateStr = formatDateLabel(comment.timestamp);
+                  const showDateSeparator = dateStr !== lastDateStr;
+                  if (showDateSeparator) lastDateStr = dateStr;
 
-                      {/* Comment Bubble */}
-                      <div className={`flex-1 max-w-[75%] ${isOwnComment ? 'items-end' : 'items-start'} flex flex-col`}>
-                        <div 
-                          className={`rounded-2xl px-4 py-2.5 select-none ${
-                            isOwnComment
-                              ? 'bg-blue-500 text-white rounded-br-sm'
-                              : isTaskOwnerComment
-                              ? 'bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-gray-100 border border-blue-200 dark:border-blue-800 rounded-bl-sm'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-sm'
-                          }`}
-                          style={{
-                            transform: comment.id === swipingCommentId ? `translateX(${swipeDeltaX}px)` : undefined,
-                            transition: isAnimatingReplySwipe ? 'transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-                          }}
-                          onTouchStart={(e) => handleLongPressStart(comment, e)}
-                          onTouchMove={handleTouchMove}
-                          onTouchEnd={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
-                          onMouseDown={(e) => handleLongPressStart(comment, e)}
-                          onMouseMove={handleMouseMove}
-                          onMouseUp={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
-                          onMouseLeave={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
-                        >
-                          {comment.replyToUserName && (
-                            <div className={`mb-1.5 pl-2 border-l-2 ${
-                              isOwnComment ? 'border-blue-300/60' : 'border-gray-400/50 dark:border-gray-500/50'
-                            }`}>
-                              <div className={`text-xs font-medium flex items-center gap-1 ${
-                                isOwnComment ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                              }`}>
-                                <FaReply size={10} />
-                                {comment.replyToUserName}
-                              </div>
-                              {comment.replyToText && (
-                                <p className={`text-xs mt-0.5 line-clamp-2 ${
-                                  isOwnComment ? 'text-blue-100/90' : 'text-gray-600 dark:text-gray-500'
-                                }`}>
-                                  {comment.replyToText}
-                                </p>
+                  const isDecryptErr = isDecryptError(comment.text);
+                  const accent = getAccentForId(comment.userId);
+
+                  return (
+                    <div key={`${comment.id}-${idxInGroup}`}>
+                      {showDateSeparator && (
+                        <div className="flex justify-center my-4">
+                          <span className="inline-flex px-3 py-1 text-[11px] text-fg-tertiary bg-surface-muted border border-border-subtle rounded-full">
+                            {dateStr}
+                          </span>
+                        </div>
+                      )}
+                      <div
+                        ref={(el) => {
+                          if (el) commentRefs.current.set(comment.id, el);
+                          else commentRefs.current.delete(comment.id);
+                        }}
+                        className={`flex gap-2 ${isOwnComment ? 'flex-row-reverse' : 'flex-row'} ${
+                          isFirstInGroup ? (isLastInGroup ? '' : 'mb-1') : 'mt-1'
+                        } ${!isFirstInGroup ? 'gap-2' : ''}`}
+                        style={{
+                          marginTop: !isFirstInGroup ? 4 : undefined,
+                        }}
+                      >
+                        {/* Avatar - only on last in group */}
+                        {isLastInGroup ? (
+                          <div className="flex-shrink-0 mt-1">
+                            <Avatar
+                              photoURL={comment.photoURL}
+                              displayName={comment.userName}
+                              size="xs"
+                              gradientFrom={accent.from}
+                              gradientTo={accent.to}
+                              className="w-7 h-7"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-7 flex-shrink-0" />
+                        )}
+
+                        <div className={`flex-1 max-w-[75%] flex flex-col ${isOwnComment ? 'items-end' : 'items-start'}`}>
+                          {/* Name label - only on first in group for others */}
+                          {!isOwnComment && isFirstInGroup && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-semibold text-primary">{comment.userName}</span>
+                              {isTaskOwner && (
+                                <span className="text-[10px] text-fg-secondary bg-surface-muted border border-border-subtle px-1.5 py-0.5 rounded-full">
+                                  Task Owner
+                                </span>
                               )}
                             </div>
                           )}
-                          {!isOwnComment && (
-                            <div className={`text-xs font-semibold mb-1 ${
-                              isTaskOwnerComment
-                                ? 'text-blue-600 dark:text-blue-400'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {comment.userName}
-                              {isTaskOwnerComment && ' (Task Owner)'}
+
+                          {/* Bubble */}
+                          <div
+                            className={`rounded-2xl px-4 py-2.5 max-w-full select-none ${
+                              isDecryptErr
+                                ? 'border border-dashed border-fg-tertiary/30 bg-transparent'
+                                : isOwnComment
+                                ? 'bg-primary/15 text-fg-primary rounded-br-sm'
+                                : 'bg-elevated text-fg-primary rounded-bl-sm'
+                            }`}
+                            style={{
+                              transform: comment.id === swipingCommentId ? `translateX(${swipeDeltaX}px)` : undefined,
+                              transition: isAnimatingReplySwipe ? 'transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+                            }}
+                            onTouchStart={(e) => handleLongPressStart(comment, e)}
+                            onTouchMove={(e) => handleSwipeMove(e.touches[0].clientX)}
+                            onTouchEnd={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
+                            onMouseDown={(e) => handleLongPressStart(comment, e)}
+                            onMouseMove={(e) => handleSwipeMove(e.clientX)}
+                            onMouseUp={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
+                            onMouseLeave={(e) => handleLongPressEnd(comment.id, comment.userName, e)}
+                          >
+                            {/* Reply-to quote block */}
+                            {comment.replyToUserName && (
+                              <div className="mb-2 pl-2 border-l-2 border-fg-tertiary/50 bg-black/5 dark:bg-white/5 rounded-r py-1 pr-2">
+                                <div className="text-[11px] font-semibold text-fg-secondary">{comment.replyToUserName}</div>
+                                {comment.replyToText && (
+                                  <p className="text-xs text-fg-tertiary truncate mt-0.5">{comment.replyToText}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Message content */}
+                            {isDecryptErr ? (
+                              <div className="flex items-center gap-2 text-fg-tertiary italic text-sm">
+                                <FaLock size={14} />
+                                <span>Message unavailable</span>
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                <LinkifyText text={comment.text} linkClassName="text-primary underline" />
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Reactions - below bubble, left-aligned */}
+                          {Object.keys(reactionGroups).length > 0 && (
+                            <div className={`flex items-center gap-1.5 mt-1.5 flex-wrap ${isOwnComment ? 'justify-end' : 'justify-start'}`}>
+                              {Object.entries(reactionGroups).map(([emoji, emojiReactions]) => {
+                                const hasUserReaction = emojiReactions.some((r) => r.userId === currentUserId);
+                                const names = emojiReactions.map((r) => r.userName);
+                                return (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => onAddCommentReaction(task.id, comment.id, emoji)}
+                                    onTouchStart={(e) => {
+                                      const rect = (e.target as HTMLElement).getBoundingClientRect();
+                                      setReactionTooltip({ emoji, names, x: rect.left + rect.width / 2, y: rect.top });
+                                    }}
+                                    onTouchEnd={() => setReactionTooltip(null)}
+                                    onMouseEnter={(e) => {
+                                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                      setReactionTooltip({ emoji, names, x: rect.left + rect.width / 2, y: rect.top });
+                                    }}
+                                    onMouseLeave={() => setReactionTooltip(null)}
+                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
+                                      hasUserReaction
+                                        ? 'bg-primary/8 border border-primary'
+                                        : 'bg-surface-muted border border-border-subtle hover:bg-surface-muted/80'
+                                    }`}
+                                  >
+                                    <span>{emoji}</span>
+                                    <span className="text-fg-secondary font-medium">{emojiReactions.length}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            <LinkifyText text={comment.text} linkClassName="text-inherit" />
-                          </p>
-                        </div>
-                        
-                        {/* Reactions */}
-                        {Object.keys(reactionGroups).length > 0 && (
-                          <div className={`flex items-center gap-1.5 mt-1.5 flex-wrap ${isOwnComment ? 'justify-end' : 'justify-start'}`}>
-                            {Object.entries(reactionGroups).map(([emoji, emojiReactions]) => {
-                              const hasUserReaction = emojiReactions.some(r => r.userId === currentUserId);
-                              return (
-                                <button
-                                  key={emoji}
-                                  onClick={() => onAddCommentReaction(task.id, comment.id, emoji)}
-                                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${
-                                    hasUserReaction
-                                      ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
-                                      : 'bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                  }`}
-                                >
-                                  <span className="text-sm">{emoji}</span>
-                                  <span className="text-gray-600 dark:text-gray-400 font-medium">
-                                    {emojiReactions.length}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                        
-                        <div className={`flex items-center gap-2 mt-1 ${isOwnComment ? 'justify-end' : 'justify-start'}`}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingTo({ id: comment.id, userName: comment.userName, text: comment.text });
-                              inputRef.current?.focus();
-                            }}
-                            className="hidden md:inline-flex text-xs text-blue-500 dark:text-blue-400 hover:underline items-center gap-0.5"
-                          >
-                            <FaReply size={10} />
-                            Reply
-                          </button>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatTime(comment.timestamp)}
-                          </span>
+
+                          {/* Timestamp - only on last in group */}
+                          {isLastInGroup && (
+                            <span className="text-[12px] text-fg-tertiary mt-1">
+                              {formatTime(comment.timestamp)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                   );
-                })}
-                <div ref={commentsEndRef} />
-              </>
-            )}
-          </div>
+                })
+              )}
+              <div ref={commentsEndRef} />
+            </div>
+          )}
+        </div>
 
-          {/* Input Area */}
-          <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
-            {replyingTo && (
-              <div className="flex items-start justify-between gap-2 mb-2 px-3 py-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-0.5">
-                    <FaReply size={10} />
-                    Replying to {replyingTo.userName}
-                  </div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
-                    {replyingTo.text || '...'}
-                  </p>
+        {/* Input bar - sticky bottom */}
+        <form onSubmit={handleSubmit} className="flex-shrink-0 border-t border-border-subtle p-4 bg-surface md:bg-elevated">
+          {replyingTo && (
+            <div className="flex items-start justify-between gap-2 mb-2 px-3 py-2.5 bg-primary/10 rounded-lg border border-primary/20">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-primary flex items-center gap-1.5 mb-0.5">
+                  <FaReply size={10} />
+                  Replying to {replyingTo.userName}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setReplyingTo(null)}
-                  className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-full transition-colors flex-shrink-0"
-                  aria-label="Cancel reply"
-                >
-                  <FaTimes size={12} className="text-blue-600 dark:text-blue-400" />
-                </button>
+                <p className="text-sm text-fg-secondary line-clamp-2">{replyingTo.text || '...'}</p>
               </div>
-            )}
-            {editingCommentId && (
-              <div className="flex items-center justify-between mb-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <span className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                  <FaEdit size={12} />
-                  Editing comment
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingCommentId(null);
-                    setCommentText('');
-                  }}
-                  className="p-1 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-full transition-colors"
-                  aria-label="Cancel edit"
-                >
-                  <FaTimes size={12} className="text-amber-600 dark:text-amber-400" />
-                </button>
-              </div>
-            )}
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 relative">
-                <textarea
-                  ref={inputRef}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit(e);
-                    }
-                  }}
-                  placeholder={editingCommentId ? "Edit your comment..." : isOwnTask ? "Add an update..." : "Add a comment..."}
-                  className="w-full px-4 py-3 pr-12 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all max-h-32"
-                  rows={1}
-                  style={{
-                    minHeight: '44px',
-                    height: 'auto',
-                  }}
-                />
-                {commentText.trim() && (
-                  <div className="absolute right-2 bottom-2 text-xs text-gray-400 dark:text-gray-500">
-                    {commentText.length}/500
-                  </div>
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={!commentText.trim() || isSending}
-                className={`p-3.5 rounded-full transition-all flex-shrink-0 ${
-                  commentText.trim() && !isSending
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl active:scale-95'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                }`}
-                aria-label="Send comment"
-              >
-                <FaPaperPlane size={16} className={isSending ? 'animate-pulse' : ''} />
+              <button type="button" onClick={() => setReplyingTo(null)} className="p-1.5 hover:bg-primary/20 rounded-full flex-shrink-0" aria-label="Cancel reply">
+                <FaTimes size={12} className="text-primary" />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              <span className="md:hidden">Swipe right to reply · </span>
-              <span className="hidden md:inline">Reply button · </span>
-              Hold for Edit/Delete · Enter to send
+          )}
+          {editingCommentId && (
+            <div className="flex items-center justify-between mb-2 px-3 py-2 bg-warning-bg rounded-lg border border-warning-border">
+              <span className="text-sm text-warning-text flex items-center gap-2">
+                <FaEdit size={12} />
+                Editing comment
+              </span>
+              <button type="button" onClick={() => { setEditingCommentId(null); setCommentText(''); }} className="p-1 hover:bg-warning-bg/80 rounded-full" aria-label="Cancel edit">
+                <FaTimes size={12} className="text-warning-text" />
+              </button>
+            </div>
+          )}
+          <div className="relative flex items-end">
+            <textarea
+              ref={inputRef}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
+              placeholder={editingCommentId ? 'Edit your comment...' : isOwnTask ? 'Add an update...' : 'Add a comment...'}
+              className="w-full pl-4 pr-12 py-2.5 bg-background text-fg-primary placeholder:text-fg-tertiary rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 text-sm"
+              rows={1}
+              style={{ minHeight: '44px', height: 'auto' }}
+            />
+            <button
+              type="submit"
+              disabled={!commentText.trim() || isSending}
+              className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                commentText.trim() && !isSending
+                  ? 'bg-primary text-on-accent active:scale-95'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+              aria-label="Send"
+            >
+              <FaPaperPlane size={14} className={isSending ? 'animate-pulse' : ''} />
+            </button>
+          </div>
+          {!hintDismissed && (
+            <p className="text-[11px] text-fg-tertiary/50 mt-2 text-center">
+              Swipe right to reply · Hold for Edit/Delete · Enter to send
             </p>
-          </form>
-        </div>
+          )}
+        </form>
       </div>
 
-      {/* Comment context menu: floating emojis above, vertical action stack below */}
+      {/* Reaction tooltip - who reacted */}
+      {reactionTooltip && (
+        <div
+          className="fixed z-[104] px-3 py-2 bg-elevated border border-border-subtle rounded-lg shadow-elevation-2 text-sm text-fg-primary"
+          style={{
+            left: reactionTooltip.x,
+            top: reactionTooltip.y - 40,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div className="font-medium mb-1">{reactionTooltip.emoji} reacted</div>
+          <div className="text-xs text-fg-secondary">{reactionTooltip.names.join(', ')}</div>
+        </div>
+      )}
+
+      {/* Comment context menu */}
       {showCommentMenu && selectedCommentForMenu && (
         <>
           <div
-            className="fixed inset-0 z-[102] backdrop-blur-md bg-black/25 transition-all duration-300 ease-out"
+            className="fixed inset-0 z-[102] backdrop-blur-md bg-black/25"
             onClick={() => {
               setShowCommentMenu(false);
               setSelectedCommentForMenu(null);
               setSelectedCommentRect(null);
             }}
           />
-          {/* Floating emojis - no background, above the comment */}
           <div
             className="fixed z-[103] flex items-center gap-2 animate-in fade-in zoom-in-95 duration-200"
             style={{
-              left: selectedCommentRect
-                ? selectedCommentRect.left + selectedCommentRect.width / 2
-                : commentMenuPosition.x,
-              top: selectedCommentRect
-                ? selectedCommentRect.top - 48
-                : commentMenuPosition.y - 48,
+              left: selectedCommentRect ? selectedCommentRect.left + selectedCommentRect.width / 2 : commentMenuPosition.x,
+              top: selectedCommentRect ? selectedCommentRect.top - 48 : commentMenuPosition.y - 48,
               transform: 'translateX(-50%)',
             }}
           >
             {QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleQuickEmoji(emoji)}
-                className="w-11 h-11 rounded-full flex items-center justify-center text-2xl transition-all duration-200 hover:scale-125 active:scale-95 drop-shadow-lg"
-              >
+              <button key={emoji} type="button" onClick={() => handleQuickEmoji(emoji)} className="w-11 h-11 rounded-full flex items-center justify-center text-2xl transition-all hover:scale-125 active:scale-95">
                 {emoji}
               </button>
             ))}
           </div>
-          {/* Vertical action menu - WhatsApp style */}
           <div
-            className="fixed z-[103] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200/80 dark:border-gray-600/80 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 min-w-[180px]"
+            className="fixed z-[103] bg-elevated rounded-2xl shadow-elevation-2 border border-border-subtle overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 min-w-[180px]"
             style={{
               left: selectedCommentRect
                 ? Math.max(16, Math.min(selectedCommentRect.left + selectedCommentRect.width / 2 - 90, (typeof window !== 'undefined' ? window.innerWidth : 400) - 196))
                 : Math.max(16, commentMenuPosition.x - 90),
-              top: selectedCommentRect
-                ? selectedCommentRect.bottom + 12
-                : commentMenuPosition.y + 12,
+              top: selectedCommentRect ? selectedCommentRect.bottom + 12 : commentMenuPosition.y + 12,
             }}
           >
-            {/* Copy - available for all comments */}
-            <button
-              type="button"
-              onClick={handleCopyComment}
-              className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors duration-150 text-[15px]"
-            >
-              <FaCopy size={15} className="text-gray-500 dark:text-gray-400" />
+            <button type="button" onClick={handleCopyComment} className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-fg-primary hover:bg-surface-muted text-sm">
+              <FaCopy size={15} className="text-fg-tertiary" />
               Copy
             </button>
             {selectedCommentForMenu.userId === currentUserId ? (
               <>
                 {onEditComment && (
-                  <button
-                    type="button"
-                    onClick={handleEditComment}
-                    className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors duration-150 text-[15px]"
-                  >
-                    <FaEdit size={15} className="text-gray-500 dark:text-gray-400" />
+                  <button type="button" onClick={handleEditComment} className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-fg-primary hover:bg-surface-muted text-sm">
+                    <FaEdit size={15} className="text-fg-tertiary" />
                     Edit
                   </button>
                 )}
                 {onDeleteComment && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteComment}
-                    className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150 text-[15px]"
-                  >
+                  <button type="button" onClick={handleDeleteComment} className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-error hover:bg-error/10 text-sm">
                     <FaTrash size={15} />
                     Delete for everyone
                   </button>
                 )}
               </>
             ) : (
-              <button
-                type="button"
-                onClick={handleReplyFromMenu}
-                className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-150 text-[15px]"
-              >
+              <button type="button" onClick={handleReplyFromMenu} className="w-full px-4 py-3.5 flex items-center gap-3 text-left text-primary hover:bg-primary/10 text-sm">
                 <FaReply size={15} />
                 Reply
               </button>

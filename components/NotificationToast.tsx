@@ -65,7 +65,7 @@ export default function NotificationToast({ notifications, onDismiss }: Notifica
       {notifications.map((notif) => (
         <div
           key={notif.id}
-          className={`pointer-events-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm overflow-hidden transition-all duration-300 ${
+          className={`pointer-events-auto bg-surface rounded-xl shadow-elevation-3 border border-border-subtle max-w-sm overflow-hidden transition-all duration-300 ${
             visible[notif.id]
               ? 'opacity-100 translate-x-0'
               : 'opacity-0 translate-x-full'

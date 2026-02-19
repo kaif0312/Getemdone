@@ -29,7 +29,9 @@ export interface InAppNotification {
   taskText?: string;
   fromUserId?: string;
   fromUserName?: string;
+  fromUserPhotoURL?: string;
   commentText?: string;
+  reactionEmoji?: string; // For "X reacted [emoji] to your comment" notifications
   bugReportId?: string; // ID of the bug report for bugReport type notifications
   createdAt: number;
   read: boolean;

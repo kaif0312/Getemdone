@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { StreakData, TaskWithUser } from '@/lib/types';
-import { FaChevronLeft, FaChevronRight, FaTimes, FaArrowLeft } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronRight, FaTimes, FaArrowLeft, FaExclamationTriangle } from 'react-icons/fa';
+import { LuCheck } from 'react-icons/lu';
 import TaskItem from './TaskItem';
 import { dateMatchesRecurrence } from '@/utils/recurrence';
 
@@ -140,20 +141,20 @@ export default function StreakCalendar({
                             selectedDateObj.getFullYear() === new Date().getFullYear();
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-[4px] flex items-center justify-center p-4 z-50">
+        <div className="bg-surface dark:bg-elevated dark:border dark:border-border-subtle rounded-2xl shadow-elevation-3 dark:shadow-none max-w-2xl w-full max-h-[80vh] flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-6 border-b border-border-subtle">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setSelectedDate(null)}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-fg-tertiary hover:text-fg-primary transition-colors"
                 aria-label="Back to calendar"
               >
                 <FaArrowLeft size={18} />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-xl font-semibold text-fg-primary">
                   {selectedDateObj.toLocaleDateString('en-US', { 
                     weekday: 'long', 
                     month: 'long', 
@@ -162,13 +163,13 @@ export default function StreakCalendar({
                   })}
                 </h2>
                 {isSelectedToday && (
-                  <span className="text-sm text-blue-600 font-medium">Today</span>
+                  <span className="text-sm text-primary font-medium">Today</span>
                 )}
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-fg-tertiary hover:text-fg-primary transition-colors"
               aria-label="Close"
             >
               <FaTimes size={20} />
@@ -178,9 +179,9 @@ export default function StreakCalendar({
           {/* Task List */}
           <div className="flex-1 overflow-y-auto p-6">
             {dateTasks.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-fg-secondary">
                 <p className="text-lg mb-2">No tasks on this date</p>
-                <p className="text-sm">
+                <p className="text-sm text-fg-tertiary">
                   {isSelectedToday 
                     ? "Add your first task below!" 
                     : "You didn't have any tasks scheduled for this day"}
@@ -220,100 +221,105 @@ export default function StreakCalendar({
   
   // Add empty cells for days before month starts
   for (let i = 0; i < startingDayOfWeek; i++) {
-    calendarDays.push(<div key={`empty-${i}`} className="p-2"></div>);
+    calendarDays.push(<div key={`empty-${i}`} className="w-10 h-10" />);
   }
+
+  // Opacity scale: 1→15%, 2→30%, 3→50%, 4+→80%. Text: fg-primary for 1-2, white for 3+
+  const getCellStyles = (count: number, isToday: boolean) => {
+    const base = 'w-10 h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer relative';
+    const todayRing = isToday ? 'ring-[1.5px] ring-primary' : '';
+    if (count === 0) {
+      return `${base} ${todayRing} hover:bg-surface-muted text-fg-secondary`;
+    }
+    const opacityMap: Record<number, string> = {
+      1: 'bg-primary/15',
+      2: 'bg-primary/30',
+      3: 'bg-primary/50',
+      4: 'bg-primary/80',
+    };
+    const bg = count >= 4 ? 'bg-primary/80' : opacityMap[count] || 'bg-primary/80';
+    const textColor = count >= 3 ? 'text-white' : 'text-fg-primary';
+    return `${base} ${bg} ${todayRing} ${textColor}`;
+  };
 
   // Add days of month
   for (let day = 1; day <= daysInMonth; day++) {
     const taskCount = getTaskCount(day);
     const today = isToday(day);
-    
-    let bgColor = 'bg-gray-100 hover:bg-gray-200';
-    if (taskCount > 0) {
-      if (taskCount === 1) bgColor = 'bg-green-200 hover:bg-green-300';
-      else if (taskCount === 2) bgColor = 'bg-green-300 hover:bg-green-400';
-      else if (taskCount === 3) bgColor = 'bg-green-400 hover:bg-green-500';
-      else bgColor = 'bg-green-500 hover:bg-green-600';
-    }
-
     const missedCount = getMissedCommitmentCount(day);
     
     calendarDays.push(
       <button
         key={day}
         onClick={() => handleDateClick(day)}
-        className={`p-2 text-center rounded-lg ${bgColor} ${today ? 'ring-2 ring-blue-500' : ''} transition-all cursor-pointer relative`}
+        className={getCellStyles(taskCount, today)}
         title={
           taskCount > 0 || missedCount > 0
             ? `${taskCount} completed${missedCount > 0 ? `, ${missedCount} missed commitment${missedCount > 1 ? 's' : ''}` : ''} - Click to view`
             : 'Click to view tasks'
         }
       >
-        <div className={`text-sm font-medium ${taskCount > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
-          {day}
-        </div>
-        <div className="flex items-center justify-center gap-1 mt-1">
-          {taskCount > 0 && (
-            <div className="text-xs font-bold text-green-600">
-              ✓{taskCount}
-            </div>
-          )}
-          {missedCount > 0 && (
-            <div className="text-xs font-bold text-red-600">
-              ⚠{missedCount}
-            </div>
-          )}
-        </div>
+        {missedCount > 0 && (
+          <FaExclamationTriangle
+            size={10}
+            className="absolute top-0.5 right-0.5 text-warning"
+            title={`${missedCount} missed`}
+          />
+        )}
+        <span className="text-sm font-medium">{day}</span>
+        {taskCount > 0 && (
+          <span className="text-xs font-medium mt-0.5 flex items-center gap-0.5"><LuCheck size={10} />{taskCount}</span>
+        )}
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-[4px] flex items-center justify-center p-4 z-50">
+      <div className="bg-surface dark:bg-elevated dark:border dark:border-border-subtle rounded-2xl shadow-elevation-3 dark:shadow-none max-w-md w-full p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Task Calendar</h2>
+          <h2 className="text-xl font-semibold text-fg-primary">Task Calendar</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-fg-tertiary hover:text-fg-primary transition-colors"
             aria-label="Close"
           >
             <FaTimes size={20} />
           </button>
         </div>
 
-        {/* Streak Stats */}
+        {/* Streak Stats - compact stat blocks */}
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-orange-400 to-orange-500 text-white rounded-xl p-4 shadow-md">
-            <div className="text-3xl font-bold">{streakData.currentStreak}</div>
-            <div className="text-sm opacity-90">Current Streak</div>
+          <div className="bg-surface rounded-xl px-4 py-3">
+            <div className="text-2xl font-semibold text-primary">{streakData.currentStreak}</div>
+            <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Current Streak</div>
           </div>
-          <div className="bg-gradient-to-br from-purple-400 to-purple-500 text-white rounded-xl p-4 shadow-md">
-            <div className="text-3xl font-bold">{streakData.longestStreak}</div>
-            <div className="text-sm opacity-90">Longest Streak</div>
+          <div className="bg-surface rounded-xl px-4 py-3">
+            <div className="text-2xl font-semibold text-primary">{streakData.longestStreak}</div>
+            <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Longest Streak</div>
           </div>
         </div>
 
-        <p className="text-sm text-gray-600 mb-4 text-center bg-blue-50 border border-blue-200 rounded-lg p-2">
-          💡 Click any date to view tasks
+        <p className="text-sm text-fg-tertiary mb-4 text-center">
+          Click any date to view tasks
         </p>
 
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={prevMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-muted rounded-lg transition-colors text-fg-secondary"
             aria-label="Previous month"
           >
             <FaChevronLeft size={16} />
           </button>
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-base font-semibold text-fg-primary">
             {monthNames[month]} {year}
           </h3>
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface-muted rounded-lg transition-colors text-fg-secondary"
             aria-label="Next month"
           >
             <FaChevronRight size={16} />
@@ -321,39 +327,39 @@ export default function StreakCalendar({
         </div>
 
         {/* Day labels */}
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 mb-2">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="text-center text-xs font-semibold text-gray-600">
+            <div key={day} className="w-10 text-center text-xs font-medium text-fg-tertiary">
               {day}
             </div>
           ))}
         </div>
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-2">
+        {/* Calendar grid - 40px cells, 4px gap */}
+        <div className="grid grid-cols-7 gap-1">
           {calendarDays}
         </div>
 
-        {/* Legend */}
-        <div className="mt-6 flex items-center justify-center gap-3 text-xs text-gray-600">
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-gray-100 rounded"></div>
+        {/* Legend - 8px circles, primary opacity scale */}
+        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-fg-tertiary">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-transparent border border-border-subtle" />
             <span>0</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-200 rounded"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary/15" />
             <span>1</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-300 rounded"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary/30" />
             <span>2</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-400 rounded"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary/50" />
             <span>3</span>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary/80" />
             <span>4+</span>
           </div>
         </div>

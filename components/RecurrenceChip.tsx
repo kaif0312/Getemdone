@@ -3,6 +3,7 @@
 import { Recurrence } from '@/lib/types';
 import { formatRecurrenceLabel } from '@/utils/recurrence';
 import { FaTimes } from 'react-icons/fa';
+import { LuRepeat } from 'react-icons/lu';
 
 interface RecurrenceChipProps {
   recurrence: Recurrence;
@@ -18,15 +19,15 @@ export default function RecurrenceChip({ recurrence, onEdit, onRemove }: Recurre
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 text-primary text-xs font-medium hover:bg-primary/25 transition-colors"
       >
-        <span>🔁</span>
+        <LuRepeat size={12} />
         <span>Repeats: {label}</span>
       </button>
       <button
         type="button"
         onClick={onRemove}
-        className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
+        className="p-1 rounded-full hover:bg-surface-muted text-fg-tertiary transition-colors"
         title="Remove recurrence"
       >
         <FaTimes size={10} />

@@ -74,7 +74,7 @@ export default function TaskTemplates({ onSelectTemplate, onClose, recentTasks }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-elevation-3 max-w-md w-full max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-bold text-gray-900">Quick Templates</h2>

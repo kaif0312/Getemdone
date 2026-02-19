@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FaGoogle } from 'react-icons/fa';
+import { LuLock } from 'react-icons/lu';
 
 export default function AuthModal() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -64,7 +65,7 @@ export default function AuthModal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+      <div className="bg-surface rounded-2xl shadow-elevation-3 p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             GetDone
@@ -72,8 +73,8 @@ export default function AuthModal() {
           <p className="text-gray-600 mb-2">
             Share your daily tasks with friends
           </p>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
-            <span>🔒</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-warning-bg text-warning-text rounded-full text-xs font-medium">
+            <LuLock size={12} />
             <span>Beta Testing</span>
           </div>
         </div>

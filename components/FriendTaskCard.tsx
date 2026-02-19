@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import TaskItem from './TaskItem';
-import Avatar from './Avatar';
 import EncouragementModal from './EncouragementModal';
 import { TaskWithUser, Attachment } from '@/lib/types';
 import { groupTasksByTag } from '@/utils/taskGrouping';
+import { getIconForTag } from '@/lib/tagIcons';
 import { FaChevronDown, FaChevronUp, FaLock, FaFire } from 'react-icons/fa';
 
 interface FriendTaskCardProps {
@@ -78,68 +78,60 @@ export default function FriendTaskCard({
   return (
     <>
       <div className="mb-4 md:mb-6">
-        {/* Compact Header - Always Visible */}
-        <div className={`w-full bg-gradient-to-r ${color.from} ${color.to} rounded-t-xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between`}>
-          <button
-            onClick={onToggleExpand}
-            className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 transition-opacity hover:opacity-90"
-          >
-            {photoURL ? (
-              <Avatar
-                photoURL={photoURL}
-                displayName={friendName}
-                size="md"
-                className="border-2 border-white flex-shrink-0"
-              />
-            ) : (
-              <div className={`w-9 h-9 md:w-10 md:h-10 bg-white rounded-full flex items-center justify-center ${color.text} font-bold text-base md:text-lg flex-shrink-0`}>
-                {friendName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-white font-semibold text-base md:text-lg text-left truncate">{friendName}</h2>
-              <div className="flex items-center gap-2 text-white text-opacity-90 text-xs md:text-sm">
-                <span>
-                  {tasks.length === 0
-                    ? 'No tasks yet'
-                    : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} pending${completedToday > 0 ? ` • ${completedToday} done today` : ''}`}
-                </span>
-                {privateTotal > 0 && (
-                  <span className="flex items-center gap-1 ml-1">
-                    <FaLock size={10} />
-                    {privateTotal} ({privateCompleted}✓)
+        {/* Compact Header - minimal section header with left border accent */}
+        <div className="border-l-4 border-primary pl-4 py-2 rounded-r-lg">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={onToggleExpand}
+              className="flex items-center gap-2 flex-1 min-w-0 text-left group"
+            >
+              {/* Section header: name (16px semibold) + task count (secondary) */}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-semibold text-fg-primary truncate">{friendName}</h2>
+                <div className="flex items-center gap-2 text-sm text-fg-secondary">
+                  <span>
+                    {tasks.length === 0
+                      ? 'No tasks yet'
+                      : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} pending${completedToday > 0 ? ` • ${completedToday} done today` : ''}`}
                   </span>
-                )}
+                  {privateTotal > 0 && (
+                    <span className="flex items-center gap-1">
+                      <FaLock size={12} className="text-fg-tertiary" />
+                      {privateTotal}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          </button>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Encouragement Button */}
-            {onSendEncouragement && (
-              <button
-                onClick={() => setShowEncouragementModal(true)}
-                className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200 group active:scale-95"
-                title="Send encouragement"
-              >
-                <FaFire className="text-white group-hover:scale-110 transition-transform" size={16} />
-              </button>
-            )}
-            <button onClick={onToggleExpand} className="p-1 hover:opacity-80 transition-opacity">
-              {isExpanded ? (
-                <FaChevronUp className="text-white text-opacity-80" size={16} />
-              ) : (
-                <FaChevronDown className="text-white text-opacity-80" size={16} />
-              )}
             </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Streak/Encouragement - secondary */}
+              {onSendEncouragement && (
+                <button
+                  onClick={() => setShowEncouragementModal(true)}
+                  className="p-2 text-fg-secondary hover:text-fg-primary rounded-lg transition-colors"
+                  title="Send encouragement"
+                >
+                  <FaFire size={16} />
+                </button>
+              )}
+              {/* Collapse chevron - tertiary, 20px */}
+              <button onClick={onToggleExpand} className="p-1 text-fg-tertiary hover:text-fg-secondary transition-colors">
+                {isExpanded ? (
+                  <FaChevronUp size={20} />
+                ) : (
+                  <FaChevronDown size={20} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="bg-white dark:bg-gray-800 rounded-b-xl shadow-md p-3 space-y-2 md:p-4 md:space-y-3 animate-in slide-in-from-top-2 duration-200">
+        <div className="bg-surface rounded-lg shadow-elevation-2 border border-border-subtle p-4 space-y-2 mt-2 animate-in slide-in-from-top-2 duration-200">
           {privateTotal > 0 && (
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-600 flex items-center gap-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              <span className="text-base">🔒</span>
+            <div className="bg-surface-muted rounded-lg px-3 py-2 border border-border-subtle flex items-center gap-2 text-xs md:text-sm text-fg-secondary">
+              <FaLock size={14} className="text-fg-secondary" />
               <span>
                 <strong>{privateTotal}</strong> private {privateTotal === 1 ? 'task' : 'tasks'}
                 {privateCompleted > 0 && (
@@ -149,12 +141,12 @@ export default function FriendTaskCard({
             </div>
           )}
           {publicTasks.length === 0 && privateTotal > 0 && (
-            <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+            <p className="text-center text-fg-tertiary text-sm py-4">
               Only private tasks for today.
             </p>
           )}
           {publicTasks.length === 0 && privateTotal === 0 && (
-            <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">
+            <p className="text-center text-fg-tertiary text-sm py-4">
               No tasks yet.
             </p>
           )}
@@ -162,8 +154,15 @@ export default function FriendTaskCard({
             <div key={group.tag ?? 'no-tag'}>
               {group.tag && (
                 <div className="flex items-center gap-1.5 py-1.5 mt-1 first:mt-0">
-                  <span className="text-base">{group.tag}</span>
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-600" />
+                  {(() => {
+                    const Icon = getIconForTag(group.tag);
+                    return (
+                      <>
+                        <Icon size={16} strokeWidth={1.5} className="text-fg-secondary flex-shrink-0" />
+                        <div className="flex-1 h-px bg-border-subtle" />
+                      </>
+                    );
+                  })()}
                 </div>
               )}
               {group.tasks.map((task) => (

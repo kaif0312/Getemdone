@@ -60,7 +60,7 @@ export default function AttachmentGallery({
                         e.stopPropagation();
                         onDelete?.(attachment.id);
                       }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors z-10"
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-elevation-2 hover:bg-red-600 transition-colors z-10"
                       title="Delete attachment"
                     >
                       <FaTimes size={12} />
@@ -83,7 +83,7 @@ export default function AttachmentGallery({
                       <span className="text-gray-900 dark:text-white text-xs truncate max-w-[100px]">
                         {attachment.name}
                       </span>
-                      <span className="text-gray-500 dark:text-gray-400 text-[10px]">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">
                         {formatFileSize(attachment.size)}
                       </span>
                     </div>

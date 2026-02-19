@@ -119,7 +119,7 @@ export default function ContextualTooltip({
         left: `${tooltipPosition.left}px`,
       }}
     >
-      <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-3 max-w-[280px] text-sm relative">
+      <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-elevation-2 p-3 max-w-[280px] text-sm relative">
         <button
           onClick={onDismiss}
           className="absolute -top-2 -right-2 w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600 transition-colors"

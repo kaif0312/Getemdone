@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, getDocs, addDoc, deleteDoc, doc, query, where, onSnapshot, orderBy, updateDoc, setDoc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
-import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage, FaBullhorn } from 'react-icons/fa';
+import { FaTimes, FaPlus, FaCheck, FaUser, FaEnvelope, FaCalendar, FaTrash, FaSpinner, FaBug, FaImage, FaBullhorn, FaLock, FaCheckCircle } from 'react-icons/fa';
 import { BugReport } from '@/lib/types';
 
 interface WhitelistEntry {
@@ -444,11 +444,13 @@ export default function AdminDashboard() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h2>
-          <p className="text-gray-600 dark:text-gray-400">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-8 max-w-md w-full text-center">
+          <div className="mb-4 flex justify-center">
+            <FaLock className="text-fg-tertiary" size={48} />
+          </div>
+          <h2 className="text-2xl font-bold text-fg-primary mb-2">Access Denied</h2>
+          <p className="text-fg-secondary">
             You don't have admin privileges to access this page.
           </p>
         </div>
@@ -457,14 +459,15 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            🔐 Admin Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-fg-primary mb-2 flex items-center gap-2">
+          <FaLock size={28} className="text-primary" />
+          Admin Dashboard
+        </h1>
+        <p className="text-fg-secondary">
             Manage beta whitelist and view all users
           </p>
         </div>
@@ -482,7 +485,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Send Announcement Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <FaBullhorn className="text-indigo-500" />
             Send Announcement to All Users
@@ -527,7 +530,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Add Email Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Add Email to Whitelist
           </h2>
@@ -553,25 +556,25 @@ export default function AdminDashboard() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6">
             <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
               {whitelist.length}
             </div>
             <div className="text-gray-600 dark:text-gray-400">Whitelisted Emails</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6">
             <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
               {allUsers.length}
             </div>
             <div className="text-gray-600 dark:text-gray-400">Total Users</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6">
             <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
               {allUsers.filter(u => whitelist.some(w => w.email === u.email.toLowerCase())).length}
             </div>
             <div className="text-gray-600 dark:text-gray-400">Active Users</div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6">
             <div className="text-3xl font-bold text-amber-600 dark:text-amber-400 mb-1">
               {pendingSignups.length}
             </div>
@@ -581,7 +584,7 @@ export default function AdminDashboard() {
 
         {/* Pending Signups */}
         {pendingSignups.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Pending Signup Requests ({pendingSignups.length})
             </h2>
@@ -627,7 +630,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Whitelist Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Whitelisted Emails ({whitelist.length})
           </h2>
@@ -696,7 +699,7 @@ export default function AdminDashboard() {
 
         {/* Bug Reports Section */}
         {bugReports.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+          <div className="bg-surface rounded-xl shadow-elevation-2 p-6 mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FaBug className="text-red-500" />
               Bug Reports ({bugReports.length})
@@ -785,7 +788,7 @@ export default function AdminDashboard() {
         )}
 
         {/* All Users Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+        <div className="bg-surface rounded-xl shadow-elevation-2 p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             All Users ({allUsers.length})
           </h2>
@@ -876,10 +879,14 @@ export default function AdminDashboard() {
               setAdminReply('');
             }}
           />
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 z-[101] max-w-md mx-auto max-h-[80vh] overflow-y-auto">
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 bg-surface rounded-xl shadow-elevation-3 p-6 z-[101] max-w-md mx-auto max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {replyStatus === 'resolved' ? '✅ Resolve Feedback' : '🔒 Close Feedback'}
+              <h3 className="text-lg font-semibold text-fg-primary flex items-center gap-2">
+                {replyStatus === 'resolved' ? (
+                  <><FaCheckCircle size={18} className="text-success" /> Resolve Feedback</>
+                ) : (
+                  <><FaLock size={18} className="text-fg-tertiary" /> Close Feedback</>
+                )}
               </h3>
               <button
                 onClick={() => {
@@ -888,13 +895,13 @@ export default function AdminDashboard() {
                   setReplyStatus(null);
                   setAdminReply('');
                 }}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                className="p-1 hover:bg-surface-muted rounded-full transition-colors"
               >
-                <FaTimes className="text-gray-500 dark:text-gray-400" size={18} />
+                <FaTimes className="text-fg-tertiary" size={18} />
               </button>
             </div>
             
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-fg-secondary mb-4">
               Add a reply to the user (optional). This will be included in the notification sent to them.
             </p>
             
@@ -902,7 +909,7 @@ export default function AdminDashboard() {
               value={adminReply}
               onChange={(e) => setAdminReply(e.target.value)}
               placeholder="Type your reply here... (optional)"
-              className="w-full px-4 py-3 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none mb-4"
+              className="w-full px-4 py-3 text-sm text-fg-primary bg-surface-muted border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none mb-4"
               rows={4}
             />
             
@@ -914,7 +921,7 @@ export default function AdminDashboard() {
                   setReplyStatus(null);
                   setAdminReply('');
                 }}
-                className="flex-1 px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="flex-1 px-4 py-2 text-sm bg-surface-muted text-fg-secondary rounded-lg hover:bg-surface-muted/80 transition-colors"
               >
                 Cancel
               </button>
@@ -948,7 +955,7 @@ export default function AdminDashboard() {
               <img
                 src={selectedBugImage}
                 alt="Bug screenshot"
-                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+                className="max-w-full max-h-[90vh] rounded-lg shadow-elevation-3"
               />
             </div>
           </div>

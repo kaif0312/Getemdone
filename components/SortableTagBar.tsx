@@ -18,21 +18,23 @@ import {
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
+import { LuLayoutGrid } from 'react-icons/lu';
+import { getIconForTag, getLabelForTag } from '@/lib/tagIcons';
 
 interface SortableTagBarProps {
-  emojis: string[];
+  tagIds: string[];
   activeTagFilters: string[];
-  onTagClick: (emoji: string) => void;
+  onTagClick: (tagId: string) => void;
   onAllClick: () => void;
   onReorder: (newOrder: string[]) => void;
 }
 
-function SortableEmojiButton({
-  emoji,
+function SortableTagButton({
+  tagId,
   isActive,
   onClick,
 }: {
-  emoji: string;
+  tagId: string;
   isActive: boolean;
   onClick: () => void;
 }) {
@@ -44,7 +46,10 @@ function SortableEmojiButton({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: emoji });
+  } = useSortable({ id: tagId });
+
+  const Icon = getIconForTag(tagId);
+  const label = getLabelForTag(tagId);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -62,24 +67,43 @@ function SortableEmojiButton({
           e.stopPropagation();
           onClick();
         }}
-        className={`flex-shrink-0 h-9 w-9 min-w-[36px] min-h-[36px] rounded-full text-base transition-all duration-150 flex items-center justify-center touch-manipulation cursor-grab active:cursor-grabbing ${
-          isActive
-            ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500 dark:ring-blue-400'
-            : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
-        }`}
+        className={`
+          relative flex flex-col items-center justify-end flex-shrink-0 w-8 min-w-[32px] h-10 md:w-12 md:h-12 touch-manipulation cursor-grab active:cursor-grabbing
+          transition-all duration-150
+          ${isActive
+            ? 'text-primary'
+            : 'text-fg-secondary hover:text-fg-primary'
+          }
+        `}
         style={{ touchAction: 'pan-x' }}
         onPointerDown={() => {
           if ('vibrate' in navigator) navigator.vibrate(25);
         }}
       >
-        {emoji}
+        <span
+          className={`
+            flex items-center justify-center w-8 h-8 rounded-full transition-colors
+            ${isActive
+              ? 'bg-primary/[0.08] dark:bg-primary/[0.10]'
+              : ''
+            }
+          `}
+        >
+          <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+        </span>
+        <span className={`hidden md:block text-[11px] mt-0.5 truncate max-w-full px-0.5 ${isActive ? 'text-primary' : 'text-fg-secondary'}`}>
+          {label}
+        </span>
+        {isActive && (
+          <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-primary rounded-full md:hidden" />
+        )}
       </button>
     </div>
   );
 }
 
 export default function SortableTagBar({
-  emojis,
+  tagIds,
   activeTagFilters,
   onTagClick,
   onAllClick,
@@ -101,47 +125,72 @@ export default function SortableTagBar({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = emojis.indexOf(active.id as string);
-    const newIndex = emojis.indexOf(over.id as string);
+    const oldIndex = tagIds.indexOf(active.id as string);
+    const newIndex = tagIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(emojis, oldIndex, newIndex);
+    const reordered = arrayMove(tagIds, oldIndex, newIndex);
     onReorder(reordered);
   };
 
+  const totalItems = tagIds.length + 1;
+  const needsScrollDesktop = totalItems > 8;
+  const scrollFadeClass = needsScrollDesktop ? 'tag-bar-fade-both' : 'tag-bar-fade-mobile';
+
   return (
-    <div
-      className="overflow-x-auto scrollbar-hide -mx-1 px-1 py-1.5"
-      style={{
-        WebkitOverflowScrolling: 'touch',
-        overscrollBehaviorX: 'contain',
-      }}
-    >
-      <div className="flex items-center gap-2 min-w-max">
-        <button
-          onClick={onAllClick}
-          className={`flex-shrink-0 h-9 px-3 rounded-full text-xs font-medium transition-all duration-150 flex items-center justify-center ${
-            activeTagFilters.length === 0
-              ? 'bg-blue-600 dark:bg-blue-500 text-white'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-          }`}
-        >
-          All
-        </button>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={emojis} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-center gap-2">
-              {emojis.map((emoji) => (
-                <SortableEmojiButton
-                  key={emoji}
-                  emoji={emoji}
-                  isActive={activeTagFilters.includes(emoji)}
-                  onClick={() => onTagClick(emoji)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+    <div className="border-b border-border-subtle">
+      <div
+        className={`overflow-x-auto scrollbar-hide px-3 py-2 ${scrollFadeClass}`}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehaviorX: 'contain',
+        }}
+      >
+        <div className="flex items-center min-w-max" style={{ gap: '24px' }}>
+          <button
+            onClick={onAllClick}
+            className={`
+              relative flex flex-col items-center justify-end flex-shrink-0 min-w-[32px] transition-all duration-150
+              md:min-w-[48px] md:h-12
+              ${activeTagFilters.length === 0
+                ? 'text-primary'
+                : 'text-fg-secondary hover:text-fg-primary'
+              }
+            `}
+          >
+            <span
+              className={`
+                flex items-center justify-center w-8 h-8 rounded-full transition-colors
+                ${activeTagFilters.length === 0
+                  ? 'bg-primary/[0.08] dark:bg-primary/[0.10]'
+                  : ''
+                }
+              `}
+            >
+              <LuLayoutGrid size={20} strokeWidth={1.5} className="flex-shrink-0" />
+            </span>
+            <span className={`hidden md:block text-[11px] mt-0.5 ${activeTagFilters.length === 0 ? 'text-primary' : 'text-fg-secondary'}`}>
+              All
+            </span>
+            {activeTagFilters.length === 0 && (
+              <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-primary rounded-full md:hidden" />
+            )}
+          </button>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={tagIds} strategy={horizontalListSortingStrategy}>
+              <div className="flex items-center" style={{ gap: '24px' }}>
+                {tagIds.map((tagId) => (
+                  <SortableTagButton
+                    key={tagId}
+                    tagId={tagId}
+                    isActive={activeTagFilters.includes(tagId)}
+                    onClick={() => onTagClick(tagId)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        </div>
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ export default function EmojiPicker({ onSelect, onClose, position = 'top' }: Emo
         <div className="relative w-full h-full">
           {/* Emoji Picker - fixed position at bottom-right, mobile-friendly */}
           <div 
-            className="absolute bottom-20 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-3 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-200"
+            className="absolute bottom-20 right-4 bg-surface rounded-lg shadow-elevation-3 border border-border-subtle p-3 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-200"
           >
             {/* 2x4 Grid Layout */}
             <div className="grid grid-cols-4 gap-2">
@@ -33,7 +33,7 @@ export default function EmojiPicker({ onSelect, onClose, position = 'top' }: Emo
                     onSelect(emoji);
                     onClose();
                   }}
-                  className="w-12 h-12 flex items-center justify-center text-2xl hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors active:scale-95 min-w-[44px] min-h-[44px]"
+                  className="w-12 h-12 flex items-center justify-center text-2xl hover:bg-surface-muted rounded-lg transition-colors active:scale-95 min-w-[44px] min-h-[44px]"
                   title={`React with ${emoji}`}
                 >
                   {emoji}

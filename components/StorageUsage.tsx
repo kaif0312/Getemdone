@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FaDatabase, FaSync } from 'react-icons/fa';
+import { LuTriangleAlert, LuLightbulb } from 'react-icons/lu';
 import { 
   formatStorageSize, 
   getStoragePercentage, 
@@ -61,7 +62,7 @@ export default function StorageUsage({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+    <div className="bg-surface border border-border-subtle rounded-xl p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -108,23 +109,25 @@ export default function StorageUsage({
 
       {/* Warning Message */}
       {percentage >= 90 && (
-        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-xs text-red-700 dark:text-red-300 font-medium">
-            ⚠️ Storage almost full! Delete old attachments to free up space.
+        <div className="mt-3 p-3 bg-error/10 border border-error/30 rounded-lg">
+          <p className="text-xs text-error font-medium flex items-center gap-1.5">
+            <LuTriangleAlert size={14} className="flex-shrink-0" />
+            Storage almost full! Delete old attachments to free up space.
           </p>
         </div>
       )}
       {percentage >= 75 && percentage < 90 && (
-        <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-          <p className="text-xs text-orange-700 dark:text-orange-300">
-            💡 Consider cleaning up old attachments to free space.
+        <div className="mt-3 p-3 bg-warning-bg border border-warning-border rounded-lg">
+          <p className="text-xs text-warning-text flex items-center gap-1.5">
+            <LuLightbulb size={14} className="flex-shrink-0" />
+            Consider cleaning up old attachments to free space.
           </p>
         </div>
       )}
 
       {/* Storage Limit Info */}
-      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-xs text-gray-500 dark:text-gray-400">
+      <div className="mt-3 pt-3 border-t border-border-subtle">
+        <p className="text-xs text-fg-tertiary">
           Limit: <span className="font-medium">{formatStorageSize(limit)}</span> per user
         </p>
       </div>

@@ -46,7 +46,7 @@ export default function NotificationPrompt({
   return (
     <div className="relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Elegant notification prompt card */}
-      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 border border-blue-200/50 dark:border-blue-700/50 rounded-2xl p-5 md:p-6 shadow-lg backdrop-blur-sm relative overflow-hidden">
+      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 border border-blue-200/50 dark:border-blue-700/50 rounded-2xl p-5 md:p-6 shadow-elevation-2 backdrop-blur-sm relative overflow-hidden">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400 rounded-full blur-3xl"></div>
@@ -102,7 +102,7 @@ export default function NotificationPrompt({
           <button
             onClick={handleEnable}
             disabled={isRequesting}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3.5 md:py-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 active:scale-[0.98]"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3.5 md:py-4 rounded-xl shadow-elevation-2 hover:shadow-elevation-3 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 active:scale-[0.98]"
           >
             {isRequesting ? (
               <>

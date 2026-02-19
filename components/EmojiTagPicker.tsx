@@ -139,7 +139,7 @@ export default function EmojiTagPicker({
       />
       <div
         ref={containerRef}
-        className="fixed z-[99999] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-600 p-3 w-[min(320px,calc(100vw-2rem))] animate-in fade-in zoom-in-95 duration-150"
+        className="fixed z-[99999] bg-surface rounded-xl shadow-elevation-2 border border-border-subtle p-3 w-[min(320px,calc(100vw-2rem))] animate-in fade-in zoom-in-95 duration-150"
         style={(() => {
           if (!anchorRef.current) return {};
           const rect = anchorRef.current.getBoundingClientRect();
@@ -170,7 +170,7 @@ export default function EmojiTagPicker({
         />
         {filteredRecent.length > 0 && (
           <div className="mb-2">
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+            <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
               Recent
             </div>
             <div className="flex flex-wrap gap-1">
@@ -188,7 +188,7 @@ export default function EmojiTagPicker({
           </div>
         )}
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
             {search.trim() ? `Emojis (${displayEmojis.length})` : 'Emojis'}
           </div>
           <div

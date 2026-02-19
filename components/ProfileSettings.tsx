@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaCamera, FaUserCircle, FaEdit, FaCheck, FaTimes as FaCancel } from 'react-icons/fa';
+import { LuLightbulb } from 'react-icons/lu';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db } from '@/lib/firebase';
@@ -202,9 +203,9 @@ export default function ProfileSettings({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-elevation-2 max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+        <div className="flex items-center justify-between p-4 border-b border-border-subtle sticky top-0 bg-surface z-10">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">Profile Settings</h2>
           <button
             onClick={onClose}
@@ -240,7 +241,7 @@ export default function ProfileSettings({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="absolute bottom-0 right-0 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-colors disabled:opacity-50"
+                className="absolute bottom-0 right-0 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-elevation-2 transition-colors disabled:opacity-50"
               >
                 <FaCamera size={16} />
               </button>
@@ -339,9 +340,10 @@ export default function ProfileSettings({
           )}
 
           {/* Info */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              💡 <strong>Tip:</strong> Upload a profile picture to personalize your account. Maximum file size is 5MB.
+          <div className="mt-6 p-4 bg-primary/10 border border-primary/30 rounded-lg">
+            <p className="text-sm text-fg-secondary flex items-center gap-1.5">
+              <LuLightbulb size={16} className="flex-shrink-0" />
+              <strong>Tip:</strong> Upload a profile picture to personalize your account. Maximum file size is 5MB.
             </p>
           </div>
         </div>

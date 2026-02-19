@@ -31,48 +31,48 @@ export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps)
 
       {/* Modal - Small and Compact */}
       <div className="fixed top-16 left-4 right-4 md:left-auto md:right-auto md:top-20 md:left-1/2 md:-translate-x-1/2 md:w-96 z-50 animate-in slide-in-from-top-2 duration-200">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-surface rounded-xl shadow-elevation-3 border border-border-subtle overflow-hidden">
           {/* Header - Minimal */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-800">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface-muted">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 512 512" className="text-white">
+              <div className="w-6 h-6 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 512 512" className="text-on-accent">
                   <path d="M140 250 L220 330 L380 170" stroke="currentColor" strokeWidth="40" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">GetDone</h3>
+              <h3 className="text-sm font-bold text-fg-primary">GetDone</h3>
             </div>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              className="p-1 hover:bg-surface-muted rounded transition-colors"
             >
-              <FaTimes className="text-gray-500 dark:text-gray-400" size={14} />
+              <FaTimes className="text-fg-tertiary" size={14} />
             </button>
           </div>
 
           {/* Created By - Very Compact */}
-          <div className="px-4 py-3 text-center text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-            Made with <FaHeart className="inline text-red-500 text-[10px]" /> by <span className="font-semibold text-gray-900 dark:text-white">Kaifuten</span> • v1.0.0
+          <div className="px-4 py-3 text-center text-xs text-fg-secondary border-b border-border-subtle">
+            Made with <FaHeart className="inline text-error text-xs" /> by <span className="font-semibold text-fg-primary">Kaifuten</span> • v1.0.0
           </div>
 
           {/* Updates List - Compact */}
           <div className="max-h-64 overflow-y-auto">
-            <div className="px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-700/50">
+            <div className="px-4 py-2 text-xs font-semibold text-fg-tertiary uppercase tracking-wide bg-surface-muted">
               Recent Updates
             </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            <div className="divide-y divide-border-subtle">
               {updates.map((update, idx) => (
-                <div key={idx} className="px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <div key={idx} className="px-4 py-2 hover:bg-surface-muted transition-colors">
                   <div className="flex items-start gap-2">
                     <div className="flex-shrink-0 mt-0.5">
                       {update.type === 'feature' ? (
-                        <FaRocket className="text-green-500" size={12} />
+                        <FaRocket className="text-success" size={12} />
                       ) : (
-                        <FaBug className="text-orange-500" size={12} />
+                        <FaBug className="text-warning" size={12} />
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs text-gray-700 dark:text-gray-300">
+                      <p className="text-xs text-fg-secondary">
                         {update.text}
                       </p>
                     </div>
@@ -83,7 +83,7 @@ export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps)
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 text-center text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50">
+          <div className="px-4 py-2 text-center text-xs text-fg-tertiary bg-surface-muted">
             © {new Date().getFullYear()} GetDone. Built with Next.js & Firebase
           </div>
         </div>

@@ -31,7 +31,7 @@ export default function FeatureBadge({
       className={`absolute ${positionClasses[position]} z-10 animate-in fade-in zoom-in-95 duration-200`}
     >
       <div className="relative">
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1.5">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-elevation-2 flex items-center gap-1.5">
           <span>{label}</span>
           <div
             onClick={(e) => {

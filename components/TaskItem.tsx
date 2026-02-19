@@ -3,9 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser, Attachment, Subtask } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaChevronDown, FaChevronUp, FaEllipsisV } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaEllipsisV, FaPlus, FaPaperclip } from 'react-icons/fa';
+import { LuChevronDown } from 'react-icons/lu';
+import { LuRepeat, LuCheck } from 'react-icons/lu';
+import ScheduleDeadlinePicker from './ScheduleDeadlinePicker';
 import EmojiPicker from './EmojiPicker';
-import EmojiTagPicker from './EmojiTagPicker';
+import TagIconPicker from './TagIconPicker';
 import Confetti from './Confetti';
 import TaskContextMenu from './TaskContextMenu';
 import RecurrenceBottomSheet from './RecurrenceBottomSheet';
@@ -14,6 +17,7 @@ import AttachmentGallery from './AttachmentGallery';
 import SortableSubtaskList from './SortableSubtaskList';
 import { playSound } from '@/utils/sounds';
 import { isRolledOver, getTodayString, getDateString } from '@/utils/taskFilter';
+import { getIconForTag, normalizeTagToIconId, getTintClassForTag, getTintBgClassForTag } from '@/lib/tagIcons';
 
 interface SubtaskRowProps {
   subtask: Subtask;
@@ -29,6 +33,7 @@ interface SubtaskRowProps {
   onFinishEdit: () => void;
   onCancelEdit: () => void;
   dragHandle?: React.ReactNode;
+  showReorderMode: boolean;
 }
 
 function SubtaskRow({
@@ -45,34 +50,59 @@ function SubtaskRow({
   onFinishEdit,
   onCancelEdit,
   dragHandle,
+  showReorderMode,
 }: SubtaskRowProps) {
-  const [isLongPressing, setIsLongPressing] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [swipeRevealed, setSwipeRevealed] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const handleLongPress = () => {
     if (!canEdit || !isOwnTask) return;
     onStartEdit(subtask.id, subtask.title);
-    setIsLongPressing(false);
+    longPressTimerRef.current = null;
   };
 
   const isEditing = editingSubtaskId === subtask.id;
 
   return (
-    <div className="rounded-lg">
-      <div className="flex items-center gap-1.5 py-0.5 pl-3 bg-white dark:bg-gray-800"
+    <div className="relative overflow-hidden min-h-[40px] py-0.5 group/subtask">
+      <div
+        className="flex items-center gap-2 transition-transform duration-200 ease-out"
+        style={{ transform: swipeRevealed ? 'translateX(-44px)' : undefined }}
+        onTouchStart={(e) => {
+          if (canEdit && isOwnTask) {
+            const t = e.touches[0];
+            if (t) touchStartRef.current = { x: t.clientX, y: t.clientY };
+          }
+        }}
+        onTouchEnd={() => {
+          touchStartRef.current = null;
+        }}
+        onTouchMove={(e) => {
+          if (touchStartRef.current && canEdit && isOwnTask) {
+            const t = e.touches[0];
+            if (t) {
+              const dx = t.clientX - touchStartRef.current.x;
+              const dy = t.clientY - touchStartRef.current.y;
+              if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+                setSwipeRevealed(dx < -30);
+              }
+            }
+          }
+        }}
       >
-        {dragHandle}
+        {showReorderMode && dragHandle}
         <button
           onClick={onToggle}
           disabled={!isOwnTask}
-          className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all ${
+          className={`flex-shrink-0 w-[18px] h-[18px] rounded-[4px] flex items-center justify-center transition-all border-[1.5px] ${
             subtask.completed
-              ? 'bg-green-500 border-green-500'
-              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+              ? 'bg-primary border-primary'
+              : 'border-fg-tertiary bg-transparent hover:border-fg-secondary'
           } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
         >
           {subtask.completed && (
-            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2.5 h-2.5 text-on-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           )}
@@ -95,7 +125,7 @@ function SubtaskRow({
               }
             }}
             autoFocus
-            className="flex-1 px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-blue-500 rounded min-h-[44px]"
+            className="flex-1 min-w-0 px-0 py-0.5 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0"
           />
         ) : (
           <div
@@ -125,28 +155,37 @@ function SubtaskRow({
                 longPressTimerRef.current = null;
               }
             }}
-            className={`flex-1 text-sm min-h-[36px] flex items-center ${
+            className={`flex-1 min-w-0 text-[14px] overflow-hidden ${
               subtask.completed
-                ? 'line-through text-gray-500 dark:text-gray-400 opacity-70'
-                : 'text-gray-900 dark:text-gray-100'
+                ? 'line-through text-fg-secondary opacity-60'
+                : 'text-fg-primary'
             }`}
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
+            }}
           >
             {subtask.title}
           </div>
         )}
-        {canEdit && isOwnTask && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Delete subtask"
-          >
-            <FaTimes size={10} />
-          </button>
-        )}
       </div>
+      {canEdit && isOwnTask && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+            setSwipeRevealed(false);
+          }}
+          className={`absolute right-0 top-0 bottom-0 w-11 flex items-center justify-center text-fg-tertiary hover:text-error hover:bg-surface-muted transition-opacity ${
+            swipeRevealed ? 'opacity-100' : 'opacity-0 md:group-hover/subtask:opacity-100'
+          }`}
+          style={{ minHeight: 40 }}
+          title="Delete subtask"
+        >
+          <FaTimes size={14} />
+        </button>
+      )}
     </div>
   );
 }
@@ -174,7 +213,7 @@ interface TaskItemProps {
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onUpdateTaskTags?: (taskId: string, tags: string[]) => Promise<void>;
-  recordRecentlyUsedTag?: (emoji: string) => Promise<void>;
+  recordRecentlyUsedTag?: (iconId: string) => Promise<void>;
   recentUsedTags?: string[];
   onUpdateTaskSubtasks?: (taskId: string, subtasks: Subtask[]) => Promise<void>;
   onUpdateTaskRecurrence?: (taskId: string, recurrence: import('@/lib/types').Recurrence | null, completedDateStr?: string) => Promise<void>;
@@ -237,7 +276,10 @@ export default function TaskItem({
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [removingTag, setRemovingTag] = useState<string | null>(null);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [subtaskReorderMode, setSubtaskReorderMode] = useState(false);
   const [subtaskInputValue, setSubtaskInputValue] = useState('');
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const subtaskSectionLongPressRef = useRef<NodeJS.Timeout | null>(null);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const tagPickerAnchorRef = useRef<HTMLButtonElement>(null);
@@ -245,10 +287,6 @@ export default function TaskItem({
   const subtaskLongPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const subtaskSectionRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const dueDateInputRef = useRef<HTMLInputElement>(null);
-  const scheduleDateRef = useRef<HTMLInputElement>(null);
-  const scheduleTimeRef = useRef<HTMLInputElement>(null);
-  const unifiedDatePickerRef = useRef<HTMLDivElement>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -267,6 +305,11 @@ export default function TaskItem({
       setNotesText(task.notes || '');
     }
   }, [task.notes, isEditingNotes]);
+
+  // Reset reorder mode when collapsing subtasks
+  useEffect(() => {
+    if (!showSubtasks) setSubtaskReorderMode(false);
+  }, [showSubtasks]);
 
   // Collapse subtasks when tapping outside the expanded area
   useEffect(() => {
@@ -358,23 +401,6 @@ export default function TaskItem({
     }
   }, [isSwiping, swipeOffset]);
 
-  // Close due date picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (showUnifiedDatePicker && unifiedDatePickerRef.current && !unifiedDatePickerRef.current.contains(e.target as Node)) {
-        const target = e.target as HTMLElement;
-        if (!target.closest('.due-date-picker-container') && !target.closest('.unified-date-picker')) {
-          setShowUnifiedDatePicker(false);
-        }
-      }
-    };
-
-    if (showUnifiedDatePicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showUnifiedDatePicker]);
-
   const handleToggleComplete = async () => {
     if (!isOwnTask || isEditing) return;
     
@@ -418,6 +444,7 @@ export default function TaskItem({
     
     const touch = e.touches[0];
     if (touch) {
+      const element = e.currentTarget as HTMLElement; // Capture before async - React nullifies currentTarget after handler
       longPressStartRef.current = {
         x: touch.clientX,
         y: touch.clientY,
@@ -444,10 +471,11 @@ export default function TaskItem({
           setShowContextMenu(true);
           
           // Prevent text selection only when long-press is confirmed
-          const element = e.currentTarget as HTMLElement;
-          element.style.userSelect = 'none';
-          element.style.webkitUserSelect = 'none';
-          element.style.setProperty('-webkit-touch-callout', 'none');
+          if (element?.style) {
+            element.style.userSelect = 'none';
+            element.style.webkitUserSelect = 'none';
+            element.style.setProperty('-webkit-touch-callout', 'none');
+          }
           
           longPressStartRef.current = null;
         }
@@ -466,10 +494,12 @@ export default function TaskItem({
     if (isLongPressing) {
       setIsLongPressing(false);
       // Restore text selection
-      const element = e.currentTarget as HTMLElement;
-      element.style.userSelect = '';
-      element.style.webkitUserSelect = '';
-      element.style.removeProperty('-webkit-touch-callout');
+      const element = e.currentTarget as HTMLElement | null;
+      if (element?.style) {
+        element.style.userSelect = '';
+        element.style.webkitUserSelect = '';
+        element.style.removeProperty('-webkit-touch-callout');
+      }
     }
     
     longPressStartRef.current = null;
@@ -494,10 +524,12 @@ export default function TaskItem({
           // Stop long-press animation
           setIsLongPressing(false);
           // Restore text selection since long-press was cancelled
-          const element = e.currentTarget as HTMLElement;
-          element.style.userSelect = '';
-          element.style.webkitUserSelect = '';
-          element.style.removeProperty('-webkit-touch-callout');
+          const element = e.currentTarget as HTMLElement | null;
+          if (element?.style) {
+            element.style.userSelect = '';
+            element.style.webkitUserSelect = '';
+            element.style.removeProperty('-webkit-touch-callout');
+          }
         }
       }
     }
@@ -513,10 +545,12 @@ export default function TaskItem({
         if (moveDistance > 10) {
           setIsLongPressing(false);
           setShowContextMenu(false);
-          const element = e.currentTarget as HTMLElement;
-          element.style.userSelect = '';
-          element.style.webkitUserSelect = '';
-          element.style.removeProperty('-webkit-touch-callout');
+          const element = e.currentTarget as HTMLElement | null;
+          if (element?.style) {
+            element.style.userSelect = '';
+            element.style.webkitUserSelect = '';
+            element.style.removeProperty('-webkit-touch-callout');
+          }
         }
       }
     }
@@ -633,35 +667,17 @@ export default function TaskItem({
     const hours = diff / (1000 * 60 * 60);
 
     if (diff < 0) {
-      return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
+      return 'text-error bg-error/12 border-0';
     } else if (hours < 2) {
-      return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800';
+      return 'text-warning bg-warning-bg border-warning-border';
     } else if (hours < 24) {
-      return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
+      return 'text-warning bg-warning-bg border-warning-border';
     } else {
-      return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
+      return 'text-primary bg-primary/10 border-primary/30';
     }
   };
 
-  const getTomorrowDateTime = (): string => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(9, 0, 0, 0);
-    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T${String(tomorrow.getHours()).padStart(2, '0')}:${String(tomorrow.getMinutes()).padStart(2, '0')}`;
-  };
-
-  const getLaterTodayDateTime = (): string => {
-    const later = new Date();
-    later.setHours(later.getHours() + 1);
-    later.setMinutes(Math.ceil(later.getMinutes() / 15) * 15, 0, 0);
-    return `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, '0')}-${String(later.getDate()).padStart(2, '0')}T${String(later.getHours()).padStart(2, '0')}:${String(later.getMinutes()).padStart(2, '0')}`;
-  };
-
-  const getMinDateTime = (): string => {
-    const now = new Date();
-    now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5, 0, 0);
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  };
+  const isOverdue = task.dueDate && !task.completed && task.dueDate < Date.now();
 
   const handleOpenUnifiedDatePicker = () => {
     if (task.deferredTo && !task.dueDate) {
@@ -808,7 +824,7 @@ export default function TaskItem({
               <div className={`flex items-center gap-2 transition-all duration-200 ${
                 swipeAction === 'complete' ? 'scale-110' : 'scale-100'
               }`}>
-                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
                   <FaCheck className="text-white" size={18} />
                 </div>
                 <span className="text-green-600 dark:text-green-400 font-semibold">Complete</span>
@@ -819,7 +835,7 @@ export default function TaskItem({
                 swipeAction === 'delete' ? 'scale-110' : 'scale-100'
               }`}>
                 <span className="text-red-600 dark:text-red-400 font-semibold">Delete</span>
-                <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-error flex items-center justify-center">
                   <FaTrash className="text-white" size={16} />
                 </div>
               </div>
@@ -850,28 +866,29 @@ export default function TaskItem({
             touchAction: 'pan-y pinch-zoom', // Allow vertical scrolling and pinch zoom
             willChange: isSwiping ? 'transform' : 'auto', // Optimize for smooth animations
           } as React.CSSProperties}
-          className={`group bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border transition-all duration-300 hover:shadow-md select-none task-item-touchable ${
-            task.completed 
-              ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 shadow-green-100' 
-              : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
-          } ${isAnimatingOut ? 'animate-task-complete' : ''} ${
-            swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-100 dark:bg-green-900/40' : ''
+          className={`group task-card select-none task-item-touchable relative rounded-[12px] p-4 overflow-hidden ${
+            /* Light: white + shadow, no border. Dark: surface + 1px border */
+            'bg-white dark:bg-surface border-0 dark:border dark:border-border-subtle'
+          } shadow-elevation-1 dark:shadow-none ${
+            isAnimatingOut ? 'animate-task-complete' : ''
+          } ${
+            swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/40' : ''
           } ${
             swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
           } ${
-            isEditing ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20' : ''
+            isEditing ? 'border-primary ring-2 ring-primary/20' : ''
           } ${
-            isLongPressing ? 'ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-2 bg-blue-50 dark:bg-blue-900/30 scale-[0.98]' : ''
+            isLongPressing ? 'ring-2 ring-primary ring-offset-2 scale-[0.98]' : ''
           }`}
         >
         <div className="flex items-start gap-1">
-          {/* Drag Handle - Ultra-compact */}
+          {/* Drag Handle - tertiary, visible on hover (desktop) or 0.3 opacity (mobile) */}
           {dragHandleProps && (
             <button
               ref={dragHandleProps.ref}
               {...dragHandleProps.attributes}
               {...dragHandleProps.listeners}
-              className="flex-shrink-0 p-1 -ml-1 touch-none cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center justify-center"
+              className="flex-shrink-0 p-1 -ml-1 touch-none cursor-grab active:cursor-grabbing text-fg-tertiary opacity-30 md:opacity-0 md:group-hover:opacity-100 hover:bg-surface-muted rounded transition-opacity flex items-center justify-center"
               title="Drag to reorder"
               style={{ touchAction: 'none', minWidth: '28px', minHeight: '28px' }}
             >
@@ -879,20 +896,20 @@ export default function TaskItem({
             </button>
           )}
 
-          {/* Checkbox - Compact */}
+          {/* Checkbox - 20px, rounded-lg, 2px border tertiary. Checked: primary fill, white checkmark, bounce */}
           <button
             onClick={handleToggleComplete}
             disabled={!isOwnTask}
-            className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 ${
+            className={`flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-200 border-2 ${
               task.completed 
-                ? 'bg-green-500 border-green-500 shadow-sm' 
-                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-green-400 dark:hover:border-green-500'
-            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
+                ? 'bg-primary border-primary' 
+                : 'border-fg-tertiary bg-transparent hover:border-fg-secondary'
+            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'} ${task.completed ? 'checkbox-checked' : ''}`}
             style={{ marginTop: '2px' }}
           >
             {task.completed && (
               <svg 
-                className="w-2.5 h-2.5 text-white" 
+                className="w-3 h-3 text-on-accent" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -903,34 +920,33 @@ export default function TaskItem({
             )}
           </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 mb-0">
-            <span className={`font-semibold text-[10px] ${
-              isOwnTask ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
-            }`} suppressHydrationWarning>
-              {task.userName}
-            </span>
-            {task.isPrivate && isOwnTask && (
-              <span className="text-[9px] text-gray-500 flex items-center gap-0.5">
-                <FaEyeSlash size={8} /> Private
+        <div className="flex-1 min-w-0 pr-8">
+          {!isOwnTask && (
+            <div className="flex items-center gap-1 mb-0">
+              <span className="font-semibold text-xs text-fg-secondary" suppressHydrationWarning>
+                {task.userName}
               </span>
-            )}
-          </div>
-          
+              {task.isPrivate && (
+                <span className="text-xs text-fg-tertiary flex items-center gap-0.5">
+                  <FaEyeSlash size={8} /> Private
+                </span>
+              )}
+            </div>
+          )}
           <div 
             className="flex items-start gap-1"
             onDoubleClick={handleDoubleClick}
           >
             {task.committed && (
               <FaStar 
-                className="text-yellow-500 dark:text-yellow-400 mt-0.5 flex-shrink-0 z-10" 
+                className="text-warning mt-0.5 flex-shrink-0 z-10" 
                 size={12} 
                 title="Committed Task - Must Complete Today!" 
                 style={{ minWidth: '12px', minHeight: '12px' }}
               />
             )}
             {task.recurrence && (
-              <span className="mt-0.5 flex-shrink-0 text-sm" title="Recurring task">🔁</span>
+              <LuRepeat className="mt-0.5 flex-shrink-0 text-sm text-fg-tertiary" size={14} title="Recurring task" />
             )}
             {isEditing ? (
               <div className="flex-1 flex items-center gap-1.5">
@@ -951,13 +967,13 @@ export default function TaskItem({
                   }}
                   maxLength={500}
                   disabled={isSaving}
-                  className="flex-1 px-2 py-1.5 bg-gray-50 dark:bg-gray-700 border-2 border-blue-500 dark:border-blue-400 rounded text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-2 py-1.5 bg-surface-muted border-2 border-primary rounded-lg text-sm text-fg-primary focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
                 />
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleSaveEdit}
                     disabled={isSaving || !editText.trim() || editText.trim() === task.text}
-                    className="p-1.5 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center"
+                    className="p-1.5 bg-success hover:bg-success/90 disabled:bg-surface-muted disabled:cursor-not-allowed text-on-accent rounded-lg transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center"
                     title="Save"
                   >
                     {isSaving ? (
@@ -969,7 +985,7 @@ export default function TaskItem({
                   <button
                     onClick={handleCancelEdit}
                     disabled={isSaving}
-                    className="p-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center"
+                    className="p-1.5 bg-surface-muted hover:bg-surface-muted/80 text-fg-secondary rounded-lg transition-colors min-w-[28px] min-h-[28px] flex items-center justify-center"
                     title="Cancel"
                   >
                     <FaTimes size={11} />
@@ -979,8 +995,8 @@ export default function TaskItem({
             ) : (
               <div className="flex-1 min-w-0">
                 <p 
-                  className={`text-sm leading-snug ${
-                    task.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'
+                  className={`text-base font-medium leading-[1.4] ${
+                    task.completed ? 'line-through text-fg-secondary opacity-60' : 'text-fg-primary'
                   } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`} 
                   suppressHydrationWarning
                   title={isOwnTask && !task.completed && onUpdateTask ? 'Long-press or double-click to edit' : undefined}
@@ -990,36 +1006,43 @@ export default function TaskItem({
                 {/* Tags + progress chip - compact row below title */}
                 {((task.tags?.length ?? 0) > 0 || (task.subtasks?.length ?? 0) > 0 || (isOwnTask && onUpdateTaskTags)) && (
                   <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                    {(task.tags || []).map((emoji) =>
-                      isOwnTask && onUpdateTaskTags ? (
-                        <button
-                          key={emoji}
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            setRemovingTag(emoji);
-                            await new Promise((r) => setTimeout(r, 150));
-                            const next = (task.tags || []).filter((t) => t !== emoji);
-                            await onUpdateTaskTags(task.id, next);
-                            setRemovingTag(null);
-                            if ('vibrate' in navigator) navigator.vibrate(30);
-                          }}
-                          className={`w-7 h-7 flex items-center justify-center text-sm rounded-md transition-all duration-150 ${
-                            removingTag === emoji
-                              ? 'scale-75 opacity-0'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 bg-gray-100/50 dark:bg-gray-700/50'
-                          }`}
-                        >
-                          {emoji}
-                        </button>
-                      ) : (
-                        <span
-                          key={emoji}
-                          className="w-7 h-7 flex items-center justify-center text-sm bg-gray-100/50 dark:bg-gray-700/50 rounded-md"
-                        >
-                          {emoji}
-                        </span>
-                      )
-                    )}
+                    {(() => {
+                      const displayTags = [...new Map((task.tags || []).map((t) => [normalizeTagToIconId(t), t])).values()];
+                      return displayTags.map((rawTag) => {
+                        const iconId = normalizeTagToIconId(rawTag);
+                        const Icon = getIconForTag(rawTag);
+                        const tintClass = getTintClassForTag(rawTag);
+                        const tintBgClass = getTintBgClassForTag(rawTag);
+                        return isOwnTask && onUpdateTaskTags ? (
+                          <button
+                            key={iconId}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setRemovingTag(iconId);
+                              await new Promise((r) => setTimeout(r, 150));
+                              const next = (task.tags || []).filter((t) => normalizeTagToIconId(t) !== iconId);
+                              await onUpdateTaskTags(task.id, next);
+                              setRemovingTag(null);
+                              if ('vibrate' in navigator) navigator.vibrate(30);
+                            }}
+                            className={`w-7 h-7 flex items-center justify-center text-sm rounded-lg transition-all duration-150 ${tintClass} ${
+                              removingTag === iconId
+                                ? 'scale-75 opacity-0'
+                                : `hover:bg-surface-muted active:scale-95 ${tintBgClass}`
+                            }`}
+                          >
+                            <Icon size={16} strokeWidth={1.5} />
+                          </button>
+                        ) : (
+                          <span
+                            key={iconId}
+                            className={`w-7 h-7 flex items-center justify-center text-sm rounded-lg ${tintBgClass} ${tintClass}`}
+                          >
+                            <Icon size={16} strokeWidth={1.5} />
+                          </span>
+                        );
+                      });
+                    })()}
                     {isOwnTask && onUpdateTaskTags && (task.tags?.length ?? 0) < 5 && (
                       <>
                         <button
@@ -1028,36 +1051,29 @@ export default function TaskItem({
                             e.stopPropagation();
                             setShowTagPicker(true);
                           }}
-                          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-sm"
+                          className="w-7 h-7 flex items-center justify-center text-fg-tertiary hover:text-fg-primary rounded-lg hover:bg-surface-muted transition-all text-sm"
                         >
                           +
                         </button>
-                        <EmojiTagPicker
-                      anchorRef={tagPickerAnchorRef}
-                      isOpen={showTagPicker}
-                      onClose={() => setShowTagPicker(false)}
-                      onSelect={async (emoji) => {
-                        const current = task.tags || [];
-                        if (current.includes(emoji) || current.length >= 5) return;
-                        const next = [...current, emoji];
-                        await onUpdateTaskTags(task.id, next);
-                        await recordRecentlyUsedTag?.(emoji);
-                        setShowTagPicker(false);
-                        if ('vibrate' in navigator) navigator.vibrate(30);
-                      }}
-                      recentlyUsed={recentUsedTags}
-                      currentTags={task.tags || []}
-                      maxTags={5}
-                    />
+                        <TagIconPicker
+                          isOpen={showTagPicker}
+                          onClose={() => setShowTagPicker(false)}
+                          onSelect={async (iconId, tintId) => {
+                            const current = task.tags || [];
+                            const currentIds = new Set(current.map(normalizeTagToIconId));
+                            if (currentIds.has(iconId) || current.length >= 5) return;
+                            const tagValue = tintId && tintId !== 'primary' ? `${iconId}:${tintId}` : iconId;
+                            const next = [...current, tagValue];
+                            await onUpdateTaskTags(task.id, next);
+                            await recordRecentlyUsedTag?.(iconId);
+                            setShowTagPicker(false);
+                            if ('vibrate' in navigator) navigator.vibrate(30);
+                          }}
+                          recentlyUsed={recentUsedTags}
+                          currentTags={task.tags || []}
+                          maxTags={5}
+                        />
                       </>
-                    )}
-                    {(task.subtasks?.length ?? 0) > 0 && (
-                      <button
-                        onClick={() => setShowSubtasks((s) => !s)}
-                        className="text-[9px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 tabular-nums"
-                      >
-                        {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
-                      </button>
                     )}
                   </div>
                 )}
@@ -1104,7 +1120,7 @@ export default function TaskItem({
                   displayText = task.deferredTo || '';
                 }
                 
-                const badgeClass = `inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300`;
+                const badgeClass = `inline-flex items-center gap-0.5 text-xs px-1 py-0.5 rounded-full bg-primary/15 text-primary`;
                 const badgeContent = (
                   <>
                     <FaCalendarPlus size={8} />
@@ -1130,14 +1146,18 @@ export default function TaskItem({
               
               {/* Due Date Indicator - Ultra-compact */}
               {task.dueDate && !task.completed && isOwnTask && onUpdateDueDate ? (
-                <div className="relative due-date-picker-container inline-flex items-center gap-0.5">
+                <div className="relative due-date-picker-container inline-flex items-center">
                   <button
                     type="button"
                     onClick={() => (showUnifiedDatePicker ? setShowUnifiedDatePicker(false) : handleOpenUnifiedDatePicker())}
-                    className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full border transition-colors hover:opacity-80 ${getDueDateColor(task.dueDate)}`}
+                    className={`inline-flex items-center gap-1.5 py-1 px-2 rounded-[6px] text-xs transition-colors hover:opacity-80 ${isOverdue ? 'bg-error/12 text-error' : `border ${getDueDateColor(task.dueDate)}`}`}
                     title="Tap to change deadline"
                   >
-                    <FaClock size={8} />
+                    {isOverdue ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0" />
+                    ) : (
+                      <FaClock size={8} />
+                    )}
                     <span className="font-medium">{formatDueDate(task.dueDate)}</span>
                   </button>
                   <button
@@ -1149,52 +1169,74 @@ export default function TaskItem({
                         setShowUnifiedDatePicker(false);
                       }
                     }}
-                    className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="ml-2 w-6 h-6 flex items-center justify-center hover:bg-surface-muted rounded transition-colors min-w-[24px]"
                     title="Remove deadline"
                   >
-                    <FaTimes size={7} className="text-gray-500 dark:text-gray-400" />
+                    <FaTimes size={14} className="text-fg-tertiary" />
                   </button>
                 </div>
               ) : task.dueDate && !task.completed ? (
-                <div className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full border ${getDueDateColor(task.dueDate)}`}>
-                  <FaClock size={8} />
+                <div className={`inline-flex items-center gap-1.5 py-1 px-2 rounded-[6px] text-xs ${isOverdue ? 'bg-error/12 text-error' : `border ${getDueDateColor(task.dueDate)}`}`}>
+                  {isOverdue ? (
+                    <span className="w-1.5 h-1.5 rounded-full bg-error flex-shrink-0" />
+                  ) : (
+                    <FaClock size={8} />
+                  )}
                   <span className="font-medium">{formatDueDate(task.dueDate)}</span>
                 </div>
               ) : null}
             </div>
           )}
 
-          {/* Expandable Notes - Ultra-compact */}
-          {isOwnTask && onUpdateNotes && (
-            <div className="mt-0.5">
-              {/* Notes Toggle Button - Only show if notes exist or user wants to add */}
-              {(task.notes || showNotes) && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => {
-                      setShowNotes(!showNotes);
-                      if (!showNotes && !task.notes) setIsEditingNotes(true);
-                    }}
-                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded transition-colors"
-                  >
-                    <FaStickyNote size={8} className={task.notes ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400'} />
-                    <span>{task.notes ? 'Notes' : 'Add notes'}</span>
-                    {showNotes ? <FaChevronUp size={6} /> : <FaChevronDown size={6} />}
-                  </button>
-                  {!task.completed && onUpdateTaskSubtasks && (
-                    <button
-                      onClick={() => { setShowSubtasks(true); setTimeout(() => subtaskInputRef.current?.focus(), 100); }}
-                      className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-                    >
-                      <span>+ Subtask</span>
-                    </button>
-                  )}
-                </div>
+          {/* Quick-action row: + Subtask, Note, Attach - always visible, ghost affordances */}
+          {isOwnTask && !task.completed && (onUpdateNotes || onUpdateTaskSubtasks || onAddAttachment) && (
+            <div className="flex items-center gap-4 mt-2">
+              {onUpdateTaskSubtasks && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSubtasks(true);
+                    if ((task.subtasks?.length ?? 0) === 0) {
+                      setIsAddingSubtask(true);
+                      setTimeout(() => subtaskInputRef.current?.focus(), 100);
+                    }
+                  }}
+                  className="flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors"
+                >
+                  <FaPlus size={10} />
+                  <span>Subtask</span>
+                </button>
               )}
+              {onUpdateNotes && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotes(!showNotes);
+                    if (!showNotes && !task.notes) setIsEditingNotes(true);
+                  }}
+                  className="flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg-secondary transition-colors"
+                >
+                  <FaStickyNote size={10} className={task.notes ? 'text-primary' : ''} />
+                  <span>Note</span>
+                </button>
+              )}
+              {onAddAttachment && (!task.attachments || task.attachments.length === 0) && (
+                <AttachmentUpload
+                  taskId={task.id}
+                  currentAttachments={task.attachments || []}
+                  onUploadComplete={(attachment) => onAddAttachment(task.id, attachment)}
+                  maxAttachments={3}
+                  userStorageUsed={userStorageUsed}
+                  userStorageLimit={userStorageLimit}
+                  variant="ghost"
+                />
+              )}
+            </div>
+          )}
 
-              {/* Expanded Notes Content */}
-              {showNotes && (
-                <div className="mt-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 border border-gray-200 dark:border-gray-600">
+          {/* Expandable Notes - content when expanded */}
+          {isOwnTask && onUpdateNotes && showNotes && (
+            <div className="mt-1 bg-surface-muted rounded-lg p-2 border border-border-subtle">
                   {isEditingNotes ? (
                     <div className="space-y-1.5">
                       <textarea
@@ -1216,26 +1258,26 @@ export default function TaskItem({
                         placeholder="Add notes. Start a line with - for subtasks"
                         rows={4}
                         maxLength={1000}
-                        className="w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 resize-none"
+                        className="w-full px-3 py-2 text-sm text-fg-primary bg-surface border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                         autoFocus
                         disabled={isSavingNotes}
                       />
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-fg-tertiary">
                           {notesText.length}/1000
                         </span>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={handleCancelNotes}
                             disabled={isSavingNotes}
-                            className="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                            className="px-3 py-1.5 text-xs text-fg-tertiary hover:text-fg-primary transition-colors"
                           >
                             Cancel
                           </button>
                           <button
                             onClick={handleSaveNotes}
                             disabled={isSavingNotes || notesText.trim() === (task.notes || '')}
-                            className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                            className="px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 disabled:bg-surface-muted disabled:cursor-not-allowed text-on-accent rounded-lg transition-colors font-medium"
                           >
                             {isSavingNotes ? (
                               <span className="flex items-center gap-1">
@@ -1253,7 +1295,7 @@ export default function TaskItem({
                     <div className="space-y-2">
                       <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
                         {task.notes || (
-                          <span className="text-gray-400 dark:text-gray-500 italic">No notes yet</span>
+                          <span className="text-fg-tertiary italic">No notes yet</span>
                         )}
                       </div>
                       <button
@@ -1266,41 +1308,6 @@ export default function TaskItem({
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* Add Notes Button - Show if no notes and not expanded */}
-              {!task.notes && !showNotes && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => { setShowNotes(true); setIsEditingNotes(true); }}
-                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-                  >
-                    <FaStickyNote size={8} />
-                    <span>Notes</span>
-                  </button>
-                  {!task.completed && onUpdateTaskSubtasks && (
-                    <button
-                      onClick={() => { setShowSubtasks(true); setTimeout(() => subtaskInputRef.current?.focus(), 100); }}
-                      className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-                    >
-                      <span>+ Subtask</span>
-                    </button>
-                  )}
-                  
-                  {/* Inline Attachment Upload - Show only if no attachments yet */}
-                  {isOwnTask && !task.completed && onAddAttachment && (!task.attachments || task.attachments.length === 0) && (
-                    <AttachmentUpload
-                      taskId={task.id}
-                      currentAttachments={task.attachments || []}
-                      onUploadComplete={(attachment) => onAddAttachment(task.id, attachment)}
-                      maxAttachments={3}
-                      userStorageUsed={userStorageUsed}
-                      userStorageLimit={userStorageLimit}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
           )}
 
           {/* Attachments & Upload - Show when attachments exist or notes are visible */}
@@ -1328,78 +1335,98 @@ export default function TaskItem({
             </div>
           )}
 
-          {/* Expanded subtasks - inline with 200ms animation. Own: show when expanded or adding first. Friend: show when expanded and has subtasks. */}
+          {/* Expanded subtasks - 200ms ease height animation, 1px top border, full width within card */}
           {((isOwnTask && onUpdateTaskSubtasks && (showSubtasks || (task.subtasks?.length ?? 0) > 0)) ||
             (!isOwnTask && showSubtasks && (task.subtasks?.length ?? 0) > 0)) && (
             <div
               ref={subtaskSectionRef}
-              className={`transition-[max-height] duration-200 ease-out ${
-                showSubtasks ? 'max-h-[min(50vh,500px)] overflow-y-auto overflow-x-hidden' : 'max-h-0 overflow-hidden'
+              className={`transition-[max-height] duration-200 ease-out overflow-hidden ${
+                showSubtasks ? 'max-h-[min(50vh,500px)]' : 'max-h-0'
               }`}
+              onClick={(e) => e.stopPropagation()}
             >
               <div
-                className="mt-1 pt-1 border-t border-gray-200/80 dark:border-gray-600/80"
-                onClick={(e) => e.stopPropagation()}
+                className="w-full border-t border-border-subtle pt-2 mt-2"
+                onTouchStart={() => {
+                  if (isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1)
+                    subtaskSectionLongPressRef.current = setTimeout(() => {
+                      setSubtaskReorderMode(true);
+                      if ('vibrate' in navigator) navigator.vibrate(30);
+                    }, 500);
+                }}
+                onTouchEnd={() => {
+                  if (subtaskSectionLongPressRef.current) {
+                    clearTimeout(subtaskSectionLongPressRef.current);
+                    subtaskSectionLongPressRef.current = null;
+                  }
+                }}
+                onTouchMove={() => {
+                  if (subtaskSectionLongPressRef.current) {
+                    clearTimeout(subtaskSectionLongPressRef.current);
+                    subtaskSectionLongPressRef.current = null;
+                  }
+                }}
+                onMouseDown={() => {
+                  if (isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1)
+                    subtaskSectionLongPressRef.current = setTimeout(() => {
+                      setSubtaskReorderMode(true);
+                    }, 500);
+                }}
+                onMouseUp={() => {
+                  if (subtaskSectionLongPressRef.current) {
+                    clearTimeout(subtaskSectionLongPressRef.current);
+                    subtaskSectionLongPressRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (subtaskSectionLongPressRef.current) {
+                    clearTimeout(subtaskSectionLongPressRef.current);
+                    subtaskSectionLongPressRef.current = null;
+                  }
+                }}
               >
-                <SortableSubtaskList
-                  taskId={task.id}
-                  subtasks={task.subtasks || []}
-                  isOwnTask={isOwnTask}
-                  taskCompleted={!!task.completed}
-                  onReorder={(newSubtasks) => onUpdateTaskSubtasks?.(task.id, newSubtasks)}
-                  onToggle={(st) => {
-                    const next = (task.subtasks || []).map((s) =>
-                      s.id === st.id ? { ...s, completed: !s.completed } : s
-                    );
-                    onUpdateTaskSubtasks?.(task.id, next);
-                  }}
-                  onDelete={(st) => {
-                    const next = (task.subtasks || []).filter((s) => s.id !== st.id);
-                    onUpdateTaskSubtasks?.(task.id, next);
-                  }}
-                  onEdit={(st, title) => {
-                    const next = (task.subtasks || []).map((s) =>
-                      s.id === st.id ? { ...s, title } : s
-                    );
-                    onUpdateTaskSubtasks?.(task.id, next);
-                  }}
-                  editingSubtaskId={editingSubtaskId}
-                  editingSubtaskTitle={editingSubtaskTitle}
-                  onStartEdit={(id, title) => {
-                    setEditingSubtaskId(id);
-                    setEditingSubtaskTitle(title);
-                  }}
-                  onUpdateEditTitle={setEditingSubtaskTitle}
-                  onFinishEdit={(st) => {
-                    if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
-                      const next = (task.subtasks || []).map((s) =>
-                        s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
-                      );
-                      onUpdateTaskSubtasks?.(task.id, next);
-                    }
-                    setEditingSubtaskId(null);
-                    setEditingSubtaskTitle('');
-                  }}
-                  onCancelEdit={() => {
-                    setEditingSubtaskId(null);
-                    setEditingSubtaskTitle('');
-                  }}
-                  renderSubtaskRow={(st, dragHandle) => (
-                    <SubtaskRow
-                      subtask={st}
+                {/* Reorder mode: tappable button with grip icon */}
+                {isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1 && (
+                  <div className="flex items-center justify-between mb-1">
+                    <button
+                      type="button"
+                      onClick={() => setSubtaskReorderMode((s) => !s)}
+                      className={`flex items-center gap-1.5 text-[12px] py-1 -ml-1 px-1 rounded hover:bg-surface-muted transition-colors ${
+                        subtaskReorderMode
+                          ? 'text-primary'
+                          : 'text-fg-secondary hover:text-fg-primary'
+                      }`}
+                    >
+                      <FaGripVertical size={12} />
+                      {subtaskReorderMode ? 'Done' : 'Reorder'}
+                    </button>
+                  </div>
+                )}
+                {/* Subtask list: max 5 visible (200px) then scroll + bottom fade */}
+                <div className={`relative ${(task.subtasks?.length ?? 0) > 5 ? 'subtask-scroll-fade' : ''}`}>
+                  <div
+                    className={`flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden ${
+                      (task.subtasks?.length ?? 0) > 5 ? 'max-h-[200px] subtask-scrollbar' : ''
+                    }`}
+                  >
+                    <SortableSubtaskList
+                      taskId={task.id}
+                      subtasks={task.subtasks || []}
                       isOwnTask={isOwnTask}
-                      canEdit={isOwnTask && !task.completed}
-                      onToggle={() => {
+                      taskCompleted={!!task.completed}
+                      showReorderMode={subtaskReorderMode}
+                      onReorder={(newSubtasks) => onUpdateTaskSubtasks?.(task.id, newSubtasks)}
+                      onToggle={(st) => {
                         const next = (task.subtasks || []).map((s) =>
                           s.id === st.id ? { ...s, completed: !s.completed } : s
                         );
                         onUpdateTaskSubtasks?.(task.id, next);
                       }}
-                      onDelete={() => {
+                      onDelete={(st) => {
                         const next = (task.subtasks || []).filter((s) => s.id !== st.id);
                         onUpdateTaskSubtasks?.(task.id, next);
                       }}
-                      onEdit={(title) => {
+                      onEdit={(st, title) => {
                         const next = (task.subtasks || []).map((s) =>
                           s.id === st.id ? { ...s, title } : s
                         );
@@ -1412,7 +1439,7 @@ export default function TaskItem({
                         setEditingSubtaskTitle(title);
                       }}
                       onUpdateEditTitle={setEditingSubtaskTitle}
-                      onFinishEdit={() => {
+                      onFinishEdit={(st) => {
                         if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
                           const next = (task.subtasks || []).map((s) =>
                             s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
@@ -1426,67 +1453,161 @@ export default function TaskItem({
                         setEditingSubtaskId(null);
                         setEditingSubtaskTitle('');
                       }}
-                      dragHandle={dragHandle}
+                      renderSubtaskRow={(st, dragHandle) => (
+                        <SubtaskRow
+                          subtask={st}
+                          isOwnTask={isOwnTask}
+                          canEdit={isOwnTask && !task.completed}
+                          onToggle={() => {
+                            const next = (task.subtasks || []).map((s) =>
+                              s.id === st.id ? { ...s, completed: !s.completed } : s
+                            );
+                            onUpdateTaskSubtasks?.(task.id, next);
+                          }}
+                          onDelete={() => {
+                            const next = (task.subtasks || []).filter((s) => s.id !== st.id);
+                            onUpdateTaskSubtasks?.(task.id, next);
+                          }}
+                          onEdit={(title) => {
+                            const next = (task.subtasks || []).map((s) =>
+                              s.id === st.id ? { ...s, title } : s
+                            );
+                            onUpdateTaskSubtasks?.(task.id, next);
+                          }}
+                          editingSubtaskId={editingSubtaskId}
+                          editingSubtaskTitle={editingSubtaskTitle}
+                          onStartEdit={(id, title) => {
+                            setEditingSubtaskId(id);
+                            setEditingSubtaskTitle(title);
+                          }}
+                          onUpdateEditTitle={setEditingSubtaskTitle}
+                          onFinishEdit={() => {
+                            if (editingSubtaskId === st.id && editingSubtaskTitle.trim()) {
+                              const next = (task.subtasks || []).map((s) =>
+                                s.id === st.id ? { ...s, title: editingSubtaskTitle.trim() } : s
+                              );
+                              onUpdateTaskSubtasks?.(task.id, next);
+                            }
+                            setEditingSubtaskId(null);
+                            setEditingSubtaskTitle('');
+                          }}
+                          onCancelEdit={() => {
+                            setEditingSubtaskId(null);
+                            setEditingSubtaskTitle('');
+                          }}
+                          dragHandle={dragHandle}
+                          showReorderMode={subtaskReorderMode}
+                        />
+                      )}
                     />
-                  )}
-                />
-                {isOwnTask && onUpdateTaskSubtasks && (
-                <div className="pl-4">
-                  <input
-                    ref={subtaskInputRef}
-                    type="text"
-                    value={subtaskInputValue}
-                    onChange={(e) => setSubtaskInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const t = subtaskInputValue.trim();
-                        if (t) {
-                          const next = [
-                            ...(task.subtasks || []),
-                            { id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: t, completed: false },
-                          ];
-                          onUpdateTaskSubtasks?.(task.id, next);
-                          setSubtaskInputValue('');
-                        } else {
-                          subtaskInputRef.current?.blur();
-                        }
-                      }
-                    }}
-                    onBlur={() => {
-                      const t = subtaskInputValue.trim();
-                      if (t) {
-                        const next = [
-                          ...(task.subtasks || []),
-                          { id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: t, completed: false },
-                        ];
-                        onUpdateTaskSubtasks?.(task.id, next);
-                        setSubtaskInputValue('');
-                      }
-                    }}
-                    placeholder="Add a step..."
-                    className="w-full px-2 py-1 text-[11px] text-gray-900 dark:text-gray-100 bg-transparent border-0 border-b border-gray-200 dark:border-gray-600 rounded-none focus:outline-none focus:ring-0 focus:border-blue-500 dark:focus:border-blue-400 min-h-[32px]"
-                  />
+                  </div>
                 </div>
+                {/* Add subtask: "+ Add subtask" button → inline input on tap */}
+                {isOwnTask && onUpdateTaskSubtasks && !task.completed && (
+                  <div className="mt-1">
+                    {isAddingSubtask ? (
+                      <input
+                        ref={subtaskInputRef}
+                        type="text"
+                        value={subtaskInputValue}
+                        onChange={(e) => setSubtaskInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const t = subtaskInputValue.trim();
+                            if (t) {
+                              const next = [
+                                ...(task.subtasks || []),
+                                { id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: t, completed: false },
+                              ];
+                              onUpdateTaskSubtasks?.(task.id, next);
+                              setSubtaskInputValue('');
+                              setIsAddingSubtask(false);
+                            } else {
+                              setIsAddingSubtask(false);
+                              subtaskInputRef.current?.blur();
+                            }
+                          } else if (e.key === 'Escape') {
+                            setSubtaskInputValue('');
+                            setIsAddingSubtask(false);
+                          }
+                        }}
+                        onBlur={() => {
+                          const t = subtaskInputValue.trim();
+                          if (t) {
+                            const next = [
+                              ...(task.subtasks || []),
+                              { id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, title: t, completed: false },
+                            ];
+                            onUpdateTaskSubtasks?.(task.id, next);
+                            setSubtaskInputValue('');
+                          }
+                          setIsAddingSubtask(false);
+                        }}
+                        placeholder=""
+                        autoFocus
+                        className="w-full min-w-0 px-0 py-1 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingSubtask(true);
+                          setSubtaskInputValue('');
+                          setTimeout(() => subtaskInputRef.current?.focus(), 50);
+                        }}
+                        className="text-[13px] text-fg-tertiary hover:text-fg-secondary transition-colors py-1"
+                      >
+                        + Add subtask
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           )}
           
-          {/* Metadata row - Ultra-compact */}
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap text-[9px]">
-            <span className="text-gray-500 dark:text-gray-400" suppressHydrationWarning>
-              {formatTime(task.createdAt)}
-            </span>
+          {/* Metadata row - 12px, tertiary, dot separators */}
+          <div className="flex items-center gap-0.5 mt-1 flex-wrap text-xs text-fg-tertiary leading-[1.4]">
+            <span suppressHydrationWarning>{formatTime(task.createdAt)}</span>
             {task.completed && task.completedAt && (
-              <span className="text-green-600 font-medium" suppressHydrationWarning>
-                ✓ {formatTime(task.completedAt)}
-              </span>
+              <>
+                <span>·</span>
+                <span className="text-success flex items-center gap-1" suppressHydrationWarning><LuCheck size={12} /> {formatTime(task.completedAt)}</span>
+              </>
             )}
-            
-            {/* Reactions Display - Ultra-compact */}
+            {onOpenComments && (
+              <>
+                <span>·</span>
+                <button
+                  onClick={() => onOpenComments(task.id)}
+                  className="hover:text-fg-secondary transition-colors"
+                  title="View comments"
+                >
+                  {task.comments?.length ? `${task.comments.length} comment${task.comments.length !== 1 ? 's' : ''}` : 'Comment'}
+                </button>
+              </>
+            )}
+            {(task.subtasks?.length ?? 0) > 0 && (
+              <>
+                <span>·</span>
+                <button
+                  onClick={() => setShowSubtasks((s) => !s)}
+                  className="flex items-center gap-0.5 hover:text-fg-secondary transition-colors tabular-nums"
+                >
+                  {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length} subtasks
+                  <LuChevronDown
+                    size={12}
+                    className={`text-fg-tertiary transition-transform duration-200 ease-out ${
+                      showSubtasks ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              </>
+            )}
+            {/* Reactions - compact, after metadata */}
             {task.reactions && task.reactions.length > 0 && (
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-0.5 ml-0.5">
                 {Object.entries(
                   task.reactions.reduce((acc, r) => {
                     acc[r.emoji] = (acc[r.emoji] || 0) + 1;
@@ -1496,50 +1617,27 @@ export default function TaskItem({
                   <button
                     key={emoji}
                     onClick={() => onAddReaction?.(task.id, emoji)}
-                    className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[9px] transition-colors ${
+                    className={`px-1 py-0.5 rounded text-xs transition-colors ${
                       task.reactions?.some(r => r.userId === currentUserId && r.emoji === emoji)
-                        ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
-                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
+                        ? 'bg-primary/15 text-primary'
+                        : 'hover:bg-surface-muted'
                     }`}
-                    title={task.reactions
-                      ?.filter(r => r.emoji === emoji)
-                      .map(r => r.userName)
-                      .join(', ')}
+                    title={task.reactions?.filter(r => r.emoji === emoji).map(r => r.userName).join(', ')}
                   >
-                    <span className="text-xs">{emoji}</span>
-                    {count > 1 && <span className="text-gray-600 dark:text-gray-300 font-medium">{count}</span>}
+                    {emoji}{count > 1 ? count : ''}
                   </button>
                 ))}
               </div>
             )}
-            
-            {/* Comment Button - compact */}
-            {onOpenComments && (
-              <button
-                onClick={() => onOpenComments(task.id)}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-                title="View comments"
-              >
-                <FaComment size={8} className="opacity-80" />
-                {task.comments && task.comments.length > 0 && (
-                  <span className="text-[9px] font-medium tabular-nums">
-                    {task.comments.length}
-                  </span>
-                )}
-              </button>
-            )}
-            
-            {/* Add Reaction Button - Ultra-compact for completed tasks */}
             {task.completed && onAddReaction && (
-              <div className="relative z-[10000]">
+              <div className="relative z-[10000] ml-0.5">
                 <button
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors"
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-muted transition-colors"
                   title="Add reaction"
                 >
-                  <FaSmile size={9} className="text-gray-600 dark:text-gray-300" />
+                  <FaSmile size={10} className="text-fg-tertiary" />
                 </button>
-                
                 {showEmojiPicker && (
                   <EmojiPicker
                     onSelect={(emoji) => onAddReaction(task.id, emoji)}
@@ -1551,25 +1649,38 @@ export default function TaskItem({
             )}
           </div>
 
-          {/* Progress bar - 3px at bottom, only when subtasks exist */}
+          {/* Progress bar - 3px, track=border-subtle, fill=primary. When expanded: show count + chevron */}
           {(task.subtasks?.length ?? 0) > 0 && (
             <button
               onClick={() => setShowSubtasks((s) => !s)}
-              className="w-full mt-1 min-h-[32px] flex items-end py-1"
+              className="w-full mt-2 -mx-4 -mb-4 py-0 flex flex-col items-stretch gap-1 rounded-b-[12px] overflow-hidden"
             >
-              <div className="w-full h-[3px] bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden flex">
-                <div
-                  className="h-full bg-[#4ade80] dark:bg-emerald-400 transition-all duration-200 ease-out"
-                  style={{
-                    width: `${((task.subtasks?.filter((s) => s.completed).length ?? 0) / (task.subtasks?.length ?? 1)) * 100}%`,
-                  }}
+              <div className="w-full flex items-center justify-between gap-2">
+                {showSubtasks && (
+                  <span className="text-[12px] text-fg-tertiary tabular-nums">
+                    {task.subtasks!.filter((s) => s.completed).length}/{task.subtasks!.length}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0 h-[3px] bg-border-subtle rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-primary transition-all duration-200 ease-out"
+                    style={{
+                      width: `${((task.subtasks?.filter((s) => s.completed).length ?? 0) / (task.subtasks?.length ?? 1)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <LuChevronDown
+                  size={14}
+                  className={`flex-shrink-0 text-fg-tertiary transition-transform duration-200 ease-out ${
+                    showSubtasks ? 'rotate-180' : ''
+                  }`}
                 />
               </div>
             </button>
           )}
         </div>
 
-        {/* Context Menu Button */}
+        {/* Context Menu Button - top-right, tertiary, visible on hover (desktop) or 0.3 opacity (mobile) */}
         {isOwnTask && (
           <button
             onClick={(e) => {
@@ -1578,183 +1689,29 @@ export default function TaskItem({
               setShowContextMenu(true);
               if ('vibrate' in navigator) navigator.vibrate(10);
             }}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
+            className="absolute top-4 right-4 p-1.5 rounded transition-opacity text-fg-tertiary hover:text-fg-secondary opacity-30 md:opacity-0 md:group-hover:opacity-100 hover:bg-surface-muted"
             title="More options"
           >
-            <FaEllipsisV size={10} />
+            <FaEllipsisV size={12} />
           </button>
         )}
         </div>
       </div>
       </div>
 
-      {/* Unified Schedule & Deadline Picker - Like TaskInput */}
+      {/* Schedule/Deadline Picker - Bottom Sheet */}
       {showUnifiedDatePicker && isOwnTask && !task.completed && (onUpdateDueDate || onDeferTask) && (
-        <>
-          <div 
-            className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-sm" 
-            onClick={() => setShowUnifiedDatePicker(false)}
-          />
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center pointer-events-none p-4">
-            <div ref={unifiedDatePickerRef} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] sm:max-w-md pointer-events-auto animate-in fade-in zoom-in duration-200 max-h-[85vh] overflow-y-auto overflow-x-hidden">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-base font-semibold text-gray-700 dark:text-gray-300">
-                  Schedule & Deadline
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowUnifiedDatePicker(false)}
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                  title="Close"
-                >
-                  <FaTimes size={14} className="text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
-              {/* Tabs */}
-              <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => setUnifiedDatePickerTab('schedule')}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    unifiedDatePickerTab === 'schedule'
-                      ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  Schedule
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUnifiedDatePickerTab('deadline')}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    unifiedDatePickerTab === 'deadline'
-                      ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  Deadline
-                </button>
-              </div>
-              {/* Schedule Tab */}
-              {unifiedDatePickerTab === 'schedule' && onDeferTask && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Schedule Task</span>
-                    {task.deferredTo && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await onDeferTask(task.id, null);
-                        }}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-                        title="Remove schedule"
-                      >
-                        <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await onDeferTask(task.id, getLaterTodayDateTime());
-                        setShowUnifiedDatePicker(false);
-                      }}
-                      className="flex-1 px-3 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg font-medium text-sm"
-                    >
-                      Later Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await onDeferTask(task.id, getTomorrowDateTime());
-                        setShowUnifiedDatePicker(false);
-                      }}
-                      className="flex-1 px-3 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-lg font-medium text-sm"
-                    >
-                      Tomorrow
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 text-center">or choose date (time optional)</div>
-                  <div className="unified-date-picker space-y-2 min-w-0 overflow-hidden">
-                    <input
-                      ref={scheduleDateRef}
-                      type="date"
-                      min={getTodayString()}
-                      defaultValue={task.deferredTo ? (task.deferredTo.includes('T') ? task.deferredTo.split('T')[0] : task.deferredTo) : ''}
-                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 box-border"
-                      onChange={async () => {
-                        const dateVal = scheduleDateRef.current?.value;
-                        const timeVal = scheduleTimeRef.current?.value;
-                        if (dateVal && onDeferTask) {
-                          const value = timeVal ? `${dateVal}T${timeVal}` : dateVal;
-                          await onDeferTask(task.id, value);
-                        }
-                      }}
-                    />
-                    <input
-                      ref={scheduleTimeRef}
-                      type="time"
-                      defaultValue={task.deferredTo && task.deferredTo.includes('T') ? task.deferredTo.split('T')[1]?.slice(0, 5) : ''}
-                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 box-border"
-                      onChange={async () => {
-                        const dateVal = scheduleDateRef.current?.value;
-                        const timeVal = scheduleTimeRef.current?.value;
-                        if (dateVal && onDeferTask) {
-                          const value = timeVal ? `${dateVal}T${timeVal}` : dateVal;
-                          await onDeferTask(task.id, value);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              {/* Deadline Tab */}
-              {unifiedDatePickerTab === 'deadline' && onUpdateDueDate && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Deadline</span>
-                    {task.dueDate && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await onUpdateDueDate(task.id, null);
-                        }}
-                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-                        title="Remove deadline"
-                      >
-                        <FaTimes size={12} className="text-gray-500 dark:text-gray-400" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="min-w-0 overflow-hidden">
-                    <input
-                      ref={dueDateInputRef}
-                      type="datetime-local"
-                      min={new Date().toISOString().slice(0, 16)}
-                      defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''}
-                      className="w-full min-w-0 max-w-full px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 box-border"
-                    onChange={async (e) => {
-                      const value = e.target.value;
-                      if (value && onUpdateDueDate) {
-                        const date = new Date(value);
-                        await onUpdateDueDate(task.id, date.getTime());
-                      }
-                    }}
-                    />
-                  </div>
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowUnifiedDatePicker(false)}
-                className="w-full mt-4 px-4 py-2.5 text-base bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </>
+        <ScheduleDeadlinePicker
+          isOpen={showUnifiedDatePicker}
+          onClose={() => setShowUnifiedDatePicker(false)}
+          activeTab={unifiedDatePickerTab}
+          onTabChange={setUnifiedDatePickerTab}
+          scheduledFor={task.deferredTo ?? null}
+          dueDate={task.dueDate ?? null}
+          onScheduleChange={(v) => onDeferTask?.(task.id, v)}
+          onDeadlineChange={(v) => onUpdateDueDate?.(task.id, v)}
+          onConfirm={() => {}}
+        />
       )}
 
       <style jsx>{`
@@ -1831,14 +1788,6 @@ export default function TaskItem({
           }
         }}
         showRecurrenceForCompleted={!!recurrenceDateContext}
-        onToggleNotes={() => {
-          if (!showNotes) {
-            setShowNotes(true);
-            setIsEditingNotes(true);
-          } else {
-            setIsEditingNotes(true);
-          }
-        }}
         onToggleCommitment={() => {
           if (onToggleCommitment) {
             onToggleCommitment(task.id, !task.committed);
@@ -1850,7 +1799,6 @@ export default function TaskItem({
         onDelete={() => {
           onDelete(task.id);
         }}
-        hasNotes={!!task.notes}
         isCommitted={!!task.committed}
         isPrivate={task.isPrivate}
       />

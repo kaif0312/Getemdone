@@ -115,26 +115,26 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-surface rounded-2xl shadow-elevation-3 w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Friends</h2>
+        <div className="flex items-center justify-between p-6 border-b border-border-subtle">
+          <h2 className="text-2xl font-bold text-fg-primary">Friends</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-surface-muted rounded-full transition-colors"
           >
-            <FaTimes className="text-gray-600" size={20} />
+            <FaTimes className="text-fg-secondary" size={20} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-border-subtle">
           <button
             onClick={() => setActiveTab('mycode')}
             className={`flex-1 py-3 font-medium transition-colors ${
               activeTab === 'mycode'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-fg-tertiary hover:text-fg-primary'
             }`}
           >
             My Code
@@ -143,8 +143,8 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
             onClick={() => setActiveTab('add')}
             className={`flex-1 py-3 font-medium transition-colors ${
               activeTab === 'add'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-fg-tertiary hover:text-fg-primary'
             }`}
           >
             Add Friend
@@ -157,18 +157,18 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
             <>
               {/* My Friend Code Section */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Friend Code</h3>
+                <h3 className="text-lg font-semibold text-fg-primary mb-3">Your Friend Code</h3>
                 
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 text-center mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Share this code with friends</p>
-                  <div className="text-4xl font-bold text-gray-900 tracking-wider mb-4" suppressHydrationWarning>
+                <div className="bg-surface-muted rounded-xl p-6 text-center mb-4 border border-border-subtle">
+                  <p className="text-sm text-fg-secondary mb-2">Share this code with friends</p>
+                  <div className="text-4xl font-bold text-fg-primary tracking-wider mb-4" suppressHydrationWarning>
                     {userData?.friendCode || 'XXXXXX'}
                   </div>
                   
                   <div className="flex gap-2 justify-center">
                     <button
                       onClick={copyFriendCode}
-                      className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+                      className="flex items-center gap-2 bg-surface text-fg-secondary px-4 py-2 rounded-lg hover:bg-surface-muted transition-colors border border-border-subtle"
                     >
                       <FaCopy size={16} />
                       {copied ? 'Copied!' : 'Copy'}
@@ -176,7 +176,7 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                     
                     <button
                       onClick={shareProfile}
-                      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex items-center gap-2 bg-primary text-on-accent px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
                     >
                       <FaShare size={16} />
                       Share
@@ -184,19 +184,19 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                   </div>
                 </div>
 
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-sm text-fg-tertiary text-center">
                   Friends can add you using this code - no email needed!
                 </p>
               </div>
 
               {/* Friends List */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3" suppressHydrationWarning>
+                <h3 className="text-lg font-semibold text-fg-primary mb-3" suppressHydrationWarning>
                   Your Friends ({friends.length})
                 </h3>
                 
                 {friends.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-fg-tertiary text-center py-8">
                     No friends yet. Share your code to get started!
                   </p>
                 ) : (
@@ -204,15 +204,15 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                     {friends.map((friend) => (
                       <div
                         key={friend.id}
-                        className="bg-gray-50 rounded-lg p-3 flex items-center justify-between"
+                        className="bg-surface-muted rounded-lg p-3 flex items-center justify-between border border-border-subtle"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{friend.displayName}</p>
-                          <p className="text-sm text-gray-500 truncate">{friend.friendCode}</p>
+                          <p className="font-medium text-fg-primary truncate">{friend.displayName}</p>
+                          <p className="text-sm text-fg-tertiary truncate">{friend.friendCode}</p>
                         </div>
                         <button
                           onClick={() => handleRemoveFriend(friend.id)}
-                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors ml-2"
+                          className="text-error hover:bg-error/10 p-2 rounded-full transition-colors ml-2"
                           title="Remove friend"
                         >
                           <FaTrash size={14} />
@@ -227,16 +227,16 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
             <>
               {/* Add Friend Section */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Add Friend</h3>
+                <h3 className="text-lg font-semibold text-fg-primary mb-3">Add Friend</h3>
                 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-3 text-sm">
+                  <div className="bg-error/10 border border-error/30 text-error px-4 py-2 rounded-lg mb-3 text-sm">
                     {error}
                   </div>
                 )}
                 
                 {success && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg mb-3 text-sm">
+                  <div className="bg-success/10 border border-success/30 text-success px-4 py-2 rounded-lg mb-3 text-sm">
                     {success}
                   </div>
                 )}
@@ -248,31 +248,31 @@ export default function FriendsModal({ onClose }: FriendsModalProps) {
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
                       placeholder="Friend code or email"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-400"
+                      className="flex-1 px-4 py-2 border border-border-subtle rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 text-fg-primary placeholder:text-fg-tertiary bg-surface"
                       required
                     />
                     <button
                       type="submit"
                       disabled={searching}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+                      className="bg-primary text-on-accent px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
                       {searching ? 'Searching...' : 'Search'}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-fg-tertiary mt-2">
                     Enter a 6-character friend code (e.g., ABC123) or email address
                   </p>
                 </form>
 
                 {searchResult && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+                  <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">{searchResult.displayName}</p>
-                      <p className="text-sm text-gray-600">{searchResult.friendCode}</p>
+                      <p className="font-medium text-fg-primary">{searchResult.displayName}</p>
+                      <p className="text-sm text-fg-secondary">{searchResult.friendCode}</p>
                     </div>
                     <button
                       onClick={() => handleAddFriend(searchResult.id)}
-                      className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition-colors"
+                      className="bg-primary text-on-accent p-3 rounded-full hover:bg-primary/90 transition-colors"
                       title="Add friend"
                     >
                       <FaUserPlus size={16} />

@@ -21,6 +21,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { FaLock } from 'react-icons/fa';
+import { LuCheck } from 'react-icons/lu';
 import Avatar from './Avatar';
 
 interface FriendSummary {
@@ -67,8 +68,6 @@ function SortableFriendCard({
     ...(isDragging && { willChange: 'transform' as const }),
   };
 
-  const hasActivity = friend.pendingCount > 0 || friend.completedToday > 0;
-
   return (
     <div ref={setNodeRef} style={style} className="flex-shrink-0">
       <button
@@ -79,71 +78,41 @@ function SortableFriendCard({
           e.stopPropagation();
           onFriendClick(friend.id);
         }}
-        className={`
-          flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors touch-manipulation cursor-grab active:cursor-grabbing
-          ${isActive
-            ? `bg-gradient-to-r ${friend.color.from} ${friend.color.to} text-white shadow-md scale-105`
-            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          }
-        `}
+        className="flex flex-col items-center gap-1 min-w-[56px] touch-manipulation cursor-grab active:cursor-grabbing transition-colors"
         style={{ touchAction: 'pan-x' }}
         title="Tap to select, hold to reorder"
       >
-        {friend.photoURL ? (
-          <Avatar
-            photoURL={friend.photoURL}
-            displayName={friend.name}
-            size="md"
-            className={isActive ? 'border-2 border-white' : ''}
-          />
-        ) : (
-          <div
-            className={`
-              w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-              ${isActive
-                ? 'bg-white text-gray-700'
-                : `bg-gradient-to-r ${friend.color.from} ${friend.color.to} text-white`
-              }
-            `}
-          >
-            {friend.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="text-xs font-medium truncate max-w-[60px]">
+        {/* Avatar: 40px, surface-elevated for letter fallback, 1px border for photo. Active: subtle ring primary 40% */}
+        <div className={`relative flex-shrink-0 rounded-full ${isActive ? 'ring-2 ring-primary/40' : ''}`}>
+          {friend.photoURL ? (
+            <Avatar
+              photoURL={friend.photoURL}
+              displayName={friend.name}
+              size="md"
+              className="w-10 h-10 border border-border-subtle"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
+              {friend.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          {/* Active indicator: small primary dot below */}
+        </div>
+        {/* Name: 13px medium, primary, single line ellipsis */}
+        <div className="text-sm font-medium text-fg-primary truncate max-w-[72px] text-center">
           {friend.name}
         </div>
-        {hasActivity && (
-          <div
-            className={`
-              text-[10px] font-semibold px-1.5 py-0.5 rounded-full
-              ${isActive
-                ? 'bg-white/20 text-white'
-                : 'bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-              }
-            `}
-          >
-            {friend.pendingCount > 0 && (
-              <span>{friend.pendingCount} pending</span>
-            )}
-            {friend.completedToday > 0 && friend.pendingCount === 0 && (
-              <span>{friend.completedToday}✓</span>
-            )}
-          </div>
-        )}
-        {friend.privateTotal > 0 && (
-          <div
-            className={`
-              text-[10px] flex items-center gap-0.5
-              ${isActive ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}
-            `}
-          >
-            <FaLock size={8} />
-            <span>{friend.privateTotal}</span>
-            {friend.privateCompleted > 0 && (
-              <span className="opacity-75">({friend.privateCompleted}✓)</span>
-            )}
-          </div>
-        )}
+        {/* Pending count: 12px secondary. Lock icon 12px tertiary next to it */}
+        <div className="flex items-center justify-center gap-1 text-xs text-fg-secondary">
+          <span>
+            {friend.pendingCount > 0 && `${friend.pendingCount} pending`}
+            {friend.completedToday > 0 && friend.pendingCount === 0 && <span className="inline-flex items-center gap-0.5">{friend.completedToday}<LuCheck size={10} /></span>}
+            {friend.pendingCount === 0 && friend.completedToday === 0 && '—'}
+          </span>
+          {friend.privateTotal > 0 && (
+            <FaLock size={12} className="text-fg-tertiary shrink-0" title={`${friend.privateTotal} private`} />
+          )}
+        </div>
       </button>
     </div>
   );
@@ -205,11 +174,11 @@ export default function SortableFriendsSummaryBar({
   if (friends.length === 0) return null;
 
   return (
-    <div className="sticky top-[73px] md:top-[81px] z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-      <div className="max-w-3xl mx-auto px-4 py-2">
+    <div className="sticky top-[73px] md:top-[81px] z-30 bg-surface border-b border-border-emphasized shadow-sm">
+      <div className="max-w-3xl mx-auto px-4 py-3">
         <div
           ref={scrollContainerRef}
-          className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2"
+          className="flex items-center gap-6 overflow-x-auto scrollbar-hide pb-2 friends-bar-fade"
           style={{
             WebkitOverflowScrolling: 'touch',
             overscrollBehaviorX: 'contain',
@@ -223,7 +192,7 @@ export default function SortableFriendsSummaryBar({
             onDragCancel={handleDragCancel}
           >
             <SortableContext items={friends.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
-              <div className="flex items-center gap-2 min-w-max">
+              <div className="flex items-center gap-6 min-w-max">
                 {friends.map((friend) => (
                   <SortableFriendCard
                     key={friend.id}

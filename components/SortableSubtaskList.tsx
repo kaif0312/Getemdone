@@ -19,7 +19,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { Subtask } from '@/lib/types';
-import { MdDragIndicator } from 'react-icons/md';
+import { FaGripVertical } from 'react-icons/fa';
 
 interface SortableSubtaskRowProps {
   subtask: Subtask;
@@ -70,14 +70,14 @@ function SortableSubtaskRow({
       ref={setActivatorNodeRef}
       {...attributes}
       {...listeners}
-      className="flex-shrink-0 w-9 h-9 min-w-[36px] min-h-[36px] -ml-1 -mr-0.5 flex items-center justify-center rounded-md touch-manipulation cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+      className="flex-shrink-0 w-4 h-4 min-w-[16px] min-h-[16px] flex items-center justify-center touch-manipulation cursor-grab active:cursor-grabbing text-fg-tertiary opacity-30 hover:opacity-60"
       style={{ touchAction: 'none' }}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={() => {
         if ('vibrate' in navigator) navigator.vibrate(30);
       }}
     >
-      <MdDragIndicator size={18} />
+      <FaGripVertical size={16} />
     </div>
   ) : null;
 
@@ -93,6 +93,7 @@ interface SortableSubtaskListProps {
   subtasks: Subtask[];
   isOwnTask: boolean;
   taskCompleted: boolean;
+  showReorderMode?: boolean;
   onReorder: (newSubtasks: Subtask[]) => void;
   onToggle: (subtask: Subtask) => void;
   onDelete: (subtask: Subtask) => void;
@@ -111,10 +112,11 @@ export default function SortableSubtaskList({
   subtasks,
   isOwnTask,
   taskCompleted,
+  showReorderMode = false,
   onReorder,
   renderSubtaskRow,
 }: SortableSubtaskListProps) {
-  const canDrag = isOwnTask && !taskCompleted && subtasks.length > 1;
+  const canDrag = isOwnTask && !taskCompleted && subtasks.length > 1 && showReorderMode;
 
   const sensors = useSensors(
     useSensor(MouseSensor, {

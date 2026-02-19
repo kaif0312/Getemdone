@@ -32,7 +32,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFe
       } as React.CSSProperties}
     >
       <div className="min-h-full flex items-start justify-center p-4 py-8">
-        <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 relative overflow-hidden my-8">
+        <div className="bg-white rounded-3xl shadow-elevation-3 max-w-md w-full p-6 md:p-8 relative overflow-hidden my-8">
           {/* Decorative background */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2"></div>
           
@@ -51,7 +51,7 @@ export default function IOSInstallPrompt({ onDismiss, allowDismiss = false, onFe
           <div className="relative z-10">
           {/* App Icon */}
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg flex items-center justify-center">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-elevation-2 flex items-center justify-center">
               <FaBell className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
           </div>

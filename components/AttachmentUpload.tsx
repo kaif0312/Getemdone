@@ -15,6 +15,8 @@ interface AttachmentUploadProps {
   maxAttachments?: number;
   userStorageUsed?: number;
   userStorageLimit?: number;
+  /** Ghost variant: tertiary text, no backgrounds, 12px - for task card quick actions */
+  variant?: 'default' | 'ghost';
 }
 
 export default function AttachmentUpload({
@@ -24,6 +26,7 @@ export default function AttachmentUpload({
   maxAttachments = 3,
   userStorageUsed = 0,
   userStorageLimit = DEFAULT_STORAGE_LIMIT,
+  variant = 'default',
 }: AttachmentUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,15 +133,23 @@ export default function AttachmentUpload({
       />
       
       <button
-        onClick={() => fileInputRef.current?.click()}
+        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
         disabled={uploading || !canUploadMore}
-        className={`
-          flex items-center gap-1 px-1.5 py-0.5 text-[10px] transition-colors rounded
+        className={
+          variant === 'ghost'
+            ? `flex items-center gap-1 text-xs transition-colors
+                ${uploading || !canUploadMore
+                  ? 'text-fg-disabled cursor-not-allowed'
+                  : 'text-fg-tertiary hover:text-fg-secondary'
+                }`
+            : `
+          flex items-center gap-1 px-1.5 py-0.5 text-xs transition-colors rounded
           ${uploading || !canUploadMore
             ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
           }
-        `}
+        `
+        }
         title={
           !canUploadMore
             ? `Maximum ${maxAttachments} attachments`
@@ -148,15 +159,15 @@ export default function AttachmentUpload({
         }
       >
         {uploading ? (
-          <FaSpinner className="animate-spin" size={9} />
+          <FaSpinner className="animate-spin" size={10} />
         ) : (
-          <FaPaperclip size={9} />
+          <FaPaperclip size={10} />
         )}
         <span>{uploading ? 'Uploading...' : 'Attach'}</span>
       </button>
 
       {error && (
-        <div className="absolute top-full left-0 mt-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 shadow-lg">
+        <div className="absolute top-full left-0 mt-1 bg-error/10 dark:bg-error/20 text-error text-xs px-2 py-1 rounded whitespace-nowrap z-10 shadow-elevation-2">
           {error}
         </div>
       )}

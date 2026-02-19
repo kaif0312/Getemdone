@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { FaCog, FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
+import { useRef, useEffect } from 'react';
+import { FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
 import StorageUsage from './StorageUsage';
 import { useEncryption } from '@/hooks/useEncryption';
 
 interface SettingsMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
   onNotificationSettings: () => void;
   onHelp: () => void;
   onRecycleBin: () => void;
@@ -21,6 +23,8 @@ interface SettingsMenuProps {
 }
 
 export default function SettingsMenu({
+  isOpen,
+  onClose,
   onNotificationSettings,
   onHelp,
   onRecycleBin,
@@ -34,92 +38,93 @@ export default function SettingsMenu({
   storageUsed = 0,
   storageLimit,
 }: SettingsMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInitialized: encryptionInitialized, masterKey } = useEncryption();
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        onClose();
       }
     };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose]);
 
   const handleItemClick = (action: () => void) => {
     action();
-    setIsOpen(false);
+    onClose();
   };
 
-  return (
-    <div className="relative" ref={menuRef}>
-      {/* Settings Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 p-2 sm:p-2.5 md:p-3 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors relative flex-shrink-0"
-        title="Settings & More"
-      >
-        <FaCog size={18} className={isOpen ? 'animate-spin-slow' : ''} />
-        {/* Indicator badges */}
-        {(notificationPermission !== 'granted' || deletedCount > 0) && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-            {deletedCount > 0 ? deletedCount : '!'}
-          </span>
-        )}
-      </button>
+  if (!isOpen) return null;
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 animate-in fade-in slide-in-from-top-2 duration-200" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', overflowX: 'hidden' }}>
-          <div className="py-2">
+  return (
+    <>
+      {/* Backdrop - mobile */}
+      <div
+        className="fixed inset-0 z-[98] bg-black/40 animate-in fade-in duration-150"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      {/* Modal / Sheet */}
+      <div
+        ref={menuRef}
+        className="fixed inset-x-4 bottom-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[min(400px,calc(100vw-2rem))] z-[99] md:rounded-2xl rounded-2xl bg-surface shadow-elevation-3 border border-border-subtle overflow-hidden animate-in md:zoom-in-95 fade-in slide-in-from-bottom-4 md:slide-in-from-bottom-2 duration-150 max-h-[85vh] flex flex-col"
+      >
+        <div className="flex flex-col max-h-[85vh] overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border-subtle flex-shrink-0">
+            <h2 className="text-lg font-semibold text-fg-primary">Settings</h2>
+            <button
+              onClick={onClose}
+              className="p-2 -mr-2 rounded-lg hover:bg-surface-muted text-fg-tertiary hover:text-fg-primary transition-colors"
+              aria-label="Close"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="overflow-y-auto py-2 flex-1 min-h-0">
             {/* Security & Privacy - E2EE Status */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+            <div className="px-4 py-3 border-b border-border-subtle bg-success/15">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   <div className="relative">
-                    <FaLock size={20} className="text-green-600 dark:text-green-400" />
+                    <FaLock size={20} className="text-success" />
                     {encryptionInitialized && masterKey && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-success rounded-full border-2 border-surface"></span>
                     )}
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    <span className="text-sm font-semibold text-fg-primary">
                       End-to-End Encrypted
                     </span>
                     {encryptionInitialized && masterKey ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-muted text-fg-secondary">
                         Initializing...
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-fg-secondary leading-relaxed">
                     Your tasks, comments, and messages are encrypted. Only you and your friends can read them.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                    <span className="inline-flex items-center gap-1 text-xs text-fg-tertiary">
                       <FaLock size={8} />
                       AES-256-GCM
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                    <span className="inline-flex items-center gap-1 text-xs text-fg-tertiary">
                       <FaShieldAlt size={8} />
                       E2EE
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-500">
+                    <span className="inline-flex items-center gap-1 text-xs text-fg-tertiary">
                       <FaDatabase size={8} />
                       Encrypted at rest
                     </span>
@@ -129,7 +134,7 @@ export default function SettingsMenu({
             </div>
 
             {/* Storage Usage - Non-clickable display */}
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-4 py-3 border-b border-border-subtle">
               <StorageUsage
                 userId={userId}
                 initialUsage={storageUsed}
@@ -141,19 +146,19 @@ export default function SettingsMenu({
             {/* Notification Settings */}
             <button
               onClick={() => handleItemClick(onNotificationSettings)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
             >
               <div className="relative">
-                <FaBell size={18} className="text-blue-500" />
+                <FaBell size={18} className="text-primary" />
                 {notificationPermission !== 'granted' && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-error rounded-full"></span>
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                   Notification Settings
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-fg-tertiary">
                   {notificationPermission === 'granted' ? 'Enabled' : 'Not enabled'}
                 </div>
               </div>
@@ -162,14 +167,14 @@ export default function SettingsMenu({
             {/* Help & Tips */}
             <button
               onClick={() => handleItemClick(onHelp)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
             >
-              <FaQuestionCircle size={18} className="text-purple-500" />
+              <FaQuestionCircle size={18} className="text-primary" />
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                   Help & Tips
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-fg-tertiary">
                   Learn how to use features
                 </div>
               </div>
@@ -178,21 +183,21 @@ export default function SettingsMenu({
             {/* Recycle Bin */}
             <button
               onClick={() => handleItemClick(onRecycleBin)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
             >
               <div className="relative">
-                <FaTrash size={18} className="text-red-500" />
+                <FaTrash size={18} className="text-error" />
                 {deletedCount > 0 && (
-                  <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  <span className="absolute -top-1 -right-2 min-w-[16px] h-4 bg-error text-on-accent text-xs font-bold rounded-full flex items-center justify-center px-1">
                     {deletedCount}
                   </span>
                 )}
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-red-600 dark:group-hover:text-red-400">
+                <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                   Recycle Bin
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-fg-tertiary">
                   {deletedCount > 0 ? `${deletedCount} deleted task${deletedCount !== 1 ? 's' : ''}` : 'No deleted tasks'}
                 </div>
               </div>
@@ -201,14 +206,14 @@ export default function SettingsMenu({
             {/* WhatsApp Share */}
             <button
               onClick={() => handleItemClick(onWhatsAppShare)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
             >
-              <FaWhatsapp size={18} className="text-green-500" />
+              <FaWhatsapp size={18} className="text-success" />
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400">
+                <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                   Share to WhatsApp
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-fg-tertiary">
                   Share your tasks
                 </div>
               </div>
@@ -217,14 +222,14 @@ export default function SettingsMenu({
             {/* Feedback & Feature Requests */}
             <button
               onClick={() => handleItemClick(onFeedback)}
-              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+              className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
             >
-              <FaLightbulb size={18} className="text-yellow-500" />
+              <FaLightbulb size={18} className="text-warning" />
               <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400">
+                <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                   Feedback & Ideas
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="text-xs text-fg-tertiary">
                   Report bugs or suggest features
                 </div>
               </div>
@@ -233,17 +238,17 @@ export default function SettingsMenu({
             {/* Admin Dashboard (only if admin) */}
             {isAdmin && onAdmin && (
               <>
-                <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+                <div className="border-t border-border-subtle my-2"></div>
                 <button
                   onClick={() => handleItemClick(onAdmin)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left group"
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-muted transition-colors text-left group"
                 >
-                  <FaShieldAlt size={18} className="text-purple-600" />
+                  <FaShieldAlt size={18} className="text-primary" />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                    <div className="text-sm font-medium text-fg-secondary group-hover:text-fg-primary">
                       Admin Dashboard
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-fg-tertiary">
                       Manage users & settings
                     </div>
                   </div>
@@ -252,7 +257,7 @@ export default function SettingsMenu({
             )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

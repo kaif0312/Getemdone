@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { FaTimes, FaBug, FaImage, FaSpinner, FaCheck, FaLightbulb } from 'react-icons/fa';
+import { FaTimes, FaBug, FaImage, FaSpinner, FaCheck } from 'react-icons/fa';
+import { LuLightbulb } from 'react-icons/lu';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
@@ -163,12 +164,12 @@ export default function BugReportModal({
 
       {/* Modal */}
       <div className="fixed inset-x-4 top-[10%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg z-50 animate-in slide-in-from-top duration-300">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="bg-surface rounded-2xl shadow-elevation-3 max-h-[80vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-lg">
-                <FaLightbulb className="text-yellow-600 dark:text-yellow-400" size={20} />
+                <LuLightbulb className="text-yellow-600 dark:text-yellow-400" size={20} />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -247,7 +248,7 @@ export default function BugReportModal({
                       <button
                         onClick={removeImage}
                         disabled={submitting}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg disabled:opacity-50"
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-elevation-2 disabled:opacity-50"
                         title="Remove image"
                       >
                         <FaTimes size={12} />
@@ -297,9 +298,10 @@ export default function BugReportModal({
                 )}
 
                 {/* Info */}
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    💡 <strong>Tip:</strong> For bugs, include steps to reproduce. For features, describe how it would help you!
+                <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                  <p className="text-xs text-fg-secondary flex items-center gap-1.5">
+                    <LuLightbulb size={14} className="flex-shrink-0" />
+                    <strong>Tip:</strong> For bugs, include steps to reproduce. For features, describe how it would help you!
                   </p>
                 </div>
               </div>
@@ -328,7 +330,7 @@ export default function BugReportModal({
                   </>
                 ) : (
                   <>
-                    <FaLightbulb size={14} />
+                    <LuLightbulb size={14} />
                     Submit Feedback
                   </>
                 )}

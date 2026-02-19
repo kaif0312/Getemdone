@@ -40,17 +40,17 @@ export default function RecurrenceBottomSheet({
         onClick={onClose}
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-[99999] bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl border-t border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom duration-200"
+        className="fixed inset-x-0 bottom-0 z-[99999] bg-surface rounded-t-2xl shadow-elevation-3 border-t border-border-subtle animate-in slide-in-from-bottom duration-200"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-fg-primary">
             Set recurrence
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+            className="p-2 rounded-full hover:bg-surface-muted text-fg-tertiary"
           >
             <FaTimes size={18} />
           </button>
@@ -60,28 +60,28 @@ export default function RecurrenceBottomSheet({
           <button
             type="button"
             onClick={() => handlePreset('daily')}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-muted hover:bg-surface-muted/80 text-fg-primary transition-colors"
           >
             <span>Daily</span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Every day</span>
+            <span className="text-sm text-fg-tertiary">Every day</span>
           </button>
 
           <button
             type="button"
             onClick={() => handlePreset('weekdays')}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-muted hover:bg-surface-muted/80 text-fg-primary transition-colors"
           >
             <span>Weekdays</span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Mon–Fri</span>
+            <span className="text-sm text-fg-tertiary">Mon–Fri</span>
           </button>
 
           <button
             type="button"
             onClick={() => handlePreset('weekly', [today.getDay()])}
-            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-muted hover:bg-surface-muted/80 text-fg-primary transition-colors"
           >
             <span>Weekly</span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-fg-tertiary">
               Every {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][today.getDay()]}
             </span>
           </button>
@@ -91,7 +91,7 @@ export default function RecurrenceBottomSheet({
               key={d}
               type="button"
               onClick={() => handlePreset('custom', [d])}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 transition-colors"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-muted hover:bg-surface-muted/80 text-fg-primary transition-colors"
             >
               <span>Every {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]}</span>
             </button>
@@ -99,14 +99,14 @@ export default function RecurrenceBottomSheet({
 
           {currentRecurrence && onRemove && (
             <>
-              <div className="border-t border-gray-200 dark:border-gray-700 my-3" />
+              <div className="border-t border-border-subtle my-3" />
               <button
                 type="button"
                 onClick={() => {
                   onRemove();
                   onClose();
                 }}
-                className="w-full px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium"
+                className="w-full px-4 py-3 rounded-xl text-error hover:bg-error/10 transition-colors font-medium"
               >
                 Remove recurrence
               </button>

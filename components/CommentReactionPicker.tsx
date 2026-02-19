@@ -124,7 +124,7 @@ export default function CommentReactionPicker({
       {/* Emoji Picker */}
       <div
         ref={pickerRef}
-        className="fixed z-[201] bg-white dark:bg-gray-800 rounded-full shadow-2xl border border-gray-200 dark:border-gray-700 p-2 flex items-center gap-1 pointer-events-none"
+        className="fixed z-[201] bg-surface rounded-full shadow-elevation-3 border border-border-subtle p-2 flex items-center gap-1 pointer-events-none"
         style={{
           left: `${position.x}px`,
           top: `${position.y - 80}px`, // Position above the touch point
@@ -141,7 +141,7 @@ export default function CommentReactionPicker({
               w-12 h-12 rounded-full flex items-center justify-center text-2xl
               transition-all duration-150 pointer-events-auto
               ${selectedIndex === index
-                ? 'scale-150 bg-gray-100 dark:bg-gray-700 shadow-lg z-10'
+                ? 'scale-150 bg-surface-muted shadow-elevation-2 z-10'
                 : 'scale-100 hover:scale-110'
               }
             `}

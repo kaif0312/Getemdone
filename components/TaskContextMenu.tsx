@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { FaEdit, FaClock, FaStickyNote, FaStar, FaEye, FaEyeSlash, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaClock, FaStar, FaEye, FaEyeSlash, FaTrash } from 'react-icons/fa';
+import { LuRepeat } from 'react-icons/lu';
 import { Task } from '@/lib/types';
 
 interface TaskContextMenuProps {
@@ -13,11 +14,9 @@ interface TaskContextMenuProps {
   onEdit?: () => void;
   onSetDeadline?: () => void;
   onSetRecurrence?: () => void;
-  onToggleNotes?: () => void;
   onToggleCommitment?: () => void;
   onTogglePrivacy?: () => void;
   onDelete?: () => void;
-  hasNotes?: boolean;
   isCommitted?: boolean;
   isPrivate?: boolean;
   /** When true, show Set recurrence even for completed tasks (e.g. calendar view) */
@@ -33,11 +32,9 @@ export default function TaskContextMenu({
   onEdit,
   onSetDeadline,
   onSetRecurrence,
-  onToggleNotes,
   onToggleCommitment,
   onTogglePrivacy,
   onDelete,
-  hasNotes = false,
   isCommitted = false,
   isPrivate = false,
   showRecurrenceForCompleted = false,
@@ -87,133 +84,95 @@ export default function TaskContextMenu({
         onClick={onClose}
       />
       
-      {/* Context Menu */}
+      {/* Context Menu - surface-elevated, 12px radius, 8px padding, 44px touch targets */}
       <div
         ref={menuRef}
-        className="fixed z-[99999] bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[200px] animate-in fade-in zoom-in duration-200"
+        className="fixed z-[99999] bg-elevated rounded-xl p-2 min-w-[220px] animate-in fade-in zoom-in duration-200 shadow-elevation-2 border border-border-subtle"
         style={{
           left: `${x}px`,
           top: `${y}px`,
         }}
       >
-        <div className="py-1">
-          {/* Edit Task - Only for incomplete tasks */}
-          {onEdit && !task.completed && (
-            <button
-              onClick={() => {
-                onEdit();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaEdit size={16} className="text-gray-500 dark:text-gray-400" />
-              <span className="text-sm font-medium">Edit task</span>
-            </button>
-          )}
+        {/* Edit Task - Only for incomplete tasks */}
+        {onEdit && !task.completed && (
+          <button
+            onClick={() => { onEdit(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-fg-primary hover:bg-surface-muted rounded-lg transition-colors"
+          >
+            <FaEdit size={18} className="text-fg-secondary shrink-0" />
+            <span className="text-sm">Edit task</span>
+          </button>
+        )}
 
-          {/* Schedule & Deadline - Only for incomplete tasks */}
-          {onSetDeadline && !task.completed && (
-            <button
-              onClick={() => {
-                onSetDeadline();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaClock size={16} className={task.dueDate || task.deferredTo ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400'} />
-              <span className="text-sm font-medium">
-                {task.dueDate || task.deferredTo ? 'Schedule & deadline' : 'Schedule or set deadline'}
-              </span>
-            </button>
-          )}
+        {/* Schedule & Deadline - Only for incomplete tasks */}
+        {onSetDeadline && !task.completed && (
+          <button
+            onClick={() => { onSetDeadline(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-fg-primary hover:bg-surface-muted rounded-lg transition-colors"
+          >
+            <FaClock size={18} className={task.dueDate || task.deferredTo ? 'text-amber-500' : 'text-fg-secondary shrink-0'} />
+            <span className="text-sm">
+              {task.dueDate || task.deferredTo ? 'Schedule & deadline' : 'Schedule or set deadline'}
+            </span>
+          </button>
+        )}
 
-          {/* Set Recurrence - For incomplete tasks, or completed when in calendar view */}
-          {onSetRecurrence && (!task.completed || showRecurrenceForCompleted) && (
-            <button
-              onClick={() => {
-                onSetRecurrence();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <span className="text-base">🔁</span>
-              <span className="text-sm font-medium">
-                {task.recurrence ? 'Change recurrence' : 'Set recurrence'}
-              </span>
-            </button>
-          )}
+        {/* Set Recurrence */}
+        {onSetRecurrence && (!task.completed || showRecurrenceForCompleted) && (
+          <button
+            onClick={() => { onSetRecurrence(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-fg-primary hover:bg-surface-muted rounded-lg transition-colors"
+          >
+            <LuRepeat className="text-base shrink-0" size={16} />
+            <span className="text-sm">
+              {task.recurrence ? 'Change recurrence' : 'Set recurrence'}
+            </span>
+          </button>
+        )}
 
-          {/* Notes */}
-          {onToggleNotes && (
-            <button
-              onClick={() => {
-                onToggleNotes();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaStickyNote size={16} className={hasNotes ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'} />
-              <span className="text-sm font-medium">
-                {hasNotes ? 'Edit notes' : 'Add notes'}
-              </span>
-            </button>
-          )}
+        {/* Toggle Commitment - Only for incomplete tasks */}
+        {onToggleCommitment && !task.completed && (
+          <button
+            onClick={() => { onToggleCommitment(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-fg-primary hover:bg-surface-muted rounded-lg transition-colors"
+          >
+            <FaStar size={18} className={isCommitted ? 'text-yellow-500' : 'text-fg-secondary shrink-0'} />
+            <span className="text-sm">
+              {isCommitted ? 'Remove commitment' : 'Commit to complete'}
+            </span>
+          </button>
+        )}
 
-          {/* Toggle Commitment - Only for incomplete tasks */}
-          {onToggleCommitment && !task.completed && (
-            <button
-              onClick={() => {
-                onToggleCommitment();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <FaStar size={16} className={isCommitted ? 'text-yellow-500' : 'text-gray-500 dark:text-gray-400'} />
-              <span className="text-sm font-medium">
-                {isCommitted ? 'Remove commitment' : 'Commit to complete'}
-              </span>
-            </button>
-          )}
+        {/* Toggle Privacy - Only for incomplete tasks */}
+        {onTogglePrivacy && !task.completed && (
+          <button
+            onClick={() => { onTogglePrivacy(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-fg-primary hover:bg-surface-muted rounded-lg transition-colors"
+          >
+            {isPrivate ? (
+              <FaEyeSlash size={18} className="text-fg-secondary shrink-0" />
+            ) : (
+              <FaEye size={18} className="text-primary shrink-0" />
+            )}
+            <span className="text-sm">
+              {isPrivate ? 'Make shared' : 'Make private'}
+            </span>
+          </button>
+        )}
 
-          {/* Toggle Privacy - Only for incomplete tasks (privacy doesn't matter for completed) */}
-          {onTogglePrivacy && !task.completed && (
+        {/* Delete - destructive, error color */}
+        {onDelete && (
+          <>
+            <div className="border-t border-border-subtle my-1" />
             <button
-              onClick={() => {
-                onTogglePrivacy();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              onClick={() => { onDelete(); onClose(); }}
+              className="w-full flex items-center gap-3 px-3 py-3 min-h-[44px] text-left text-error hover:bg-error/10 rounded-lg transition-colors"
             >
-              {isPrivate ? (
-                <FaEyeSlash size={16} className="text-gray-500 dark:text-gray-400" />
-              ) : (
-                <FaEye size={16} className="text-blue-500" />
-              )}
-              <span className="text-sm font-medium">
-                {isPrivate ? 'Make shared' : 'Make private'}
-              </span>
-            </button>
-          )}
-
-          {/* Divider */}
-          {onDelete && (
-            <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-          )}
-
-          {/* Delete */}
-          {onDelete && (
-            <button
-              onClick={() => {
-                onDelete();
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              <FaTrash size={16} />
+              <FaTrash size={18} className="text-error shrink-0" />
               <span className="text-sm font-medium">Delete task</span>
             </button>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </>
   );

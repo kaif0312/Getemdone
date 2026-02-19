@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FaTimes, FaFire, FaRocket, FaStar, FaHeart, FaBolt } from 'react-icons/fa';
+import { LuLightbulb } from 'react-icons/lu';
 
 interface EncouragementModalProps {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export default function EncouragementModal({ isOpen, onClose, friendName, onSend
 
       {/* Modal - max-h ensures bottom stays visible on PC when content is tall */}
       <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[480px] md:max-h-[90vh] z-50 animate-in zoom-in-95 duration-200 flex flex-col">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden h-full md:max-h-[90vh] flex flex-col min-h-0">
+        <div className="bg-surface rounded-2xl shadow-elevation-3 border border-border-subtle overflow-hidden h-full md:max-h-[90vh] flex flex-col min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-gray-700 dark:to-gray-800">
             <div className="flex items-center gap-2">
@@ -139,9 +140,10 @@ export default function EncouragementModal({ isOpen, onClose, friendName, onSend
           </div>
 
           {/* Footer Tip */}
-          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              💡 Your friend will receive an instant notification!
+          <div className="px-4 py-3 bg-surface-muted border-t border-border-subtle">
+            <p className="text-xs text-fg-tertiary text-center flex items-center justify-center gap-1.5">
+              <LuLightbulb size={16} className="flex-shrink-0" />
+              Your friend will receive an instant notification!
             </p>
           </div>
         </div>

@@ -67,7 +67,7 @@ function SortableEmojiButton({
             ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500 dark:ring-blue-400'
             : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'
         }`}
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'pan-x' }}
         onPointerDown={() => {
           if ('vibrate' in navigator) navigator.vibrate(25);
         }}
@@ -90,7 +90,7 @@ export default function SortableTagBar({
       activationConstraint: { distance: 5 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 6 },
+      activationConstraint: { delay: 250, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -110,7 +110,13 @@ export default function SortableTagBar({
   };
 
   return (
-    <div className="overflow-x-auto scrollbar-hide -mx-1 px-1 py-1.5">
+    <div
+      className="overflow-x-auto scrollbar-hide -mx-1 px-1 py-1.5"
+      style={{
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorX: 'contain',
+      }}
+    >
       <div className="flex items-center gap-2 min-w-max">
         <button
           onClick={onAllClick}

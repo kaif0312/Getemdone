@@ -538,6 +538,15 @@ input[type="datetime-local"] {
   animation: quick-info-modal-out 150ms ease forwards;
 }
 
+/* Tag label save flash - primary 15% bg fading out over 300ms */
+@keyframes tag-save-flash {
+  0% { background-color: color-mix(in srgb, var(--color-primary) 15%, transparent); }
+  100% { background-color: transparent; }
+}
+.animate-tag-save-flash {
+  animation: tag-save-flash 300ms ease forwards;
+}
+
 /* Bottom fade gradient when subtask list is scrollable (>5 items) */
 .subtask-scroll-fade::after {
   content: '';

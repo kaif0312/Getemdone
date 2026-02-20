@@ -52,7 +52,7 @@ import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateStr
 import { dateMatchesRecurrence } from '@/utils/recurrence';
 import { needsInstallation, needsAndroidInstallation } from '@/utils/deviceDetection';
 import { loadTagOrder, saveTagOrder, mergeTagOrder } from '@/lib/tagOrder';
-import { normalizeTagToIconId, getIconForTag, getLabelForTag } from '@/lib/tagIcons';
+import { normalizeTagToIconId, getIconForTag, getLabelForTag, getEffectiveLabelForTag } from '@/lib/tagIcons';
 import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
 import { getAccentForId } from '@/lib/theme';
 import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionKey } from '@/utils/taskGrouping';
@@ -899,6 +899,20 @@ function MainApp() {
                 }}
                 onAllClick={() => setActiveTagFilters([])}
                 onReorder={setTagOrder}
+                customTagLabels={data.customTagLabels}
+                onSaveCustomLabel={async (tagId, label) => {
+                  const { doc, updateDoc } = await import('firebase/firestore');
+                  const { db } = await import('@/lib/firebase');
+                  const userRef = doc(db, 'users', uid);
+                  const current = data.customTagLabels || {};
+                  const next = { ...current };
+                  if (label) {
+                    next[tagId] = label;
+                  } else {
+                    delete next[tagId];
+                  }
+                  await updateDoc(userRef, { customTagLabels: next });
+                }}
               />
             );
           })()}
@@ -1057,7 +1071,7 @@ function MainApp() {
                           const isCollapsed = collapsedSections.has(key);
                           const isInbox = group.tag === null;
                           const Icon = isInbox ? LuInbox : getIconForTag(group.tag!);
-                          const label = isInbox ? 'Inbox' : getLabelForTag(group.tag!);
+                          const label = isInbox ? 'Inbox' : getEffectiveLabelForTag(group.tag!, data.customTagLabels);
                           return (
                           <div key={key}>
                             <button
@@ -1132,7 +1146,7 @@ function MainApp() {
                       const isCollapsed = collapsedSections.has(key);
                       const isInbox = group.tag === null;
                       const Icon = isInbox ? LuInbox : getIconForTag(group.tag!);
-                      const label = isInbox ? 'Inbox' : getLabelForTag(group.tag!);
+                      const label = isInbox ? 'Inbox' : getEffectiveLabelForTag(group.tag!, data.customTagLabels);
                       return (
                       <div key={key}>
                         <button

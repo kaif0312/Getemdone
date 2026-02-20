@@ -58,6 +58,8 @@ export interface User {
   biometricCredentialId?: string;
   /** Whether Face ID lock is enabled for this user */
   biometricEnabled?: boolean;
+  /** Custom labels for tag/category icons (tagId -> label). Syncs across devices. */
+  customTagLabels?: Record<string, string>;
 }
 
 export interface Reaction {

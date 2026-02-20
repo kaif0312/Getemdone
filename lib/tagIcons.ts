@@ -293,6 +293,12 @@ export function getLabelForTag(tagId: string): string {
   return ICON_BY_ID.get(tagId)?.label ?? tagId;
 }
 
+/** Get effective label: custom if set, else default. For category bar rename. */
+export function getEffectiveLabelForTag(tagId: string, customLabels?: Record<string, string> | null): string {
+  if (customLabels?.[tagId]?.trim()) return customLabels[tagId].trim();
+  return getLabelForTag(tagId);
+}
+
 /** Tag tint colors (for optional color picker) */
 export const TAG_TINT_COLORS = [
   { id: 'primary', name: 'Blue', class: 'text-primary' },

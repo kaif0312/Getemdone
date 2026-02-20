@@ -1782,20 +1782,17 @@ export default function TaskItem({
         <TagIconPicker
           isOpen={showTagPicker}
           onClose={() => setShowTagPicker(false)}
-          onSelect={async (iconId, tintId) => {
-            const current = task.tags || [];
-            const currentIds = new Set(current.map(normalizeTagToIconId));
-            if (currentIds.has(iconId) || current.length >= 5) return;
-            const tagValue = tintId && tintId !== 'primary' ? `${iconId}:${tintId}` : iconId;
-            const next = [...current, tagValue];
-            await onUpdateTaskTags(task.id, next);
-            await recordRecentlyUsedTag?.(iconId);
+          onApply={async (iconId, tintId) => {
+            const tagValue = iconId === null
+              ? []
+              : [tintId && tintId !== 'primary' ? `${iconId}:${tintId}` : iconId];
+            await onUpdateTaskTags(task.id, tagValue);
+            if (iconId) await recordRecentlyUsedTag?.(iconId);
             setShowTagPicker(false);
             if ('vibrate' in navigator) navigator.vibrate(30);
           }}
           recentlyUsed={recentUsedTags}
-          currentTags={task.tags || []}
-          maxTags={5}
+          currentTaskIcon={task.tags?.[0]}
         />
       )}
 

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { LuBell, LuBellRing, LuTrash2 } from 'react-icons/lu';
+import { LuBell, LuBellRing, LuTrash2, LuCheck } from 'react-icons/lu';
 import { FaTimes } from 'react-icons/fa';
 import { InAppNotification } from '@/lib/types';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { useEncryption } from '@/hooks/useEncryption';
 import { isEncrypted } from '@/utils/crypto';
 import { db } from '@/lib/firebase';
@@ -90,6 +90,9 @@ export default function NotificationsPanel({
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [undoToast, setUndoToast] = useState<{ count: number; items: InAppNotification[] } | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !userId) return;
@@ -190,6 +193,44 @@ export default function NotificationsPanel({
     await Promise.all(unread.map((n) => handleMarkAsRead(n.id)));
   };
 
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearUndoToast = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setUndoToast(null);
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    if (!undoToast) return;
+    try {
+      for (const item of undoToast.items) {
+        const data = {
+          userId: item.userId,
+          type: item.type,
+          title: item.title,
+          message: item.message,
+          taskId: item.taskId ?? null,
+          taskText: item.taskText ?? null,
+          fromUserId: item.fromUserId ?? null,
+          fromUserName: item.fromUserName ?? null,
+          fromUserPhotoURL: item.fromUserPhotoURL ?? null,
+          reactionEmoji: item.reactionEmoji ?? null,
+          commentText: item.commentText ?? null,
+          bugReportId: item.bugReportId ?? null,
+          createdAt: item.createdAt,
+          read: item.read,
+        };
+        await setDoc(doc(db, 'notifications', item.id), data);
+      }
+    } catch (error) {
+      console.error('Error restoring notification:', error);
+    }
+    clearUndoToast();
+  }, [undoToast, clearUndoToast]);
+
   const handleDelete = async (notificationId: string) => {
     setDeletingIds((prev) => new Set(prev).add(notificationId));
     try {
@@ -206,10 +247,46 @@ export default function NotificationsPanel({
   };
 
   const handleDeleteGroup = async (group: GroupedNotification) => {
-    for (const item of group.items) {
-      await handleDelete(item.id);
+    clearUndoToast();
+    const items = [...group.items];
+    for (const item of items) {
+      setDeletingIds((prev) => new Set(prev).add(item.id));
+    }
+    try {
+      for (const item of items) {
+        await deleteDoc(doc(db, 'notifications', item.id));
+      }
+      setUndoToast({ count: items.length, items });
+      undoTimeoutRef.current = setTimeout(clearUndoToast, 4000);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    } finally {
+      setTimeout(() => setDeletingIds((prev) => {
+        const next = new Set(prev);
+        items.forEach((i) => next.delete(i.id));
+        return next;
+      }), 200);
     }
   };
+
+  const handleClearAll = async () => {
+    setShowClearConfirm(false);
+    setClearingAll(true);
+    await new Promise((r) => setTimeout(r, 150));
+    try {
+      await Promise.all(notifications.map((n) => deleteDoc(doc(db, 'notifications', n.id))));
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+      setClearingAll(false);
+    }
+    // Keep clearingAll true until Firestore listener updates notifications to empty
+  };
+
+  useEffect(() => {
+    if (clearingAll && notifications.length === 0) setClearingAll(false);
+  }, [clearingAll, notifications.length]);
+
+  useEffect(() => () => { if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current); }, []);
 
   const handleNotificationClick = async (group: GroupedNotification) => {
     for (const n of group.items) {
@@ -241,17 +318,17 @@ export default function NotificationsPanel({
 
   return (
     <>
-      {/* Backdrop - rgba(0,0,0,0.3) mobile, rgba(0,0,0,0.15) desktop */}
+      {/* Backdrop - rgba(0,0,0,0.15) desktop, darker on mobile; click to dismiss */}
       <div
-        className="fixed inset-0 z-[100] bg-black/30 md:bg-black/15 backdrop-blur-0 animate-in fade-in duration-250"
+        className="fixed inset-0 z-[100] bg-black/30 md:bg-black/15 animate-in fade-in duration-250"
         onClick={onClose}
         aria-hidden
       />
 
-      {/* Panel - mobile: bottom sheet 85%, desktop: side panel 380px, 250ms slide */}
+      {/* Panel - mobile: bottom sheet 85%; desktop: 380px from right, full height, 1px left border */}
       <div
         className="fixed z-[101] flex flex-col bg-elevated
-          md:right-0 md:top-0 md:w-[380px] md:h-full md:rounded-none md:border-l md:border-border-subtle md:shadow-[-4px_0_16px_rgba(0,0,0,0.1)]
+          md:right-0 md:top-0 md:w-[380px] md:h-screen md:rounded-none md:border-l md:border-border-subtle md:shadow-[-4px_0_16px_rgba(0,0,0,0.1)]
           inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl border-t border-border-subtle
           animate-in slide-in-from-bottom md:slide-in-from-right duration-250 ease-out"
         style={{
@@ -263,8 +340,8 @@ export default function NotificationsPanel({
           <div className="w-9 h-1 rounded-full bg-fg-tertiary/30" aria-hidden />
         </div>
 
-        {/* Header */}
-        <div className="flex-shrink-0 border-b border-border-subtle px-4 pb-3">
+        {/* Header - 16px padding */}
+        <div className="flex-shrink-0 px-4 pt-4 pb-0">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <LuBell size={20} className="text-fg-primary flex-shrink-0" />
@@ -275,14 +352,50 @@ export default function NotificationsPanel({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              {notifications.length > 0 && unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  className="text-[13px] text-primary hover:underline py-1 px-2 -mr-1"
-                >
-                  Mark all read
-                </button>
+            <div className="flex items-center gap-1 relative">
+              {notifications.length > 0 && (
+                <>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[13px] text-primary hover:underline py-1 px-2 -mr-1"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    className="text-[13px] text-error hover:underline py-1 px-2 -mr-1"
+                  >
+                    Clear all
+                  </button>
+                </>
+              )}
+              {showClearConfirm && (
+                <>
+                  <div
+                    className="fixed inset-0 z-[100]"
+                    onClick={() => setShowClearConfirm(false)}
+                    aria-hidden
+                  />
+                  <div className="absolute bottom-full right-0 mb-2 z-[102] w-56 p-3 rounded-lg bg-elevated border border-border-subtle shadow-elevation-2 flex flex-col gap-2">
+                    <p className="text-[13px] text-fg-primary">Clear all notifications?</p>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => setShowClearConfirm(false)}
+                        className="text-[13px] text-fg-secondary hover:text-fg-primary py-1.5 px-3"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleClearAll}
+                        className="text-[13px] text-error font-medium hover:underline py-1.5 px-3"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
               <button
                 onClick={onClose}
@@ -294,8 +407,8 @@ export default function NotificationsPanel({
             </div>
           </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-4 mt-3">
+          {/* Filter tabs - 12px top from title, 12px bottom before content, 1px border */}
+          <div className="flex gap-4 mt-3 mb-3 pt-0 pb-3 border-b border-border-subtle">
             <button
               onClick={() => setFilter('all')}
               className={`text-[13px] font-medium transition-colors ${
@@ -323,11 +436,17 @@ export default function NotificationsPanel({
             </div>
           ) : grouped.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-              <LuBellRing size={48} className="text-fg-tertiary/30 mb-4" />
-              <p className="text-sm text-fg-secondary">All caught up</p>
+              <div className="relative mb-4">
+                <LuBell size={48} className="text-fg-tertiary/30" />
+                <LuCheck size={20} className="absolute -bottom-0.5 -right-0.5 text-fg-tertiary/30 bg-elevated rounded-full p-0.5" strokeWidth={3} />
+              </div>
+              <p className="text-[14px] text-fg-secondary">All caught up</p>
+              <p className="text-[12px] text-fg-tertiary mt-1">No new notifications</p>
             </div>
           ) : (
-            <div className="divide-y divide-border-subtle">
+            <div
+              className={`divide-y divide-border-subtle transition-opacity duration-150 ease-out ${clearingAll ? 'opacity-0' : 'opacity-100'}`}
+            >
               {grouped.map((group) => {
                 const isDeleting = group.items.some((i) => deletingIds.has(i.id));
                 const photoURL = getPhotoURL(group.items[0]);
@@ -348,6 +467,21 @@ export default function NotificationsPanel({
             </div>
           )}
         </div>
+
+        {/* Undo toast - bottom of panel */}
+        {undoToast && (
+          <div className="flex-shrink-0 px-4 pb-4">
+            <div className="flex items-center justify-between gap-3 py-3 px-4 rounded-lg bg-elevated border border-border-subtle shadow-elevation-1">
+              <span className="text-[13px] text-fg-primary">
+                {undoToast.count === 1 ? 'Notification deleted' : `${undoToast.count} notifications deleted`}
+                {' · '}
+                <button onClick={handleUndo} className="text-primary hover:underline font-medium">
+                  Undo
+                </button>
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
@@ -406,11 +540,20 @@ function NotificationRow({
   return (
     <div
       {...swipeHandlers}
-      className={`relative overflow-hidden transition-all duration-200 ease-out rounded-lg md:rounded-none ${
-        isDeleting ? 'opacity-0 -translate-x-full' : ''
+      className={`relative overflow-hidden transition-all duration-200 ease-out rounded-lg md:rounded-none group/row ${
+        isDeleting ? 'opacity-0 translate-x-full' : ''
       } ${!group.read ? 'border-l-[3px] border-l-primary bg-primary/[0.03]' : 'bg-surface'} border-b border-border-subtle last:border-b-0`}
     >
-      {/* Mobile: content + delete in flex row, delete off-screen by default; swipe reveals. Desktop: normal row */}
+      {/* Desktop: trash in top-right, visible on hover */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="hidden md:flex absolute top-2 right-2 z-10 p-1.5 rounded-lg text-fg-tertiary hover:text-error opacity-0 group-hover/row:opacity-100 transition-opacity duration-200"
+        title="Delete"
+      >
+        <LuTrash2 size={16} />
+      </button>
+
+      {/* Mobile: content + delete in flex row, delete off-screen by default; swipe reveals */}
       <div
         className="flex flex-row w-[calc(100%+80px)] md:w-full"
         style={{
@@ -419,17 +562,17 @@ function NotificationRow({
       >
         {/* Content - full width when not swiped */}
         <div
-          className="flex flex-1 min-w-0 items-start gap-3 py-3 px-4 cursor-pointer hover:bg-surface-muted/50 transition-colors duration-200 group bg-surface md:bg-elevated"
+          className="flex flex-1 min-w-0 items-start gap-3 py-3 px-4 cursor-pointer hover:bg-surface-muted/50 transition-colors duration-200 bg-surface md:bg-elevated"
           onClick={onClick}
         >
-          {/* Avatar */}
+          {/* Avatar - 32px, full circle */}
           <div className="flex-shrink-0 mt-0.5">
             <Avatar
               photoURL={photoURL}
               displayName={firstName}
-              size="xs"
+              size="sm"
               letterVariant="primary"
-              className="w-7 h-7"
+              className="w-8 h-8 rounded-full"
             />
           </div>
 
@@ -468,7 +611,7 @@ function NotificationRow({
             )}
           </p>
           {previewText && (
-            <p className="text-[13px] text-fg-tertiary italic mt-0.5 break-words line-clamp-3">
+            <p className="text-[13px] text-fg-tertiary italic mt-0.5 line-clamp-2 overflow-hidden">
               &quot;<LinkifyText text={previewText} linkClassName="text-primary" />&quot;
             </p>
           )}
@@ -483,15 +626,6 @@ function NotificationRow({
           </p>
         </div>
         </div>
-
-        {/* Delete - desktop: hover only, tertiary → error on hover */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="hidden md:flex flex-shrink-0 p-2 rounded-lg text-fg-tertiary hover:text-error opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          title="Delete"
-        >
-          <LuTrash2 size={16} />
-        </button>
 
         {/* Swipe delete area - mobile: off-screen, revealed on swipe, rounded to match card */}
         <div

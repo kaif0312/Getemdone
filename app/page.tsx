@@ -155,6 +155,38 @@ function MainApp() {
     saveCollapsedSections(collapsedSections);
   }, [collapsedSections]);
 
+  // Tags with 1+ tasks (for bar visibility and clearing stale filters)
+  const tagBarData = useMemo(() => {
+    const todayStr = getTodayString();
+    const tasksInView = tasks.filter(
+      (t) =>
+        t.userId === uid &&
+        t.deleted !== true &&
+        t.tags?.length &&
+        shouldShowInTodayView(t, todayStr)
+    );
+    const tagCounts = new Map<string, number>();
+    for (const t of tasksInView) {
+      for (const tag of (t.tags || []).map(normalizeTagToIconId)) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+    }
+    const tagsWithTasks = Array.from(tagCounts.entries())
+      .filter(([, count]) => count >= 1)
+      .map(([tag]) => tag);
+    const orderedTags = mergeTagOrder(tagsWithTasks, tagOrder);
+    return { orderedTags, tagCountMap: Object.fromEntries(tagCounts) };
+  }, [tasks, uid, tagOrder]);
+
+  // When viewing a category that becomes empty, switch to All
+  useEffect(() => {
+    if (activeTagFilters.length === 0) return;
+    const valid = activeTagFilters.filter((id) => tagBarData.orderedTags.includes(id));
+    if (valid.length !== activeTagFilters.length) {
+      setActiveTagFilters(valid);
+    }
+  }, [tagBarData.orderedTags, activeTagFilters]);
+
   const toggleSectionCollapsed = (key: string) => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
@@ -871,26 +903,11 @@ function MainApp() {
             </div>
           </div>
 
-          {/* Tag filter bar - sortable, only tags with tasks in today's view */}
-          {(() => {
-            const todayStr = getTodayString();
-            const tasksInView = tasks.filter(
-              (t) =>
-                t.userId === uid &&
-                t.deleted !== true &&
-                t.tags?.length &&
-                shouldShowInTodayView(t, todayStr)
-            );
-            const usedTags = Array.from(
-              new Set(
-                tasksInView.flatMap((t) => (t.tags || []).map(normalizeTagToIconId))
-              )
-            );
-            if (usedTags.length === 0) return null;
-            const orderedTags = mergeTagOrder(usedTags, tagOrder);
-            return (
+          {/* Tag filter bar - sortable, only tags with 1+ tasks, counts for badges */}
+          {tagBarData.orderedTags.length > 0 && (
               <SortableTagBar
-                tagIds={orderedTags}
+                tagIds={tagBarData.orderedTags}
+                tagCounts={tagBarData.tagCountMap}
                 activeTagFilters={activeTagFilters}
                 onTagClick={(tagId) => {
                   setActiveTagFilters((prev) =>
@@ -914,8 +931,7 @@ function MainApp() {
                   await updateDoc(userRef, { customTagLabels: next });
                 }}
               />
-            );
-          })()}
+          )}
         </div>
       </header>
 

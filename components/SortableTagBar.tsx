@@ -26,6 +26,7 @@ const RENAME_TOOLTIP_KEY = 'nudge_tag_rename_tooltip_seen';
 
 interface SortableTagBarProps {
   tagIds: string[];
+  tagCounts?: Record<string, number>;
   activeTagFilters: string[];
   onTagClick: (tagId: string) => void;
   onAllClick: () => void;
@@ -39,6 +40,7 @@ function SortableTagButton({
   isActive,
   onClick,
   label,
+  count,
   isEditing,
   onStartEdit,
   onSave,
@@ -49,6 +51,7 @@ function SortableTagButton({
   isActive: boolean;
   onClick: () => void;
   label: string;
+  count?: number;
   isEditing: boolean;
   onStartEdit: () => void;
   onSave: (value: string) => Promise<void>;
@@ -129,7 +132,7 @@ function SortableTagButton({
         >
           <span
             className={`
-              flex items-center justify-center w-8 h-8 rounded-full transition-colors
+              relative flex items-center justify-center w-8 h-8 rounded-full transition-colors
               ${isEditing ? '' : 'transition-colors'}
               ${isActive && !isEditing
                 ? 'bg-primary/[0.08] dark:bg-primary/[0.10]'
@@ -138,9 +141,15 @@ function SortableTagButton({
             `}
           >
             <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+            {/* Mobile: tiny count badge on icon */}
+            {count !== undefined && count > 0 && (
+              <span className="md:hidden absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center text-[10px] font-medium text-fg-tertiary bg-surface-muted rounded-full">
+                {count > 99 ? '99+' : count}
+              </span>
+            )}
           </span>
-          {/* Desktop: label with double-click to rename */}
-          <span className="hidden md:block mt-0.5 w-full max-w-[80px] min-w-[80px] flex items-center justify-center">
+          {/* Desktop: label with double-click to rename, count below */}
+          <span className="hidden md:flex flex-col items-center mt-0.5 w-full max-w-[80px] min-w-[80px]">
             {isEditing ? (
               <input
                 ref={inputRef}
@@ -153,17 +162,24 @@ function SortableTagButton({
                 className="w-full max-w-[80px] text-[12px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none px-0 py-0.5 text-center focus:outline-none focus:ring-0"
               />
             ) : (
-              <span
-                onDoubleClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onStartEdit();
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className={`text-[11px] truncate max-w-full px-0.5 cursor-default select-text ${isActive ? 'text-primary' : 'text-fg-secondary'}`}
-              >
-                {label}
-              </span>
+              <>
+                <span
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onStartEdit();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`text-[11px] truncate max-w-full px-0.5 cursor-default select-text ${isActive ? 'text-primary' : 'text-fg-secondary'}`}
+                >
+                  {label}
+                </span>
+                {count !== undefined && count > 0 && (
+                  <span className="text-[10px] text-fg-tertiary tabular-nums mt-0.5">
+                    {count}
+                  </span>
+                )}
+              </>
             )}
           </span>
         </button>
@@ -177,6 +193,7 @@ function SortableTagButton({
 
 export default function SortableTagBar({
   tagIds,
+  tagCounts = {},
   activeTagFilters,
   onTagClick,
   onAllClick,
@@ -189,8 +206,49 @@ export default function SortableTagBar({
   const [showRenameTooltip, setShowRenameTooltip] = useState(false);
   const [tooltipTagId, setTooltipTagId] = useState<string | null>(null);
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevTagIdsRef = useRef<string[]>(tagIds);
+  const [exitingTags, setExitingTags] = useState<{ id: string; opacity: number }[]>([]);
+  const exitingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canRename = Boolean(onSaveCustomLabel);
+
+  // Track tags being removed for fade-out (150ms)
+  useEffect(() => {
+    const prev = prevTagIdsRef.current;
+    const removed = prev.filter((id) => !tagIds.includes(id));
+    const tagIdsSet = new Set(tagIds);
+    prevTagIdsRef.current = tagIds;
+
+    // Remove from exiting any tag re-added to tagIds; add newly removed tags
+    setExitingTags((prevExiting) => {
+      const withoutReadded = prevExiting.filter((e) => !tagIdsSet.has(e.id));
+      const withoutReplacement = withoutReadded.filter((e) => !removed.includes(e.id));
+      return [...withoutReplacement, ...removed.map((id) => ({ id, opacity: 1 }))];
+    });
+
+    if (removed.length === 0) return;
+
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setExitingTags((e) =>
+          e.map((x) => (removed.includes(x.id) ? { ...x, opacity: 0 } : x))
+        );
+      });
+    });
+    const t = setTimeout(() => {
+      setExitingTags((e) => e.filter((x) => !removed.includes(x.id)));
+      exitingTimeoutRef.current = null;
+    }, 150);
+    exitingTimeoutRef.current = t;
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [tagIds]);
+
+  useEffect(() => () => {
+    if (exitingTimeoutRef.current) clearTimeout(exitingTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     if (!canRename || tagIds.length === 0) return;
@@ -320,12 +378,13 @@ export default function SortableTagBar({
             <SortableContext items={tagIds} strategy={horizontalListSortingStrategy}>
               <div className="flex items-center" style={{ gap: '24px' }}>
                 {tagIds.map((tagId) => (
-                  <div key={tagId} className="relative flex-shrink-0">
+                  <div key={tagId} className="relative flex-shrink-0 animate-in fade-in duration-150">
                     <SortableTagButton
                       tagId={tagId}
                       isActive={activeTagFilters.includes(tagId)}
                       onClick={() => onTagClick(tagId)}
                       label={getEffectiveLabelForTag(tagId, customTagLabels)}
+                      count={tagCounts[tagId]}
                       isEditing={editingTagId === tagId}
                       onStartEdit={() => {
                         dismissTooltip();
@@ -357,6 +416,34 @@ export default function SortableTagBar({
                     )}
                   </div>
                 ))}
+                {/* Exiting tags - fade out over 150ms (display-only, not in SortableContext) */}
+                {exitingTags.map(({ id, opacity }) => {
+                  const Icon = getIconForTag(id);
+                  const label = getEffectiveLabelForTag(id, customTagLabels);
+                  const count = tagCounts[id];
+                  return (
+                    <div
+                      key={`exiting-${id}`}
+                      className="relative flex-shrink-0 transition-opacity duration-150 ease-out pointer-events-none flex flex-col items-center justify-end w-8 min-w-[32px] h-10 md:w-12 md:h-12 text-fg-secondary"
+                      style={{ opacity }}
+                    >
+                      <span className="relative flex items-center justify-center w-8 h-8 rounded-full">
+                        <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
+                        {count !== undefined && count > 0 && (
+                          <span className="md:hidden absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center text-[10px] font-medium text-fg-tertiary bg-surface-muted rounded-full">
+                            {count > 99 ? '99+' : count}
+                          </span>
+                        )}
+                      </span>
+                      <span className="hidden md:flex flex-col items-center mt-0.5 w-full max-w-[80px] min-w-[80px]">
+                        <span className="text-[11px] truncate max-w-full px-0.5 text-fg-secondary">{label}</span>
+                        {count !== undefined && count > 0 && (
+                          <span className="text-[10px] text-fg-tertiary tabular-nums mt-0.5">{count}</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </SortableContext>
           </DndContext>

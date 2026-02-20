@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react';
 import { FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
 import StorageUsage from './StorageUsage';
 import { useEncryption } from '@/hooks/useEncryption';
+import { E2EE_ENABLED } from '@/lib/config';
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -87,12 +88,12 @@ export default function SettingsMenu({
           </div>
           <div className="overflow-y-auto py-2 flex-1 min-h-0">
             {/* Security & Privacy - E2EE Status */}
-            <div className="px-4 py-3 border-b border-border-subtle bg-success/15">
+            <div className={`px-4 py-3 border-b border-border-subtle ${E2EE_ENABLED ? 'bg-success/15' : 'bg-surface-muted/50'}`}>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   <div className="relative">
-                    <FaLock size={20} className="text-success" />
-                    {encryptionInitialized && masterKey && (
+                    <FaLock size={20} className={E2EE_ENABLED ? 'text-success' : 'text-fg-tertiary'} />
+                    {E2EE_ENABLED && encryptionInitialized && masterKey && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-success rounded-full border-2 border-surface"></span>
                     )}
                   </div>
@@ -102,7 +103,11 @@ export default function SettingsMenu({
                     <span className="text-sm font-semibold text-fg-primary">
                       End-to-End Encrypted
                     </span>
-                    {encryptionInitialized && masterKey ? (
+                    {!E2EE_ENABLED ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fg-tertiary/20 text-fg-tertiary">
+                        Disabled
+                      </span>
+                    ) : encryptionInitialized && masterKey ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
                         Active
                       </span>
@@ -113,7 +118,9 @@ export default function SettingsMenu({
                     )}
                   </div>
                   <p className="text-xs text-fg-secondary leading-relaxed">
-                    Your tasks, comments, and messages are encrypted. Only you and your friends can read them.
+                    {E2EE_ENABLED
+                      ? 'Your tasks, comments, and messages are encrypted. Only you and your friends can read them.'
+                      : 'E2EE is disabled. New data is stored in plaintext. Existing encrypted data remains readable.'}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className="inline-flex items-center gap-1 text-xs text-fg-tertiary">

@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEncryption } from './useEncryption';
+import { E2EE_ENABLED } from '@/lib/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { isEncrypted } from '@/utils/crypto';
 import { Task, Comment } from '@/lib/types';
@@ -34,8 +35,12 @@ export function useDataMigration() {
 
   /**
    * Migrate all user data to encrypted format
+   * No-op when E2EE is disabled
    */
   const migrateAllData = useCallback(async (): Promise<{ success: boolean; tasksMigrated: number; notificationsMigrated: number }> => {
+    if (!E2EE_ENABLED) {
+      return { success: true, tasksMigrated: 0, notificationsMigrated: 0 };
+    }
     if (!user?.uid || !encryptionInitialized) {
       throw new Error('User not authenticated or encryption not initialized');
     }
@@ -163,10 +168,11 @@ export function useDataMigration() {
 
   /**
    * Check if migration is needed and run it automatically
+   * Skip entirely when E2EE is disabled (no new encryption)
    */
   useEffect(() => {
     const runMigrationIfNeeded = async () => {
-      if (!user?.uid || !encryptionInitialized || isMigrating) return;
+      if (!E2EE_ENABLED || !user?.uid || !encryptionInitialized || isMigrating) return;
 
       try {
         // Check if migration has been completed

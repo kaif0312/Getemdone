@@ -10,7 +10,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, StreakData } from '@/lib/types';
 
@@ -88,15 +88,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUserData(userData);
             }
           } else {
-            // Expected for new signups – create user document
+            // Snapshot says doc doesn't exist - but could be stale cache (e.g. after app update).
+            // Verify on server before creating, to avoid overwriting existing user data (e.g. friends list).
+            try {
+              const serverDoc = await getDocFromServer(userDocRef);
+              if (serverDoc.exists()) {
+                const serverData = serverDoc.data() as User;
+                setUserData(serverData);
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[AuthContext] Doc existed on server (cache was stale), using server data');
+                }
+                setLoading(false);
+                return;
+              }
+            } catch (serverErr) {
+              console.warn('[AuthContext] getDocFromServer failed, proceeding with create:', serverErr);
+            }
+
+            // Document truly doesn't exist – create new user document
             if (process.env.NODE_ENV === 'development') {
               console.log('[AuthContext] New user detected, creating profile...');
             }
             
-            // Import DEFAULT_NOTIFICATION_SETTINGS
             const { DEFAULT_NOTIFICATION_SETTINGS } = await import('@/hooks/useNotifications');
             
-            // Create user document if it doesn't exist
             const newUserData: User = {
               id: firebaseUser.uid,
               displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',

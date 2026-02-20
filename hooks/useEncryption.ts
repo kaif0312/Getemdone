@@ -19,6 +19,7 @@ import {
 import { persistKeysForSW } from '@/lib/notificationKeys';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { E2EE_ENABLED } from '@/lib/config';
 
 interface FriendKey {
   friendId: string;
@@ -264,8 +265,10 @@ export function useEncryption() {
 
   /**
    * Encrypt data for own use (using master key)
+   * When E2EE is disabled, returns plaintext (decryption still works for legacy data)
    */
   const encryptForSelf = useCallback(async (text: string): Promise<string> => {
+    if (!E2EE_ENABLED) return text;
     if (!masterKey) {
       console.warn('[useEncryption] No master key available, returning plaintext');
       return text;
@@ -307,11 +310,13 @@ export function useEncryption() {
 
   /**
    * Encrypt data for sharing with a friend (using shared key)
+   * When E2EE is disabled, returns plaintext (decryption still works for legacy data)
    */
   const encryptForFriend = useCallback(async (
     text: string,
     friendId: string
   ): Promise<string> => {
+    if (!E2EE_ENABLED) return text;
     if (!text) return text;
     
     const sharedKey = await getSharedKey(friendId);

@@ -249,7 +249,7 @@ export default function AdminDashboard() {
           friendCode: friendCode,
           friends: [],
           createdAt: signup.requestedAt,
-        });
+        }, { merge: true });
       }
 
       setSuccess(`Approved ${signup.email}. They can now sign in!`);

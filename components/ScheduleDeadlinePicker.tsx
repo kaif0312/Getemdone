@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { getTodayString } from '@/utils/taskFilter';
 
@@ -20,15 +20,28 @@ interface ScheduleDeadlinePickerProps {
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+const HOURS_12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const MINUTES_15 = [0, 15, 30, 45];
+const MINUTES_5 = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+const AM_PM = ['AM', 'PM'];
+
+const ROW_HEIGHT = 40;
+const VISIBLE_HEIGHT = 120;
+const PADDING_ROWS = 1; // Extra row top/bottom for centering selected item
+
 function timestampToDateStr(ts: number): string {
   const d = new Date(ts);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Later Today: 2 hours from now, rounded to nearest 15 minutes */
 function getLaterTodayDateTime(): string {
   const later = new Date();
-  later.setHours(later.getHours() + 1);
-  later.setMinutes(Math.ceil(later.getMinutes() / 15) * 15, 0, 0);
+  later.setHours(later.getHours() + 2);
+  const mins = later.getMinutes();
+  const rounded = Math.round(mins / 15) * 15;
+  later.setMinutes(rounded >= 60 ? 0 : rounded, 0, 0);
+  if (rounded >= 60) later.setHours(later.getHours() + 1);
   return `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, '0')}-${String(later.getDate()).padStart(2, '0')}T${String(later.getHours()).padStart(2, '0')}:${String(later.getMinutes()).padStart(2, '0')}`;
 }
 
@@ -36,20 +49,6 @@ function getTomorrowDateStr(): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-}
-
-function getTomorrowDateTime(): string {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0);
-  return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T09:00`;
-}
-
-function getNextWeekDateTime(): string {
-  const next = new Date();
-  next.setDate(next.getDate() + 7);
-  next.setHours(9, 0, 0, 0);
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}T09:00`;
 }
 
 function getNextWeekDateStr(): string {
@@ -71,6 +70,273 @@ function getUrgencyLabel(timestamp: number): string {
   return `in ${Math.ceil(diffDays / 7)} weeks`;
 }
 
+/** Parse HH:mm (24h) to { hour12, minute, ampm } */
+function parseTime24(time24: string): { hour12: number; minute: number; ampm: 'AM' | 'PM' } {
+  const [h, m] = time24.split(':').map(Number);
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  const ampm = h < 12 ? 'AM' : 'PM';
+  return { hour12, minute: m || 0, ampm };
+}
+
+/** Format to HH:mm (24h) */
+function toTime24(hour12: number, minute: number, ampm: 'AM' | 'PM'): string {
+  let h = hour12;
+  if (ampm === 'PM' && hour12 !== 12) h += 12;
+  if (ampm === 'AM' && hour12 === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/** Find closest minute in array */
+function closestMinute(m: number, options: number[]): number {
+  return options.reduce((prev, curr) => (Math.abs(curr - m) < Math.abs(prev - m) ? curr : prev));
+}
+
+interface ScrollWheelColumnProps<T> {
+  items: T[];
+  value: T;
+  onChange: (v: T) => void;
+  format: (v: T) => string;
+  onScrollStart?: () => void;
+  editable?: boolean;
+  onEditCommit?: (text: string) => void;
+}
+
+function ScrollWheelColumn<T extends string | number>({
+  items,
+  value,
+  onChange,
+  format,
+  onScrollStart,
+  editable = false,
+  onEditCommit,
+}: ScrollWheelColumnProps<T>) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  const itemHeight = ROW_HEIGHT;
+  const totalHeight = items.length * itemHeight;
+  const paddingHeight = PADDING_ROWS * itemHeight;
+
+  const scrollToIndex = useCallback(
+    (index: number, smooth = false) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const targetScroll = index * itemHeight;
+      el.scrollTo({ top: targetScroll, behavior: smooth ? 'smooth' : 'auto' });
+    },
+    [itemHeight]
+  );
+
+  const indexOfValue = items.indexOf(value);
+  const safeIndex = indexOfValue >= 0 ? indexOfValue : 0;
+
+  useEffect(() => {
+    if (!isEditing && scrollRef.current) {
+      scrollToIndex(safeIndex, false);
+    }
+  }, [safeIndex, isEditing]);
+
+  const scrollEndRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const scrollTop = el.scrollTop;
+    const index = Math.round(scrollTop / itemHeight);
+    const clamped = Math.max(0, Math.min(index, items.length - 1));
+    const newVal = items[clamped];
+    if (newVal !== value) {
+      onChange(newVal);
+      if ('vibrate' in navigator) navigator.vibrate(10);
+    }
+    if (scrollEndRef.current) clearTimeout(scrollEndRef.current);
+    scrollEndRef.current = setTimeout(() => {
+      scrollEndRef.current = null;
+      const st = el.scrollTop;
+      const idx = Math.round(st / itemHeight);
+      const c = Math.max(0, Math.min(idx, items.length - 1));
+      scrollToIndex(c, true);
+      const v = items[c];
+      if (v !== value) onChange(v);
+    }, 100);
+  };
+
+  const handleEditBlur = () => {
+    setIsEditing(false);
+    if (onEditCommit && editValue.trim() !== '') {
+      onEditCommit(editValue.trim());
+    }
+  };
+
+  if (editable && isEditing && onEditCommit) {
+    return (
+      <div className="flex items-center justify-center" style={{ height: VISIBLE_HEIGHT }}>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleEditBlur}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleEditBlur();
+            if (e.key === 'Escape') {
+              setIsEditing(false);
+              setEditValue(format(value));
+            }
+          }}
+          autoFocus
+          className="w-12 h-10 text-center text-base font-semibold text-primary bg-transparent border-b-2 border-primary focus:outline-none"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+      style={{
+        height: VISIBLE_HEIGHT,
+        scrollSnapType: 'y mandatory',
+      }}
+      onScroll={handleScroll}
+    >
+      <div style={{ height: paddingHeight, flexShrink: 0 }} />
+      {items.map((item, i) => (
+        <div
+          key={String(item)}
+          className="flex items-center justify-center flex-shrink-0 snap-center cursor-pointer select-none"
+          style={{ height: itemHeight }}
+          onClick={() => {
+            if (editable && item === value && onEditCommit) {
+              setIsEditing(true);
+              setEditValue(format(value));
+            } else {
+              scrollToIndex(i, true);
+              onChange(item);
+            }
+          }}
+          onPointerDown={onScrollStart}
+        >
+          <span
+            className={`transition-all ${
+              item === value ? 'text-base font-semibold text-primary' : 'text-sm text-fg-tertiary opacity-50'
+            }`}
+          >
+            {format(item)}
+          </span>
+        </div>
+      ))}
+      <div style={{ height: paddingHeight, flexShrink: 0 }} />
+    </div>
+  );
+}
+
+interface TimePickerWheelProps {
+  hour12: number;
+  minute: number;
+  ampm: 'AM' | 'PM';
+  preciseMinutes: boolean;
+  onHourChange: (h: number) => void;
+  onMinuteChange: (m: number) => void;
+  onAmpmChange: (a: 'AM' | 'PM') => void;
+  onPreciseToggle: () => void;
+  isDesktop: boolean;
+}
+
+function TimePickerWheel({
+  hour12,
+  minute,
+  ampm,
+  preciseMinutes,
+  onHourChange,
+  onMinuteChange,
+  onAmpmChange,
+  onPreciseToggle,
+  isDesktop,
+}: TimePickerWheelProps) {
+  const minuteOptions = preciseMinutes ? MINUTES_5 : MINUTES_15;
+  const displayMinute = minuteOptions.includes(minute) ? minute : closestMinute(minute, minuteOptions);
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex-1 min-w-0 relative overflow-hidden rounded-xl border border-border-subtle bg-surface">
+        {/* Top fade */}
+        <div
+          className="absolute left-0 right-0 top-0 z-10 h-6 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, var(--color-bg-surface) 0%, transparent 100%)',
+          }}
+        />
+        <ScrollWheelColumn
+          items={HOURS_12}
+          value={hour12}
+          onChange={(v) => onHourChange(Number(v))}
+          format={(v) => String(v)}
+          editable={isDesktop}
+          onEditCommit={
+            isDesktop
+              ? (t) => {
+                  const n = parseInt(t, 10);
+                  if (!isNaN(n) && n >= 1 && n <= 12) onHourChange(n);
+                }
+              : undefined
+          }
+        />
+        <div className="absolute left-0 right-0 bottom-0 z-10 h-6 pointer-events-none" style={{ background: 'linear-gradient(to top, var(--color-bg-surface) 0%, transparent 100%)' }} />
+      </div>
+
+      <span className="text-base text-fg-secondary font-medium flex-shrink-0">:</span>
+
+      <div className="flex-1 min-w-0 relative overflow-hidden rounded-xl border border-border-subtle bg-surface">
+        <div className="absolute left-0 right-0 top-0 z-10 h-6 pointer-events-none" style={{ background: 'linear-gradient(to bottom, var(--color-bg-surface) 0%, transparent 100%)' }} />
+        <ScrollWheelColumn
+          items={minuteOptions}
+          value={displayMinute}
+          onChange={(v) => onMinuteChange(Number(v))}
+          format={(v) => String(v).padStart(2, '0')}
+          editable={isDesktop}
+          onEditCommit={
+            isDesktop
+              ? (t) => {
+                  const n = parseInt(t, 10);
+                  if (!isNaN(n) && n >= 0 && n <= 59) onMinuteChange(n);
+                }
+              : undefined
+          }
+        />
+        <div className="absolute left-0 right-0 bottom-0 z-10 h-6 pointer-events-none" style={{ background: 'linear-gradient(to top, var(--color-bg-surface) 0%, transparent 100%)' }} />
+      </div>
+
+      <div className="flex-1 min-w-0 relative overflow-hidden rounded-xl border border-border-subtle bg-surface">
+        <div className="absolute left-0 right-0 top-0 z-10 h-6 pointer-events-none" style={{ background: 'linear-gradient(to bottom, var(--color-bg-surface) 0%, transparent 100%)' }} />
+        <ScrollWheelColumn
+          items={AM_PM}
+          value={ampm}
+          onChange={(v) => onAmpmChange(v as 'AM' | 'PM')}
+          format={(v) => v}
+        />
+        <div className="absolute left-0 right-0 bottom-0 z-10 h-6 pointer-events-none" style={{ background: 'linear-gradient(to top, var(--color-bg-surface) 0%, transparent 100%)' }} />
+      </div>
+
+      <button
+        type="button"
+        onClick={onPreciseToggle}
+        className="text-[11px] text-fg-tertiary hover:text-fg-secondary px-2 py-1 rounded"
+      >
+        {preciseMinutes ? '5m' : '15m'}
+      </button>
+    </div>
+  );
+}
+
+const QUICK_TIMES: { label: string; hour12: number; minute: number; ampm: 'AM' | 'PM' }[] = [
+  { label: 'Morning (9 AM)', hour12: 9, minute: 0, ampm: 'AM' },
+  { label: 'Noon', hour12: 12, minute: 0, ampm: 'PM' },
+  { label: 'Afternoon (2 PM)', hour12: 2, minute: 0, ampm: 'PM' },
+  { label: 'Evening (6 PM)', hour12: 6, minute: 0, ampm: 'PM' },
+];
+
 export default function ScheduleDeadlinePicker({
   isOpen,
   onClose,
@@ -88,8 +354,23 @@ export default function ScheduleDeadlinePicker({
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
   });
-  const [customTime, setCustomTime] = useState('');
-  const timeInputRef = useRef<HTMLInputElement>(null);
+  const [allDay, setAllDay] = useState(true);
+  const [hour12, setHour12] = useState(9);
+  const [minute, setMinute] = useState(0);
+  const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
+  const [preciseMinutes, setPreciseMinutes] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  const minuteOptions = preciseMinutes ? MINUTES_5 : MINUTES_15;
+  const effectiveMinute = minuteOptions.includes(minute) ? minute : closestMinute(minute, minuteOptions);
+
+  const prevPreciseRef = useRef(preciseMinutes);
+  useEffect(() => {
+    if (prevPreciseRef.current !== preciseMinutes) {
+      prevPreciseRef.current = preciseMinutes;
+      setMinute((m) => closestMinute(m, minuteOptions));
+    }
+  }, [preciseMinutes, minuteOptions]);
 
   const todayStr = getTodayString();
   const tomorrowStr = getTomorrowDateStr();
@@ -98,63 +379,126 @@ export default function ScheduleDeadlinePicker({
   const hasDeadline = !!dueDate;
   const hasValue = activeTab === 'schedule' ? hasSchedule : hasDeadline;
 
-  // Sync customTime from existing value when picker opens
+  useEffect(() => {
+    setIsDesktop(typeof window !== 'undefined' && window.innerWidth >= 768);
+  }, []);
+
+  const getSelectedDateStr = useCallback((): string | null => {
+    if (activeTab === 'schedule' && scheduledFor) return scheduledFor.split('T')[0];
+    if (activeTab === 'deadline' && dueDate) return timestampToDateStr(dueDate);
+    return null;
+  }, [activeTab, scheduledFor, dueDate]);
+
+  const getEffectiveDateStr = (): string => {
+    const sel = getSelectedDateStr();
+    if (sel) return sel;
+    if (selectedQuickOption === 'later-today') return todayStr;
+    if (selectedQuickOption === 'tomorrow') return tomorrowStr;
+    if (selectedQuickOption === 'next-week') return nextWeekStr;
+    if (selectedQuickOption === 'pick-date' && showCustomPicker) return todayStr;
+    return todayStr;
+  };
+
+  const applyTimeToValue = useCallback(
+    (dateStr: string, timeStr: string | null) => {
+      const value = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+      if (activeTab === 'schedule') {
+        onScheduleChange(value);
+      } else {
+        onDeadlineChange(new Date(value || `${dateStr}T09:00`).getTime());
+      }
+    },
+    [activeTab, onScheduleChange, onDeadlineChange]
+  );
+
+  const syncTimeFromValue = useCallback(() => {
+    let time24 = '';
+    if (activeTab === 'schedule' && scheduledFor?.includes('T')) {
+      time24 = scheduledFor.split('T')[1]?.slice(0, 5) || '';
+    } else if (activeTab === 'deadline' && dueDate) {
+      const d = new Date(dueDate);
+      time24 = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    if (time24) {
+      const { hour12: h, minute: m, ampm: a } = parseTime24(time24);
+      setHour12(h);
+      setMinute(closestMinute(m, MINUTES_15));
+      setAmpm(a);
+      setAllDay(false);
+    } else {
+      setAllDay(true);
+    }
+  }, [activeTab, scheduledFor, dueDate]);
+
+  const setTimeFromWheel = useCallback(
+    (h: number, m: number, a: 'AM' | 'PM') => {
+      const time24 = toTime24(h, m, a);
+      setAllDay(false);
+      applyTimeToValue(getEffectiveDateStr(), time24);
+    },
+    [applyTimeToValue, getEffectiveDateStr]
+  );
+
   useEffect(() => {
     if (isOpen && hasValue) {
-      if (activeTab === 'schedule' && scheduledFor?.includes('T')) {
-        setCustomTime(scheduledFor.split('T')[1]?.slice(0, 5) || '');
-      } else if (activeTab === 'deadline' && dueDate) {
-        const d = new Date(dueDate);
-        setCustomTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-      }
-    } else if (isOpen && !hasValue) {
-      setCustomTime('');
+      syncTimeFromValue();
     }
-  }, [isOpen, hasValue, activeTab, scheduledFor, dueDate]);
+  }, [isOpen, hasValue, syncTimeFromValue]);
+
+  useEffect(() => {
+    if (isOpen && !hasValue) {
+      setAllDay(true);
+    }
+  }, [isOpen, hasValue]);
 
   const handleQuickSelect = (option: QuickOption) => {
     setSelectedQuickOption(option);
     if (option === 'pick-date') {
       setShowCustomPicker(true);
+      setAllDay(true);
     } else {
       setShowCustomPicker(false);
+      const dateStr = option === 'later-today' ? todayStr : option === 'tomorrow' ? tomorrowStr : nextWeekStr;
       if (option === 'later-today') {
         const val = getLaterTodayDateTime();
+        const { hour12: h, minute: m, ampm: a } = parseTime24(val.split('T')[1] || '09:00');
+        setHour12(h);
+        setMinute(m);
+        setAmpm(a);
+        setAllDay(false);
         if (activeTab === 'schedule') onScheduleChange(val);
         else onDeadlineChange(new Date(val).getTime());
-      } else if (option === 'tomorrow') {
-        const val = getTomorrowDateTime();
-        if (activeTab === 'schedule') onScheduleChange(val);
-        else onDeadlineChange(new Date(val).getTime());
-      } else if (option === 'next-week') {
-        const val = getNextWeekDateTime();
-        if (activeTab === 'schedule') onScheduleChange(val);
-        else onDeadlineChange(new Date(val).getTime());
+      } else {
+        setAllDay(true);
+        if (activeTab === 'schedule') onScheduleChange(dateStr);
+        else onDeadlineChange(new Date(`${dateStr}T09:00`).getTime());
       }
     }
   };
 
   const handleDateSelect = (dateStr: string) => {
-    const timePart = customTime || (activeTab === 'deadline' ? '09:00' : '');
-    const value = timePart ? `${dateStr}T${timePart}` : dateStr;
-    if (activeTab === 'schedule') {
-      onScheduleChange(value);
+    if (allDay) {
+      if (activeTab === 'schedule') onScheduleChange(dateStr);
+      else onDeadlineChange(new Date(`${dateStr}T09:00`).getTime());
     } else {
-      onDeadlineChange(new Date(value).getTime());
+      const time24 = toTime24(hour12, effectiveMinute, ampm);
+      applyTimeToValue(dateStr, time24);
     }
   };
 
-  const handleTimeChange = (timeVal: string) => {
-    setCustomTime(timeVal);
-    const selectedStr = getSelectedDateStr();
-    const dateStr = selectedStr || todayStr;
-    if (timeVal) {
-      handleDateSelect(`${dateStr}T${timeVal}`);
-    } else if (activeTab === 'schedule') {
-      onScheduleChange(dateStr);
-    } else if (activeTab === 'deadline') {
-      onDeadlineChange(new Date(`${dateStr}T09:00`).getTime());
-    }
+  const handleTimeWheelChange = (h: number, m: number, a: 'AM' | 'PM') => {
+    setHour12(h);
+    setMinute(m);
+    setAmpm(a);
+    setTimeFromWheel(h, m, a);
+  };
+
+  const handleQuickTime = (qt: (typeof QUICK_TIMES)[0]) => {
+    setHour12(qt.hour12);
+    setMinute(qt.minute);
+    setAmpm(qt.ampm);
+    setAllDay(false);
+    setTimeFromWheel(qt.hour12, qt.minute, qt.ampm);
   };
 
   const handleRemove = () => {
@@ -176,7 +520,6 @@ export default function ScheduleDeadlinePicker({
 
   const canConfirm = hasValue;
 
-  // Compute which quick option matches current value (for chip highlighting)
   const getMatchingQuickOption = (): QuickOption | null => {
     if (!hasValue) return null;
     if (activeTab === 'schedule' && scheduledFor) {
@@ -197,14 +540,13 @@ export default function ScheduleDeadlinePicker({
   };
 
   const matchingOption = getMatchingQuickOption();
+  const hasDateSelected = selectedQuickOption !== null || hasValue;
 
-  // Reset when tab changes
   useEffect(() => {
     setSelectedQuickOption(null);
     setShowCustomPicker(false);
   }, [activeTab]);
 
-  // Build calendar grid
   const daysInMonth = new Date(calendarMonth.year, calendarMonth.month + 1, 0).getDate();
   const firstDay = new Date(calendarMonth.year, calendarMonth.month, 1).getDay();
   const calendarDays: (number | null)[] = [];
@@ -224,10 +566,17 @@ export default function ScheduleDeadlinePicker({
     return d < new Date(today.getFullYear(), today.getMonth(), today.getDate());
   };
 
-  const getSelectedDateStr = (): string | null => {
-    if (activeTab === 'schedule' && scheduledFor) return scheduledFor.split('T')[0];
-    if (activeTab === 'deadline' && dueDate) return timestampToDateStr(dueDate);
-    return null;
+  const getSummaryText = (): string => {
+    const dateStr = getEffectiveDateStr();
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T12:00:00');
+    const dateLabel =
+      dateStr === todayStr ? 'Today' : dateStr === tomorrowStr ? 'Tomorrow' : dateStr === nextWeekStr ? 'Next Week' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    if (allDay) {
+      return activeTab === 'schedule' ? `Scheduled for ${dateLabel} (no specific time)` : `Due by ${dateLabel} (no specific time)`;
+    }
+    const timeStr = `${hour12}:${String(effectiveMinute).padStart(2, '0')} ${ampm}`;
+    return activeTab === 'schedule' ? `Scheduled for ${dateLabel} at ${timeStr}` : `Due by ${dateLabel} at ${timeStr}`;
   };
 
   if (!isOpen) return null;
@@ -240,17 +589,15 @@ export default function ScheduleDeadlinePicker({
         aria-hidden="true"
       />
       <div
-        className="fixed inset-x-0 bottom-0 z-[99999] max-h-[60vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+        className="fixed inset-x-0 bottom-0 z-[99999] max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="bg-surface dark:bg-elevated rounded-t-2xl flex flex-col max-h-[60vh] overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-none dark:border-t dark:border-border-subtle">
-          {/* Drag handle */}
+        <div className="bg-surface dark:bg-elevated rounded-t-2xl flex flex-col max-h-[85vh] overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-none dark:border-t dark:border-border-subtle">
           <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
             <div className="w-9 h-1 rounded-full bg-fg-tertiary/30" aria-hidden="true" />
           </div>
 
           <div className="px-5 pb-5 pt-0 flex-1 min-h-0 flex flex-col overflow-hidden">
-            {/* Tab switcher */}
             <div className="flex border-b border-border-subtle flex-shrink-0">
               <button
                 type="button"
@@ -273,17 +620,20 @@ export default function ScheduleDeadlinePicker({
             </div>
 
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
-              {/* Quick select chips */}
               <div className="flex flex-wrap gap-2">
                 {(['later-today', 'tomorrow', 'next-week', 'pick-date'] as const).map((opt) => {
-                  const isSelected = selectedQuickOption === opt || (selectedQuickOption === null && matchingOption === opt) || (opt === 'pick-date' && showCustomPicker) || (opt === 'pick-date' && matchingOption === 'pick-date');
+                  const isSelected =
+                    selectedQuickOption === opt ||
+                    (selectedQuickOption === null && matchingOption === opt) ||
+                    (opt === 'pick-date' && showCustomPicker) ||
+                    (opt === 'pick-date' && matchingOption === 'pick-date');
                   const label = opt === 'later-today' ? 'Later Today' : opt === 'pick-date' ? 'Pick Date' : opt === 'next-week' ? 'Next Week' : 'Tomorrow';
                   return (
                     <button
                       key={opt}
                       type="button"
                       onClick={() => handleQuickSelect(opt)}
-                      className={`px-5 py-2.5 rounded-[20px] text-sm font-medium border-[1.5px] transition-all active:scale-[0.97] ${
+                      className={`px-5 py-2.5 rounded-[20px] text-[13px] font-medium border-[1.5px] transition-all active:scale-[0.97] ${
                         isSelected ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-border-emphasized text-fg-primary hover:border-primary/50'
                       }`}
                     >
@@ -293,7 +643,6 @@ export default function ScheduleDeadlinePicker({
                 })}
               </div>
 
-              {/* Custom date picker - shown when Pick Date selected or existing value is a custom date */}
               {(showCustomPicker || (hasValue && matchingOption === 'pick-date')) && (
                 <div className="space-y-4 animate-in fade-in duration-150">
                   <div>
@@ -328,13 +677,7 @@ export default function ScheduleDeadlinePicker({
                             onClick={() => !past && handleDateSelect(dateStr)}
                             disabled={past}
                             className={`w-9 h-9 flex items-center justify-center text-sm font-medium rounded-lg transition-colors ${
-                              past
-                                ? 'text-fg-tertiary/50 cursor-not-allowed'
-                                : selected
-                                ? 'bg-primary text-on-accent'
-                                : isToday
-                                ? 'ring-[1.5px] ring-primary text-fg-primary hover:bg-primary/10'
-                                : 'text-fg-primary hover:bg-surface-muted'
+                              past ? 'text-fg-tertiary/50 cursor-not-allowed' : selected ? 'bg-primary text-on-accent' : isToday ? 'ring-[1.5px] ring-primary text-fg-primary hover:bg-primary/10' : 'text-fg-primary hover:bg-surface-muted'
                             }`}
                           >
                             {day}
@@ -343,24 +686,78 @@ export default function ScheduleDeadlinePicker({
                       })}
                     </div>
                   </div>
-
-                  {/* Time input */}
-                  <div>
-                    <label className="block text-xs text-fg-tertiary mb-1.5">Set time (optional)</label>
-                    <input
-                      ref={timeInputRef}
-                      type="time"
-                      value={customTime}
-                      onChange={(e) => handleTimeChange(e.target.value)}
-                      className="w-full px-4 py-3 text-sm text-fg-primary bg-background rounded-[10px] border-0 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
                 </div>
               )}
 
-              {/* Urgency label for deadline */}
+              {/* Time picker - always shown when any date option selected */}
+              {hasDateSelected && (
+                <div className="space-y-3 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAllDay(true);
+                        const dateStr = getEffectiveDateStr();
+                        if (activeTab === 'schedule') onScheduleChange(dateStr);
+                        else onDeadlineChange(new Date(`${dateStr}T09:00`).getTime());
+                      }}
+                      className={`px-3 py-1.5 rounded-[20px] text-[13px] font-medium border transition-all ${
+                        allDay ? 'bg-primary/10 border-primary text-primary' : 'bg-transparent border-border-emphasized text-fg-secondary hover:border-primary/50'
+                      }`}
+                    >
+                      All day
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAllDay(false);
+                        setTimeFromWheel(hour12, effectiveMinute, ampm);
+                      }}
+                      className="text-[12px] text-fg-tertiary hover:text-fg-secondary transition-colors"
+                    >
+                      Time (optional)
+                    </button>
+                  </div>
+
+                  {!allDay && (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {QUICK_TIMES.map((qt) => (
+                          <button
+                            key={qt.label}
+                            type="button"
+                            onClick={() => handleQuickTime(qt)}
+                            className="px-4 py-2 rounded-[20px] text-[13px] font-medium border border-border-emphasized text-fg-primary hover:border-primary/50 transition-all"
+                          >
+                            {qt.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="p-3 rounded-xl border border-border-subtle bg-surface">
+                        <TimePickerWheel
+                          hour12={hour12}
+                          minute={minute}
+                          ampm={ampm}
+                          preciseMinutes={preciseMinutes}
+                          onHourChange={(h) => handleTimeWheelChange(h, minute, ampm)}
+                          onMinuteChange={(m) => handleTimeWheelChange(hour12, m, ampm)}
+                          onAmpmChange={(a) => handleTimeWheelChange(hour12, minute, a)}
+                          onPreciseToggle={() => setPreciseMinutes((p) => !p)}
+                          isDesktop={isDesktop}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'deadline' && dueDate && (
                 <p className="text-sm text-fg-secondary">{getUrgencyLabel(dueDate)}</p>
+              )}
+
+              {hasDateSelected && (
+                <p className="text-[13px] text-fg-secondary text-center">{getSummaryText()}</p>
               )}
             </div>
 

@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FaSun, FaMoon, FaCog, FaUsers, FaSignOutAlt } from 'react-icons/fa';
+import { LuScanFace, LuLock } from 'react-icons/lu';
 import Avatar from './Avatar';
 import { getAccentForId } from '@/lib/theme';
+import { useBiometric } from '@/contexts/BiometricContext';
 
 interface ProfileAvatarDropdownProps {
   userPhotoURL?: string;
@@ -15,6 +17,7 @@ interface ProfileAvatarDropdownProps {
   onSettings: () => void;
   onSocial: () => void;
   onLogout: () => void;
+  onShowToast?: (title: string) => void;
 }
 
 export default function ProfileAvatarDropdown({
@@ -27,10 +30,19 @@ export default function ProfileAvatarDropdown({
   onSettings,
   onSocial,
   onLogout,
+  onShowToast,
 }: ProfileAvatarDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [biometricToggling, setBiometricToggling] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const accent = getAccentForId(userId);
+  const {
+    supportsBiometric,
+    biometricEnabled,
+    enroll,
+    disable,
+    lock,
+  } = useBiometric();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -96,6 +108,60 @@ export default function ProfileAvatarDropdown({
         <span className="text-[15px]">Social / Groups / Friends</span>
       </button>
 
+      {/* Face ID Lock - iOS only */}
+      {supportsBiometric && (
+        <div className="pt-1">
+          <button
+            onClick={async () => {
+              if (biometricToggling) return;
+              setBiometricToggling(true);
+              if (biometricEnabled) {
+                await disable();
+              } else {
+                const ok = await enroll();
+                if (!ok && onShowToast) {
+                  onShowToast('Face ID setup cancelled');
+                }
+              }
+              setBiometricToggling(false);
+            }}
+            disabled={biometricToggling}
+            className="w-full flex items-center justify-between gap-3 min-h-[44px] px-3 py-2 rounded-lg text-fg-primary hover:bg-surface-muted transition-colors text-left disabled:opacity-60"
+            type="button"
+          >
+            <div className="flex items-center gap-3">
+              <LuScanFace size={18} className="text-fg-secondary shrink-0" />
+              <span className="text-[15px]">Face ID Lock</span>
+            </div>
+            <div
+              role="switch"
+              aria-checked={biometricEnabled}
+              className={`relative w-10 h-6 rounded-full transition-colors shrink-0 border ${
+                biometricEnabled ? 'bg-primary border-primary' : 'bg-transparent border-border-subtle'
+              }`}
+            >
+              <div
+                className={`absolute top-1 w-4 h-4 bg-on-accent rounded-full transition-transform ${
+                  biometricEnabled ? 'left-5' : 'left-1'
+                }`}
+              />
+            </div>
+          </button>
+          <p className="text-[12px] text-fg-tertiary px-3 pb-2">Require Face ID to open Nudge</p>
+        </div>
+      )}
+
+      {/* Lock App - only when Face ID is enabled */}
+      {supportsBiometric && biometricEnabled && (
+        <button
+          onClick={() => handleItemClick(lock)}
+          className="w-full flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg text-fg-primary hover:bg-surface-muted transition-colors text-left"
+        >
+          <LuLock size={18} className="text-fg-secondary shrink-0" />
+          <span className="text-[15px]">Lock App</span>
+        </button>
+      )}
+
       {/* Logout - separated by divider, error color */}
       <div className="border-t border-border-subtle mt-3 pt-3">
         <button
@@ -144,8 +210,8 @@ export default function ProfileAvatarDropdown({
               maxHeight: 'min(70vh, 400px)',
             }}
           >
-            {/* Drag handle pill - mobile only */}
-            <div className="flex justify-center pt-3 pb-2 md:hidden flex-shrink-0">
+            {/* Drag handle pill - mobile only: 36px wide, 4px tall, tertiary 30%, 8px top margin */}
+            <div className="flex justify-center pt-2 pb-2 md:hidden flex-shrink-0">
               <div className="w-9 h-1 rounded-full bg-fg-tertiary/30" aria-hidden />
             </div>
             {/* Header - user info with 16px bottom padding, 1px separator */}

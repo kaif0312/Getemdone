@@ -32,6 +32,8 @@ import QuickInfoModal from '@/components/QuickInfoModal';
 import IOSInstallPrompt from '@/components/IOSInstallPrompt';
 import AndroidInstallPrompt from '@/components/AndroidInstallPrompt';
 import AccessRemovedScreen from '@/components/AccessRemovedScreen';
+import FaceIDLockScreen from '@/components/FaceIDLockScreen';
+import { useBiometric } from '@/contexts/BiometricContext';
 import { FaBell } from 'react-icons/fa';
 import { LuFlame, LuInbox, LuChevronDown } from 'react-icons/lu';
 import ProfileAvatarDropdown from '@/components/ProfileAvatarDropdown';
@@ -95,7 +97,22 @@ export default function Home() {
     );
   }
 
-  return <MainApp />;
+  return <MainAppWithBiometric />;
+}
+
+function BiometricLockOverlay() {
+  const { isLocked, biometricEnabled, supportsBiometric } = useBiometric();
+  if (!supportsBiometric || !biometricEnabled || !isLocked) return null;
+  return <FaceIDLockScreen />;
+}
+
+function MainAppWithBiometric() {
+  return (
+    <>
+      <MainApp />
+      <BiometricLockOverlay />
+    </>
+  );
 }
 
 function MainApp() {
@@ -847,6 +864,9 @@ function MainApp() {
                   if (!onboarding.state.hasSeenFriends) onboarding.markFeatureSeen('hasSeenFriends');
                 }}
                 onLogout={signOut}
+                onShowToast={(title) =>
+                  addToastNotification({ type: 'error', title, message: '', duration: 4000 })
+                }
               />
             </div>
           </div>

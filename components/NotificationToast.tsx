@@ -6,7 +6,7 @@ import LinkifyText from './LinkifyText';
 
 export interface ToastNotification {
   id: string;
-  type: 'deadline' | 'noon-checkin' | 'commitment' | 'friend' | 'success';
+  type: 'deadline' | 'noon-checkin' | 'commitment' | 'friend' | 'success' | 'error';
   title: string;
   message: string;
   duration?: number; // ms, default 5000
@@ -53,6 +53,8 @@ export default function NotificationToast({ notifications, onDismiss }: Notifica
         return <FaUserFriends className="text-green-500" size={20} />;
       case 'success':
         return <FaCheckCircle className="text-green-500" size={20} />;
+      case 'error':
+        return <FaTimes className="text-red-500" size={20} />;
       default:
         return <FaBell className="text-gray-500" size={20} />;
     }

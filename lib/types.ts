@@ -54,6 +54,10 @@ export interface User {
   storageLimit?: number; // Storage limit in bytes (default: 100MB)
   /** Recently used emoji tags for quick selection (max 12) */
   recentlyUsedTags?: string[];
+  /** WebAuthn credential ID for Face ID lock (iOS only). Never stores biometric data. */
+  biometricCredentialId?: string;
+  /** Whether Face ID lock is enabled for this user */
+  biometricEnabled?: boolean;
 }
 
 export interface Reaction {

@@ -182,6 +182,133 @@ button, a, [role="button"], input, select, textarea {
 }
 
 /* Checkbox check bounce animation */
+/* Task completion animations - respect reduced motion */
+@keyframes checkbox-fill {
+  0% { clip-path: circle(0% at 50% 50%); }
+  100% { clip-path: circle(100% at 50% 50%); }
+}
+@keyframes checkmark-draw {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes checkbox-bounce-complete {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.2); }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes strikethrough-expand {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+.task-complete-strikethrough {
+  position: relative;
+}
+.task-complete-strikethrough::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform-origin: left;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+.task-complete-strikethrough.strikethrough-expanded::after {
+  transform: scaleX(1);
+  animation: none;
+}
+@keyframes strikethrough-retract {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+.task-uncheck-strikethrough {
+  position: relative;
+}
+.task-uncheck-strikethrough::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform-origin: right;
+  transform: scaleX(1);
+  pointer-events: none;
+}
+@keyframes particle-burst-1 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(12px,-20px); } }
+@keyframes particle-burst-2 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-15px,-15px); } }
+@keyframes particle-burst-3 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(20px,8px); } }
+@keyframes particle-burst-4 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-18px,12px); } }
+@keyframes particle-burst-5 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(8px,22px); } }
+@keyframes particle-burst-6 { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(-10px,-22px); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .task-complete-checkbox-fill {
+    animation: checkbox-fill 150ms ease-out forwards;
+  }
+  .task-complete-checkmark-draw {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: checkmark-draw 150ms ease-out 150ms forwards;
+  }
+  .task-complete-checkbox-bounce {
+    animation: checkbox-bounce-complete 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms forwards;
+  }
+  .task-complete-strikethrough::after {
+    animation: strikethrough-expand 200ms ease-out 150ms forwards;
+  }
+  .task-uncheck-strikethrough::after {
+    animation: strikethrough-retract 150ms ease-in forwards;
+  }
+  .task-complete-particle-1 { animation: particle-burst-1 300ms ease-out 200ms forwards; }
+  .task-complete-particle-2 { animation: particle-burst-2 300ms ease-out 200ms forwards; }
+  .task-complete-particle-3 { animation: particle-burst-3 300ms ease-out 200ms forwards; }
+  .task-complete-particle-4 { animation: particle-burst-4 300ms ease-out 200ms forwards; }
+  .task-complete-particle-5 { animation: particle-burst-5 300ms ease-out 200ms forwards; }
+  .task-complete-particle-6 { animation: particle-burst-6 300ms ease-out 200ms forwards; }
+}
+
+/* Uncheck reverse animations */
+@keyframes checkbox-unfill {
+  0% { clip-path: circle(100% at 50% 50%); }
+  100% { clip-path: circle(0% at 50% 50%); }
+}
+@keyframes checkmark-undraw {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 24; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .task-uncheck-fill {
+    animation: checkbox-unfill 150ms ease-in forwards;
+  }
+  .task-uncheck-draw {
+    stroke-dasharray: 24;
+    animation: checkmark-undraw 150ms ease-in forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-complete-checkbox-fill,
+  .task-complete-checkmark-draw,
+  .task-complete-checkbox-bounce,
+  .task-complete-strikethrough::after,
+  .task-uncheck-strikethrough::after,
+  .task-uncheck-fill,
+  .task-uncheck-draw,
+  .task-complete-particle-1,
+  .task-complete-particle-2,
+  .task-complete-particle-3,
+  .task-complete-particle-4,
+  .task-complete-particle-5,
+  .task-complete-particle-6 {
+    animation: none !important;
+  }
+}
+
 @keyframes checkbox-bounce {
   0% { transform: scale(0.8); }
   50% { transform: scale(1.08); }
@@ -189,6 +316,63 @@ button, a, [role="button"], input, select, textarea {
 }
 .checkbox-checked {
   animation: checkbox-bounce 0.25s ease-out;
+}
+
+/* Task appearing in Completed section - slide-in (Phase 4) */
+@keyframes task-complete-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.task-complete-slide-in {
+  animation: task-complete-slide-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Task count bounce when a task is completed */
+@keyframes task-count-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.task-count-just-updated {
+  animation: task-count-bounce 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Streak pill bounce when streak increments */
+@keyframes streak-bounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.streak-just-updated {
+  animation: streak-bounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-complete-slide-in,
+  .task-count-just-updated,
+  .streak-just-updated {
+    animation: none !important;
+  }
+}
+
+/* Recurrence picker — subtle radio borders (unselected) */
+.recurrence-end-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid var(--color-border-subtle);
+  background: transparent;
+}
+.recurrence-end-radio:checked {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  background-image: none;
 }
 
 /* Theme transition - body and major containers (200ms) handled above and in layout */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LuPencil, LuClock, LuRepeat, LuStar, LuEye, LuEyeOff, LuTrash2, LuTag } from 'react-icons/lu';
+import { LuPencil, LuClock, LuRepeat, LuStar, LuEye, LuEyeOff, LuTrash2, LuTag, LuUsers } from 'react-icons/lu';
 import { Task } from '@/lib/types';
 
 const MENU_WIDTH = 220;
@@ -21,6 +21,7 @@ interface TaskContextMenuProps {
   onSetRecurrence?: () => void;
   onToggleCommitment?: () => void;
   onTogglePrivacy?: () => void;
+  onSetVisibility?: () => void;
   onChangeIcon?: () => void;
   onDelete?: () => void;
   isCommitted?: boolean;
@@ -39,6 +40,7 @@ export default function TaskContextMenu({
   onSetRecurrence,
   onToggleCommitment,
   onTogglePrivacy,
+  onSetVisibility,
   onChangeIcon,
   onDelete,
   isCommitted = false,
@@ -125,6 +127,12 @@ export default function TaskContextMenu({
         <button onClick={wrapAction(onToggleCommitment)} className={itemClass}>
           <LuStar size={iconSize} className={iconClass} strokeWidth={1.5} />
           {isCommitted ? 'Remove commitment' : 'Commit to complete'}
+        </button>
+      )}
+      {onSetVisibility && !task.completed && (
+        <button onClick={wrapAction(onSetVisibility)} className={itemClass}>
+          <LuUsers size={iconSize} className={iconClass} strokeWidth={1.5} />
+          Set visibility
         </button>
       )}
       {onTogglePrivacy && !task.completed && (

@@ -13,7 +13,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User } from '@/lib/types';
+import { User, FriendGroup, TaskVisibility } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function useFriends() {
@@ -101,6 +101,22 @@ export function useFriends() {
     });
   };
 
+  const updateFriendGroups = async (groups: FriendGroup[]) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), { friendGroups: groups });
+  };
+
+  const updateDefaultVisibility = async (
+    visibility: TaskVisibility,
+    visibilityList?: string[]
+  ) => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), {
+      defaultVisibility: visibility,
+      defaultVisibilityList: visibilityList || [],
+    });
+  };
+
   return {
     friends,
     loading,
@@ -108,5 +124,7 @@ export function useFriends() {
     searchByFriendCode,
     addFriend,
     removeFriend,
+    updateFriendGroups,
+    updateDefaultVisibility,
   };
 }

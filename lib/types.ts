@@ -37,6 +37,13 @@ export interface InAppNotification {
   read: boolean;
 }
 
+/** Friend group for selective task visibility (e.g. "Close Friends") */
+export interface FriendGroup {
+  id: string;
+  name: string;
+  memberIds: string[];
+}
+
 export interface User {
   id: string;
   displayName: string;
@@ -45,6 +52,12 @@ export interface User {
   fcmToken?: string; // Firebase Cloud Messaging token for push notifications
   fcmTokenUpdatedAt?: number; // Timestamp when FCM token was last updated
   friends: string[];
+  /** Reusable friend groups for task visibility (e.g. Close Friends) */
+  friendGroups?: FriendGroup[];
+  /** Default visibility for new tasks: everyone | only | except | private */
+  defaultVisibility?: 'everyone' | 'only' | 'except' | 'private';
+  /** Default visibility list (friend IDs) when defaultVisibility is only/except */
+  defaultVisibilityList?: string[];
   createdAt: number;
   streakData?: StreakData;
   isAdmin?: boolean; // Admin users can manage whitelist and view all users
@@ -60,6 +73,8 @@ export interface User {
   biometricEnabled?: boolean;
   /** Custom labels for tag/category icons (tagId -> label). Syncs across devices. */
   customTagLabels?: Record<string, string>;
+  /** IDs of dismissed one-time banners (e.g. 'visibility_social') */
+  dismissedBanners?: string[];
 }
 
 export interface Reaction {
@@ -118,15 +133,27 @@ export interface BugReport {
 
 /** Recurrence: template spawns fresh instance each scheduled day */
 export interface Recurrence {
-  frequency: 'daily' | 'weekdays' | 'weekly' | 'custom';
-  /** For weekly/custom: 0=Sun, 1=Mon, ... 6=Sat */
+  frequency: 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  /** For weekly/biweekly/custom weeks: 0=Sun, 1=Mon, ... 6=Sat */
   days?: number[];
   startDate: string; // YYYY-MM-DD
+  /** Custom interval: repeat every N days/weeks/months */
+  interval?: number; // 1-99
+  intervalUnit?: 'days' | 'weeks' | 'months';
+  /** For monthly: day of month 1-31, or -1 for last day */
+  dayOfMonth?: number;
+  /** End condition */
+  endType?: 'never' | 'onDate' | 'afterOccurrences';
+  endDate?: string; // YYYY-MM-DD
+  endAfterOccurrences?: number;
   /** Dates when user completed this recurring task */
   completedDates?: string[];
   /** Dates when user deferred/skipped today's instance */
   skippedDates?: string[];
 }
+
+/** Task visibility: who can see this task */
+export type TaskVisibility = 'everyone' | 'only' | 'except' | 'private';
 
 export interface Task {
   id: string;
@@ -134,7 +161,14 @@ export interface Task {
   text: string;
   /** For friend sharing: task text encrypted per friend (friendId -> encrypted). Owner uses text; friends use this. */
   friendContent?: Record<string, string>;
+  /** @deprecated Use visibility instead. Kept for backward compatibility. */
   isPrivate: boolean;
+  /** Selective visibility: everyone | only [selected] | except [selected] | private */
+  visibility?: TaskVisibility;
+  /** Friend IDs for visibility when visibility is 'only' or 'except' */
+  visibilityList?: string[];
+  /** Optional group ID reference when visibility was set from a group */
+  visibilityGroup?: string;
   completed: boolean;
   createdAt: number;
   completedAt: number | null;

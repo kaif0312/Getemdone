@@ -130,7 +130,10 @@ service cloud.firestore {
         (!request.resource.data.keys().hasAny(['deleted']) || request.resource.data.deleted is bool) &&
         (!request.resource.data.keys().hasAny(['tags']) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 5)) &&
         (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100)) &&
-        (!request.resource.data.keys().hasAny(['recurrence']) || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate'])));
+        (!request.resource.data.keys().hasAny(['recurrence']) || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate']))) &&
+        (!request.resource.data.keys().hasAny(['visibility']) || request.resource.data.visibility in ['everyone', 'only', 'except', 'private']) &&
+        (!request.resource.data.keys().hasAny(['visibilityList']) || (request.resource.data.visibilityList is list && request.resource.data.visibilityList.size() <= 50)) &&
+        (!request.resource.data.keys().hasAny(['visibilityGroup']) || request.resource.data.visibilityGroup is string);
       
       // Users can update their own tasks OR add reactions/comments to friends' tasks
       allow update: if isAuthenticated() && (
@@ -162,7 +165,10 @@ service cloud.firestore {
           (!request.resource.data.keys().hasAny(['friendContent']) || request.resource.data.friendContent is map) &&
           (!request.resource.data.keys().hasAny(['tags']) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 5)) &&
           (!request.resource.data.keys().hasAny(['subtasks']) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 100)) &&
-          (!request.resource.data.keys().hasAny(['recurrence']) || request.resource.data.recurrence == null || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate'])))
+          (!request.resource.data.keys().hasAny(['recurrence']) || request.resource.data.recurrence == null || (request.resource.data.recurrence is map && request.resource.data.recurrence.keys().hasAll(['frequency', 'startDate']))) &&
+          (!request.resource.data.keys().hasAny(['visibility']) || request.resource.data.visibility in ['everyone', 'only', 'except', 'private']) &&
+          (!request.resource.data.keys().hasAny(['visibilityList']) || (request.resource.data.visibilityList is list && request.resource.data.visibilityList.size() <= 50)) &&
+          (!request.resource.data.keys().hasAny(['visibilityGroup']) || request.resource.data.visibilityGroup == null || request.resource.data.visibilityGroup is string)
         ) ||
         // Friends can ONLY add reactions
         (areFriends(resource.data.userId) && 

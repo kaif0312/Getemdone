@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useSwipeable } from 'react-swipeable';
-import { TaskWithUser, Attachment, Subtask } from '@/lib/types';
-import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCalendarPlus, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaEllipsisV, FaPlus, FaPaperclip } from 'react-icons/fa';
-import { LuChevronDown } from 'react-icons/lu';
+import { TaskWithUser, Attachment, Subtask, TaskVisibility } from '@/lib/types';
+import { getEffectiveVisibility } from './VisibilityBottomSheet';
+import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaEllipsisV, FaPlus, FaPaperclip } from 'react-icons/fa';
+import { LuChevronDown, LuCalendar, LuHeart, LuUsers } from 'react-icons/lu';
 import { LuRepeat, LuCheck, LuMessageCircle, LuSquareCheck, LuClock } from 'react-icons/lu';
 import ScheduleDeadlinePicker from './ScheduleDeadlinePicker';
 import EmojiPicker from './EmojiPicker';
@@ -12,6 +13,7 @@ import TagIconPicker from './TagIconPicker';
 import Confetti from './Confetti';
 import TaskContextMenu from './TaskContextMenu';
 import RecurrenceBottomSheet from './RecurrenceBottomSheet';
+import VisibilityBottomSheet from './VisibilityBottomSheet';
 import AttachmentUpload from './AttachmentUpload';
 import AttachmentGallery from './AttachmentGallery';
 import SortableSubtaskList from './SortableSubtaskList';
@@ -52,32 +54,75 @@ function SubtaskRow({
   dragHandle,
   showReorderMode,
 }: SubtaskRowProps) {
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [swipeRevealed, setSwipeRevealed] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const handleLongPress = () => {
-    if (!canEdit || !isOwnTask) return;
-    onStartEdit(subtask.id, subtask.title);
-    longPressTimerRef.current = null;
-  };
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   const isEditing = editingSubtaskId === subtask.id;
 
+  // Tap text to edit (no long-press) — disabled when reorder mode active
+  const handleTextTap = () => {
+    if (!canEdit || showReorderMode) return;
+    onStartEdit(subtask.id, subtask.title);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingSubtaskTitle.trim()) onEdit(editingSubtaskTitle.trim());
+    onFinishEdit();
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 300);
+  };
+
+  const handleBlur = () => {
+    handleSaveEdit();
+  };
+
+  // Focus, cursor at end, and auto-grow when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      const el = inputRef.current;
+      el.focus();
+      const len = editingSubtaskTitle.length;
+      el.setSelectionRange(len, len);
+      if (el.tagName === 'TEXTAREA') {
+        (el as HTMLTextAreaElement).style.height = 'auto';
+        (el as HTMLTextAreaElement).style.height = `${Math.min((el as HTMLTextAreaElement).scrollHeight, 120)}px`;
+      }
+    }
+  }, [isEditing]);
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    onUpdateEditTitle(e.target.value);
+    const el = e.target;
+    if (el.tagName === 'TEXTAREA') {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    }
+  };
+
   return (
-    <div className="relative overflow-hidden min-h-[40px] py-0.5 group/subtask">
+    <div
+      className="relative overflow-hidden min-h-[40px] py-0.5 group/subtask"
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div
-        className="flex items-center gap-2 transition-transform duration-200 ease-out"
-        style={{ transform: swipeRevealed ? 'translateX(-44px)' : undefined }}
+        className={`flex items-center transition-transform duration-200 ease-out rounded-lg ${
+          isEditing ? 'bg-primary/[0.04]' : saveFlash ? 'bg-primary/10' : ''
+        }`}
+        style={{
+          transform: swipeRevealed ? 'translateX(-44px)' : undefined,
+          transition: saveFlash ? 'background 300ms ease-out' : undefined,
+        }}
         onTouchStart={(e) => {
           if (canEdit && isOwnTask) {
             const t = e.touches[0];
             if (t) touchStartRef.current = { x: t.clientX, y: t.clientY };
           }
         }}
-        onTouchEnd={() => {
-          touchStartRef.current = null;
-        }}
+        onTouchEnd={() => { touchStartRef.current = null; }}
         onTouchMove={(e) => {
           if (touchStartRef.current && canEdit && isOwnTask) {
             const t = e.touches[0];
@@ -92,79 +137,61 @@ function SubtaskRow({
         }}
       >
         {showReorderMode && dragHandle}
-        <button
-          onClick={onToggle}
-          disabled={!isOwnTask}
-          className={`flex-shrink-0 w-[18px] h-[18px] rounded-[4px] flex items-center justify-center transition-all border-[1.5px] ${
-            subtask.completed
-              ? 'bg-primary border-primary'
-              : 'border-fg-tertiary bg-transparent hover:border-fg-secondary'
-          } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
-        >
-          {subtask.completed && (
-            <svg className="w-2.5 h-2.5 text-on-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-        </button>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editingSubtaskTitle}
-            onChange={(e) => onUpdateEditTitle(e.target.value)}
-            onBlur={() => {
-              if (editingSubtaskTitle.trim()) onEdit(editingSubtaskTitle.trim());
-              onFinishEdit();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                if (editingSubtaskTitle.trim()) onEdit(editingSubtaskTitle.trim());
-                onFinishEdit();
-              } else if (e.key === 'Escape') {
-                onCancelEdit();
-              }
-            }}
-            autoFocus
-            className="flex-1 min-w-0 px-0 py-0.5 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0"
-          />
-        ) : (
-          <div
-            onTouchStart={() => {
-              if (canEdit && isOwnTask)
-                longPressTimerRef.current = setTimeout(handleLongPress, 500);
-            }}
-            onTouchEnd={() => {
-              if (longPressTimerRef.current) {
-                clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-              }
-            }}
-            onMouseDown={() => {
-              if (canEdit && isOwnTask)
-                longPressTimerRef.current = setTimeout(handleLongPress, 500);
-            }}
-            onMouseUp={() => {
-              if (longPressTimerRef.current) {
-                clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-              }
-            }}
-            onMouseLeave={() => {
-              if (longPressTimerRef.current) {
-                clearTimeout(longPressTimerRef.current);
-                longPressTimerRef.current = null;
-              }
-            }}
-            className={`flex-1 min-w-0 text-[14px] overflow-hidden line-clamp-2 ${
+        {/* Zone 1: Checkbox — 44px left, 8px gap to text */}
+        <div className="flex-shrink-0 w-11 min-w-[44px] h-10 flex items-center justify-start pl-0 pr-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            disabled={!isOwnTask}
+            className={`w-[18px] h-[18px] rounded-[4px] flex items-center justify-center transition-all border-[1.5px] ${
               subtask.completed
-                ? 'line-through text-fg-secondary opacity-60'
-                : 'text-fg-primary'
-            }`}
+                ? 'bg-primary border-primary'
+                : 'border-fg-tertiary bg-transparent hover:border-fg-secondary'
+            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'}`}
           >
-            {subtask.title}
-          </div>
-        )}
+            {subtask.completed && (
+              <svg className="w-2.5 h-2.5 text-on-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+        </div>
+        {/* Zone 2: Text — tap to edit (when not in reorder mode) */}
+        <div className="flex-1 min-w-0 pl-0 pr-2" style={{ marginLeft: 0 }}>
+          {isEditing ? (
+            <textarea
+              ref={(el) => { inputRef.current = el; }}
+              value={editingSubtaskTitle}
+              onChange={handleEditInputChange}
+              onBlur={handleBlur}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSaveEdit();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onCancelEdit();
+                }
+              }}
+              autoFocus
+              rows={1}
+              className="w-full min-w-0 px-0 py-0.5 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0 placeholder:text-fg-tertiary resize-none overflow-hidden"
+              style={{ minHeight: 20 }}
+            />
+          ) : (
+            <div
+              onClick={handleTextTap}
+              className={`min-h-[24px] py-1 text-[14px] overflow-hidden line-clamp-2 cursor-text ${
+                subtask.completed
+                  ? 'line-through text-fg-secondary opacity-60'
+                  : 'text-fg-primary'
+              } ${canEdit && !showReorderMode ? 'hover:bg-primary/[0.04] rounded' : ''}`}
+            >
+              {subtask.title}
+            </div>
+          )}
+        </div>
       </div>
+      {/* Delete: swipe-revealed (mobile) or hover X (desktop) */}
       {canEdit && isOwnTask && (
         <button
           onClick={(e) => {
@@ -172,8 +199,8 @@ function SubtaskRow({
             onDelete();
             setSwipeRevealed(false);
           }}
-          className={`absolute right-0 top-0 bottom-0 w-11 flex items-center justify-center text-fg-tertiary hover:text-error hover:bg-surface-muted transition-opacity ${
-            swipeRevealed ? 'opacity-100' : 'opacity-0 md:group-hover/subtask:opacity-100'
+          className={`absolute right-0 top-0 bottom-0 w-11 flex items-center justify-center text-error transition-opacity ${
+            swipeRevealed ? 'opacity-100 bg-error/10' : 'opacity-0 md:group-hover/subtask:opacity-100 md:text-fg-tertiary md:hover:text-error'
           }`}
           style={{ minHeight: 40 }}
           title="Delete subtask"
@@ -196,6 +223,7 @@ interface TaskItemProps {
   isOwnTask: boolean;
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
+  onUpdateVisibility?: (taskId: string, visibility: TaskVisibility, visibilityList: string[]) => void;
   onDelete: (taskId: string) => void;
   onUpdateTask?: (taskId: string, text: string) => Promise<void>;
   onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
@@ -220,6 +248,10 @@ interface TaskItemProps {
   dragHandleProps?: DragHandleProps;
   /** When true (grouped by category), hide category icons on card - section header shows category */
   hideCategoryIcon?: boolean;
+  /** When true, show uncheck animation (used for Undo from completion toast) */
+  isUndoing?: boolean;
+  /** When true, play slide-in animation (task just moved to Completed section) */
+  justCompleted?: boolean;
 }
 
 export default function TaskItem({ 
@@ -227,6 +259,7 @@ export default function TaskItem({
   isOwnTask, 
   onToggleComplete, 
   onTogglePrivacy,
+  onUpdateVisibility,
   onDelete,
   onUpdateTask,
   onUpdateDueDate,
@@ -249,12 +282,13 @@ export default function TaskItem({
   currentUserId,
   dragHandleProps,
   hideCategoryIcon = false,
+  isUndoing = false,
+  justCompleted = false,
 }: TaskItemProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUnifiedDatePicker, setShowUnifiedDatePicker] = useState(false);
   const [unifiedDatePickerTab, setUnifiedDatePickerTab] = useState<'schedule' | 'deadline'>('schedule');
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -272,17 +306,17 @@ export default function TaskItem({
   const contextMenuAnchorRef = useRef<HTMLButtonElement>(null);
   const [isLongPressing, setIsLongPressing] = useState(false); // Track long-press state for animation
   const [showRecurrenceSheet, setShowRecurrenceSheet] = useState(false);
+  const [showVisibilitySheet, setShowVisibilitySheet] = useState(false);
+  const visibilityIconLongPressRef = useRef<NodeJS.Timeout | null>(null);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [removingTag, setRemovingTag] = useState<string | null>(null);
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [subtaskReorderMode, setSubtaskReorderMode] = useState(false);
   const [subtaskInputValue, setSubtaskInputValue] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
-  const subtaskSectionLongPressRef = useRef<NodeJS.Timeout | null>(null);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
   const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
   const subtaskInputRef = useRef<HTMLInputElement>(null);
-  const subtaskLongPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const subtaskSectionRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -399,24 +433,51 @@ export default function TaskItem({
     }
   }, [isSwiping, swipeOffset]);
 
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [isUnchecking, setIsUnchecking] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const hapticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mq.matches);
+    const fn = () => setPrefersReducedMotion(mq.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+
   const handleToggleComplete = async () => {
     if (!isOwnTask || isEditing) return;
-    
     const newCompletedState = !task.completed;
-    
-    // If marking as complete, show celebration animation
-    if (newCompletedState) {
-      setShowCompletionAnimation(true);
-      playSound(true); // Play success sound
-      // Wait for animation to start before updating task
-      setTimeout(() => {
-        onToggleComplete(task.id, newCompletedState);
-      }, 100);
-    } else {
-      // If uncompleting, just update immediately
+
+    if (prefersReducedMotion) {
       onToggleComplete(task.id, newCompletedState);
+      return;
+    }
+
+    if (newCompletedState) {
+      setIsCompleting(true);
+      setShowCompletionAnimation(true);
+      playSound(true);
+      hapticTimerRef.current = setTimeout(() => {
+        if ('vibrate' in navigator) navigator.vibrate(10);
+        hapticTimerRef.current = null;
+      }, 150);
+      // Delay toggle to 500ms so task stays in place during full animation (Phase 4)
+      setTimeout(() => onToggleComplete(task.id, true), 500);
+      setTimeout(() => setIsCompleting(false), 500);
+    } else {
+      setIsUnchecking(true);
+      setTimeout(() => {
+        onToggleComplete(task.id, false);
+        setTimeout(() => setIsUnchecking(false), 250);
+      }, 0);
     }
   };
+
+  useEffect(() => () => {
+    if (hapticTimerRef.current) clearTimeout(hapticTimerRef.current);
+  }, []);
 
   // Long-press detection for mobile - show context menu
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -856,11 +917,11 @@ export default function TaskItem({
             willChange: isSwiping ? 'transform' : 'auto', // Optimize for smooth animations
           } as React.CSSProperties}
           className={`group task-card select-none task-item-touchable relative rounded-[12px] p-4 overflow-hidden ${
+            justCompleted ? 'task-complete-slide-in ' : ''
+          } ${
             /* Light: white + shadow, no border. Dark: surface + 1px border */
             'bg-white dark:bg-surface border-0 dark:border dark:border-border-subtle'
           } shadow-elevation-1 dark:shadow-none ${
-            isAnimatingOut ? 'animate-task-complete' : ''
-          } ${
             swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/40' : ''
           } ${
             swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
@@ -868,10 +929,11 @@ export default function TaskItem({
             isEditing ? 'border-primary ring-2 ring-primary/20' : ''
           } ${
             isLongPressing ? 'ring-2 ring-primary ring-offset-2 scale-[0.98]' : ''
-          }`}
+          }           ${
+            (task.completed || isCompleting || isUndoing) ? 'opacity-60' : ''
+          } transition-opacity duration-200`}
         >
         <div className="flex items-start gap-1">
-          {/* Drag Handle - tertiary, visible on hover (desktop) or 0.3 opacity (mobile) */}
           {dragHandleProps && (
             <button
               ref={dragHandleProps.ref}
@@ -885,29 +947,62 @@ export default function TaskItem({
             </button>
           )}
 
-          {/* Checkbox - 20px, rounded-lg, 2px border tertiary. Checked: primary fill, white checkmark, bounce */}
-          <button
+          {/* Checkbox + particle burst wrapper - particles originate from checkbox center */}
+          <div className="relative flex-shrink-0">
+            {isCompleting && (
+              <>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <span
+                    key={i}
+                    className={`absolute w-[3px] h-[3px] rounded-full bg-primary left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 task-complete-particle-${i}`}
+                    style={{ willChange: 'transform, opacity' }}
+                  />
+                ))}
+              </>
+            )}
+            {/* Checkbox - fill, checkmark draw, bounce on complete; reverse on uncheck */}
+            <button
             onClick={handleToggleComplete}
             disabled={!isOwnTask}
-            className={`flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-200 border-2 ${
-              task.completed 
-                ? 'bg-primary border-primary' 
+            className={`relative flex-shrink-0 w-5 h-5 rounded-lg flex items-center justify-center overflow-visible border-2 ${
+              (task.completed || isCompleting || isUnchecking || isUndoing)
+                ? 'border-primary'
                 : 'border-fg-tertiary bg-transparent hover:border-fg-secondary'
-            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'} ${task.completed ? 'checkbox-checked' : ''}`}
+            } ${!isOwnTask ? 'cursor-default opacity-50' : 'cursor-pointer'} ${
+              isCompleting ? 'task-complete-checkbox-bounce' : ''
+            } ${task.completed && !isCompleting && !isUnchecking ? 'checkbox-checked' : ''}`}
             style={{ marginTop: '2px' }}
           >
-            {task.completed && (
-              <svg 
-                className="w-3 h-3 text-on-accent" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                strokeWidth={3}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+            {(task.completed || isCompleting || isUnchecking || isUndoing) && (
+              <>
+                <span
+                  className={`absolute inset-0 rounded-md bg-primary ${
+                    isCompleting ? 'task-complete-checkbox-fill' : (isUnchecking || isUndoing) ? 'task-uncheck-fill' : ''
+                  }`}
+                  style={!isCompleting && !isUnchecking && !isUndoing ? { clipPath: 'circle(100% at 50% 50%)' } : undefined}
+                />
+                <svg
+                  className={`w-3 h-3 text-on-accent relative z-10 ${
+                    isCompleting ? 'task-complete-checkmark-draw' : (isUnchecking || isUndoing) ? 'task-uncheck-draw' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                    style={
+                    !isCompleting && !isUnchecking && !isUndoing
+                      ? { strokeDasharray: 24, strokeDashoffset: 0 }
+                      : undefined
+                  }
+                >
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </>
             )}
           </button>
+          </div>
 
         <div className="flex-1 min-w-0 pr-8">
           {!isOwnTask && (
@@ -985,7 +1080,13 @@ export default function TaskItem({
               <div className="flex-1 min-w-0">
                 <p 
                   className={`text-base font-medium leading-[1.4] ${
-                    task.completed ? 'line-through text-fg-secondary opacity-60' : 'text-fg-primary'
+                    (task.completed || isCompleting || isUnchecking || isUndoing) ? 'text-fg-secondary' : 'text-fg-primary'
+                  } ${
+                    isCompleting ? 'task-complete-strikethrough' : ''
+                  } ${
+                    task.completed && !isCompleting && !isUnchecking && !isUndoing ? 'task-complete-strikethrough strikethrough-expanded' : ''
+                  } ${
+                    (isUnchecking || isUndoing) ? 'task-uncheck-strikethrough' : ''
                   } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`} 
                   suppressHydrationWarning
                   title={isOwnTask && !task.completed && onUpdateTask ? 'Long-press or double-click to edit' : undefined}
@@ -1039,11 +1140,13 @@ export default function TaskItem({
           </div>
           
           {/* Badges row - Ultra-compact inline layout */}
-          {(task.deferredTo || task.dueDate) && (
+          {((task.deferredTo || task.dueDate) || (isOwnTask && !task.completed && (() => {
+            const v = getEffectiveVisibility(task.visibility, task.isPrivate);
+            return (v === 'only' || v === 'except') && (task.visibilityList?.length ?? 0) > 0;
+          })())) && (
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               {/* Only show scheduled/deferred badge if there's no deadline */}
               {task.deferredTo && !task.dueDate && (() => {
-                // All tasks with deferredTo shown on today's list use "Scheduled for" (new or existing)
                 let displayText: string;
                 try {
                   const dateTime = task.deferredTo.includes('T') 
@@ -1077,13 +1180,11 @@ export default function TaskItem({
                   displayText = task.deferredTo || '';
                 }
                 
-                const badgeClass = `inline-flex items-center gap-0.5 text-xs px-1 py-0.5 rounded-full bg-primary/15 text-primary`;
+                const badgeClass = 'inline-flex items-center gap-1.5 py-1 px-2 rounded-[6px] text-[12px] text-fg-secondary bg-elevated border border-border-subtle shrink-0';
                 const badgeContent = (
                   <>
-                    <FaCalendarPlus size={8} />
-                    <span>
-                      Scheduled for {displayText}
-                    </span>
+                    <LuCalendar size={12} className="text-fg-secondary flex-shrink-0" />
+                    <span>{displayText}</span>
                   </>
                 );
                 if (isOwnTask && onDeferTask) {
@@ -1091,7 +1192,7 @@ export default function TaskItem({
                     <button
                       type="button"
                       onClick={() => handleOpenUnifiedDatePicker()}
-                      className={`${badgeClass} transition-colors hover:opacity-80 due-date-picker-container`}
+                      className={`${badgeClass} transition-colors hover:bg-surface-muted due-date-picker-container`}
                       title="Tap to change schedule"
                     >
                       {badgeContent}
@@ -1142,12 +1243,32 @@ export default function TaskItem({
                   <span className="font-medium">{formatDueDate(task.dueDate)}</span>
                 </div>
               ) : null}
+              {/* Custom visibility indicator - subtle, tappable to edit */}
+              {isOwnTask && !task.completed && onUpdateVisibility && (() => {
+                const v = getEffectiveVisibility(task.visibility, task.isPrivate);
+                const count = task.visibilityList?.length ?? 0;
+                if ((v !== 'only' && v !== 'except') || count === 0) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowVisibilitySheet(true);
+                    }}
+                    className="inline-flex items-center gap-1 py-1 px-2 rounded-[6px] text-[12px] text-fg-tertiary hover:text-fg-secondary hover:bg-surface-muted transition-colors shrink-0"
+                    title="Tap to change who can see this"
+                  >
+                    <LuUsers size={12} />
+                    <span>{count}</span>
+                  </button>
+                );
+              })()}
             </div>
           )}
 
-          {/* Quick-action row: + Subtask, Note, Attach - always visible, ghost affordances */}
-          {isOwnTask && !task.completed && (onUpdateNotes || onUpdateTaskSubtasks || onAddAttachment) && (
-            <div className="flex items-center gap-4 mt-2">
+          {/* Quick-action row: + Subtask, Note, Attach - fades out on complete */}
+          {isOwnTask && (!task.completed || isCompleting) && (onUpdateNotes || onUpdateTaskSubtasks || onAddAttachment) && (
+            <div className={`flex items-center gap-4 mt-2 transition-opacity duration-150 ${isCompleting ? 'opacity-0' : ''}`}>
               {onUpdateTaskSubtasks && (
                 <button
                   onClick={(e) => {
@@ -1301,47 +1422,10 @@ export default function TaskItem({
                 showSubtasks ? 'max-h-[min(50vh,500px)]' : 'max-h-0'
               }`}
               onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
             >
-              <div
-                className="w-full border-t border-border-subtle pt-2 mt-2"
-                onTouchStart={() => {
-                  if (isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1)
-                    subtaskSectionLongPressRef.current = setTimeout(() => {
-                      setSubtaskReorderMode(true);
-                      if ('vibrate' in navigator) navigator.vibrate(30);
-                    }, 500);
-                }}
-                onTouchEnd={() => {
-                  if (subtaskSectionLongPressRef.current) {
-                    clearTimeout(subtaskSectionLongPressRef.current);
-                    subtaskSectionLongPressRef.current = null;
-                  }
-                }}
-                onTouchMove={() => {
-                  if (subtaskSectionLongPressRef.current) {
-                    clearTimeout(subtaskSectionLongPressRef.current);
-                    subtaskSectionLongPressRef.current = null;
-                  }
-                }}
-                onMouseDown={() => {
-                  if (isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1)
-                    subtaskSectionLongPressRef.current = setTimeout(() => {
-                      setSubtaskReorderMode(true);
-                    }, 500);
-                }}
-                onMouseUp={() => {
-                  if (subtaskSectionLongPressRef.current) {
-                    clearTimeout(subtaskSectionLongPressRef.current);
-                    subtaskSectionLongPressRef.current = null;
-                  }
-                }}
-                onMouseLeave={() => {
-                  if (subtaskSectionLongPressRef.current) {
-                    clearTimeout(subtaskSectionLongPressRef.current);
-                    subtaskSectionLongPressRef.current = null;
-                  }
-                }}
-              >
+              <div className="w-full border-t border-border-subtle pt-2 mt-2">
                 {/* Reorder mode: tappable button with grip icon */}
                 {isOwnTask && onUpdateTaskSubtasks && (task.subtasks?.length ?? 0) > 1 && (
                   <div className="flex items-center justify-between mb-1">
@@ -1459,7 +1543,7 @@ export default function TaskItem({
                     />
                   </div>
                 </div>
-                {/* Add subtask: "+ Add subtask" button → inline input on tap */}
+                {/* Add subtask: "+ Add subtask" → rapid entry (Enter saves + new row, Enter on empty exits) */}
                 {isOwnTask && onUpdateTaskSubtasks && !task.completed && (
                   <div className="mt-1">
                     {isAddingSubtask ? (
@@ -1479,7 +1563,7 @@ export default function TaskItem({
                               ];
                               onUpdateTaskSubtasks?.(task.id, next);
                               setSubtaskInputValue('');
-                              setIsAddingSubtask(false);
+                              setTimeout(() => subtaskInputRef.current?.focus(), 50);
                             } else {
                               setIsAddingSubtask(false);
                               subtaskInputRef.current?.blur();
@@ -1503,7 +1587,7 @@ export default function TaskItem({
                         }}
                         placeholder=""
                         autoFocus
-                        className="w-full min-w-0 px-0 py-1 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0"
+                        className="w-full min-w-0 px-0 py-1 text-[14px] text-fg-primary bg-transparent border-0 border-b border-primary rounded-none focus:outline-none focus:ring-0 placeholder:text-fg-tertiary"
                       />
                     ) : (
                       <button
@@ -1561,28 +1645,37 @@ export default function TaskItem({
                 />
               </button>
             )}
-            {/* Reactions - compact, after metadata */}
+            {/* Reactions - pill style with icon + count, subtle border */}
             {task.reactions && task.reactions.length > 0 && (
-              <div className="flex items-center gap-0.5 ml-0.5">
+              <div className="flex items-center gap-1 ml-0.5">
                 {Object.entries(
                   task.reactions.reduce((acc, r) => {
                     acc[r.emoji] = (acc[r.emoji] || 0) + 1;
                     return acc;
                   }, {} as Record<string, number>)
-                ).map(([emoji, count]) => (
-                  <button
-                    key={emoji}
-                    onClick={() => onAddReaction?.(task.id, emoji)}
-                    className={`px-1 py-0.5 rounded text-xs transition-colors ${
-                      task.reactions?.some(r => r.userId === currentUserId && r.emoji === emoji)
-                        ? 'bg-primary/15 text-primary'
-                        : 'hover:bg-surface-muted'
-                    }`}
-                    title={task.reactions?.filter(r => r.emoji === emoji).map(r => r.userName).join(', ')}
-                  >
-                    {emoji}{count > 1 ? count : ''}
-                  </button>
-                ))}
+                ).map(([emoji, count]) => {
+                  const isHeart = /❤|💕|💗|💖|💘|♥/.test(emoji);
+                  const hasUserReaction = task.reactions?.some(r => r.userId === currentUserId && r.emoji === emoji);
+                  return (
+                    <button
+                      key={emoji}
+                      onClick={() => onAddReaction?.(task.id, emoji)}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors ${
+                        hasUserReaction
+                          ? 'bg-primary/8 border-primary/30 text-primary'
+                          : 'bg-surface-muted border-border-subtle text-fg-secondary hover:bg-surface-muted/80'
+                      }`}
+                      title={task.reactions?.filter(r => r.emoji === emoji).map(r => r.userName).join(', ')}
+                    >
+                      {isHeart ? (
+                        <LuHeart size={10} className={hasUserReaction ? 'fill-current' : ''} />
+                      ) : (
+                        <span>{emoji}</span>
+                      )}
+                      <span className="tabular-nums">{count}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             {task.completed && onAddReaction && (
@@ -1636,22 +1729,86 @@ export default function TaskItem({
           )}
         </div>
 
-        {/* Context Menu Button - top-right, tertiary, visible on hover (desktop) or 0.3 opacity (mobile) */}
+        {/* Visibility icon + Context Menu Button - top-right */}
         {isOwnTask && (
-          <button
-            ref={contextMenuAnchorRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = contextMenuAnchorRef.current?.getBoundingClientRect();
-              setContextMenuAnchorRect(rect ?? null);
-              setShowContextMenu(true);
-              if ('vibrate' in navigator) navigator.vibrate(10);
-            }}
-            className="absolute top-4 right-4 p-1.5 rounded transition-opacity text-fg-tertiary hover:text-fg-secondary opacity-30 md:opacity-0 md:group-hover:opacity-100 hover:bg-surface-muted"
-            title="More options"
-          >
-            <FaEllipsisV size={12} />
-          </button>
+          <div className="absolute top-4 right-4 flex items-center gap-0.5">
+            {!task.completed && (() => {
+              const effVisibility = getEffectiveVisibility(task.visibility, task.isPrivate);
+              const isCustom = effVisibility === 'only' || effVisibility === 'except';
+              const visibleCount = task.visibilityList?.length ?? 0;
+              return (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (effVisibility === 'everyone' || effVisibility === 'private') {
+                      onTogglePrivacy(task.id, effVisibility === 'everyone');
+                    } else {
+                      setShowVisibilitySheet(true);
+                    }
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowContextMenu(false);
+                    setShowVisibilitySheet(true);
+                  }}
+                  onTouchStart={() => {
+                    visibilityIconLongPressRef.current = setTimeout(() => {
+                      visibilityIconLongPressRef.current = null;
+                      if ('vibrate' in navigator) navigator.vibrate(10);
+                      setShowContextMenu(false);
+                      setShowVisibilitySheet(true);
+                    }, 500);
+                  }}
+                  onTouchEnd={() => {
+                    if (visibilityIconLongPressRef.current) {
+                      clearTimeout(visibilityIconLongPressRef.current);
+                      visibilityIconLongPressRef.current = null;
+                    }
+                  }}
+                  onTouchMove={() => {
+                    if (visibilityIconLongPressRef.current) {
+                      clearTimeout(visibilityIconLongPressRef.current);
+                      visibilityIconLongPressRef.current = null;
+                    }
+                  }}
+                  className={`p-1.5 rounded transition-opacity opacity-30 md:opacity-0 md:group-hover:opacity-100 hover:bg-surface-muted relative ${
+                    isCustom ? 'text-primary' : 'text-fg-tertiary hover:text-fg-secondary'
+                  }`}
+                  title={effVisibility === 'private' ? 'Private' : effVisibility === 'everyone' ? 'Everyone' : 'Custom visibility (long-press to edit)'}
+                >
+                  {effVisibility === 'private' ? (
+                    <FaEyeSlash size={12} />
+                  ) : (
+                    <>
+                      <FaEye size={12} />
+                      {isCustom && visibleCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center text-[10px] font-medium text-on-accent bg-primary rounded-full">
+                          {visibleCount}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })()}
+            {!task.completed && <div className="w-px h-4 bg-border-subtle" />}
+            <button
+              ref={contextMenuAnchorRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = contextMenuAnchorRef.current?.getBoundingClientRect();
+                setContextMenuAnchorRect(rect ?? null);
+                setShowContextMenu(true);
+                if ('vibrate' in navigator) navigator.vibrate(10);
+              }}
+              className="p-1.5 rounded transition-opacity text-fg-tertiary hover:text-fg-secondary opacity-30 md:opacity-0 md:group-hover:opacity-100 hover:bg-surface-muted"
+              title="More options"
+            >
+              <FaEllipsisV size={12} />
+            </button>
+          </div>
         )}
         </div>
       </div>
@@ -1751,6 +1908,7 @@ export default function TaskItem({
             onToggleCommitment(task.id, !task.committed);
           }
         }}
+        onSetVisibility={onUpdateVisibility ? () => setShowVisibilitySheet(true) : undefined}
         onTogglePrivacy={() => {
           onTogglePrivacy(task.id, !task.isPrivate);
         }}
@@ -1775,7 +1933,23 @@ export default function TaskItem({
           setShowRecurrenceSheet(false);
         } : undefined}
         currentRecurrence={task.recurrence}
+        scheduledDate={recurrenceDateContext ?? task.deferredTo ?? (task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : undefined)}
       />
+
+      {/* Visibility selector - opened from eye icon long-press or context menu "Set visibility" */}
+      {isOwnTask && onUpdateVisibility && (
+        <VisibilityBottomSheet
+          isOpen={showVisibilitySheet}
+          onClose={() => setShowVisibilitySheet(false)}
+          onSelect={(visibility, visibilityList) => {
+            onUpdateVisibility(task.id, visibility, visibilityList);
+            setShowVisibilitySheet(false);
+          }}
+          currentVisibility={getEffectiveVisibility(task.visibility, task.isPrivate)}
+          currentVisibilityList={task.visibilityList || []}
+          showSetAsDefault={true}
+        />
+      )}
 
       {/* Tag icon picker - opened from context menu "Change icon" */}
       {isOwnTask && onUpdateTaskTags && (

@@ -16,7 +16,7 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { db, storage, auth } from '@/lib/firebase';
-import { Task, TaskWithUser, User, Reaction, Comment, Attachment, Subtask } from '@/lib/types';
+import { Task, TaskWithUser, User, Reaction, Comment, Attachment, Subtask, TaskVisibility } from '@/lib/types';
 import { ref, deleteObject } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateUserStorageUsage } from '@/utils/storageManager';
@@ -274,10 +274,18 @@ export function useTasks() {
 
         for (const docSnap of snapshot.docs) {
           const task = { id: docSnap.id, ...docSnap.data() } as Task;
-          if (task.deleted || task.isPrivate) continue;
+          const effVisibility = task.visibility ?? (task.isPrivate ? 'private' : 'everyone');
+          if (task.deleted || effVisibility === 'private') continue;
+
+          const targetFriends =
+            effVisibility === 'everyone'
+              ? friends
+              : effVisibility === 'only'
+                ? (task.visibilityList || []).filter((f) => friends.includes(f))
+                : friends.filter((f) => !(task.visibilityList || []).includes(f));
 
           const existing = task.friendContent || {};
-          const missingFriends = friends.filter((f) => !existing[f]);
+          const missingFriends = targetFriends.filter((f) => !existing[f]);
           let needsTaskBackfill = missingFriends.length > 0;
 
           const plaintext = needsTaskBackfill ? await decryptForSelf(task.text) : null;
@@ -292,11 +300,11 @@ export function useTasks() {
 
           // Backfill comment friendContent: owner comments + friend comments (so all friends can decrypt)
           let updatedComments: Comment[] | undefined;
-          if (task.comments?.length && friends.length > 0) {
+          if (task.comments?.length && targetFriends.length > 0) {
             const result = await Promise.all(
               task.comments.map(async (comment) => {
                 const cExisting = comment.friendContent || {};
-                const cMissing = friends.filter((f) => !cExisting[f]);
+                const cMissing = targetFriends.filter((f) => !cExisting[f]);
                 if (cMissing.length === 0) return comment;
                 let cPlain: string;
                 if (comment.userId === userId) {
@@ -680,11 +688,19 @@ export function useTasks() {
               if (task.deleted === true) {
                 allTasks.delete(change.doc.id);
               } else {
+                // Check if current user can view this task (visibility)
+                const effVisibility = task.visibility ?? (task.isPrivate ? 'private' : 'everyone');
+                const visibilityList = task.visibilityList || [];
+                const canView =
+                  effVisibility === 'everyone' ||
+                  (effVisibility === 'only' && visibilityList.includes(currentUserId)) ||
+                  (effVisibility === 'except' && !visibilityList.includes(currentUserId));
+
                 // Decrypt friend's task data (use encryptionRef for latest state - fixes Chrome vs Cursor timing)
                 if (encReady) {
                   try {
-                    // Decrypt task text (friends can see public tasks)
-                    if (!task.isPrivate) {
+                    // Decrypt task text (friends can see tasks they have access to)
+                    if (canView) {
                       // Use friendContent[me] if available (encrypted for us); else legacy task.text (won't decrypt)
                       const toDecrypt = task.friendContent?.[currentUserId] ?? task.text;
                       task.text = await decryptFriend(toDecrypt, task.userId);
@@ -701,7 +717,7 @@ export function useTasks() {
                         );
                       }
                     } else {
-                      // For private tasks, we can't decrypt (don't have the key)
+                      // For private or visibility-restricted tasks, we can't decrypt
                       // But we still show them for counting purposes
                       task.text = '[Private Task]';
                     }
@@ -816,7 +832,16 @@ export function useTasks() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, userDataId, stableFriendsKey, setupKey]); // setupKey already includes reconnectTrigger via useMemo
 
-  const addTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null, tags?: string[]) => {
+  const addTask = async (
+    text: string,
+    isPrivate: boolean,
+    dueDate?: number | null,
+    scheduledFor?: string | null,
+    recurrence?: import('@/lib/types').Recurrence | null,
+    tags?: string[],
+    visibility?: TaskVisibility,
+    visibilityList?: string[]
+  ) => {
     if (!user) return;
 
     // Get current max order for user's tasks
@@ -828,11 +853,25 @@ export function useTasks() {
     // Encrypt task text (owner uses master key)
     const encryptedText = encryptionInitialized ? await encryptForSelf(text) : text;
 
-    // Encrypt for each friend so they can decrypt (public tasks only)
+    const effVisibility = visibility ?? (isPrivate ? 'private' : 'everyone');
+    const effVisibilityList = visibilityList ?? userData?.defaultVisibilityList ?? [];
+    const effIsPrivate = effVisibility === 'private';
+
+    let targetFriendIds: string[] = [];
+    if (!effIsPrivate && (userData?.friends?.length ?? 0) > 0) {
+      if (effVisibility === 'everyone') {
+        targetFriendIds = userData!.friends;
+      } else if (effVisibility === 'only') {
+        targetFriendIds = effVisibilityList;
+      } else {
+        targetFriendIds = userData!.friends.filter((f) => !effVisibilityList.includes(f));
+      }
+    }
+
     let friendContent: Record<string, string> | undefined;
-    if (!isPrivate && encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
+    if (!effIsPrivate && encryptionInitialized && targetFriendIds.length > 0) {
       friendContent = {};
-      for (const friendId of userData!.friends) {
+      for (const friendId of targetFriendIds) {
         const enc = await encryptForFriend(text, friendId);
         friendContent[friendId] = enc;
       }
@@ -845,7 +884,9 @@ export function useTasks() {
       userId: user.uid,
       text: encryptedText,
       ...(friendContent && Object.keys(friendContent).length > 0 && { friendContent }),
-      isPrivate,
+      isPrivate: effIsPrivate,
+      visibility: effVisibility,
+      visibilityList: effVisibilityList,
       completed: false,
       createdAt: Date.now(),
       completedAt: null,
@@ -901,19 +942,32 @@ export function useTasks() {
     });
   };
 
-  const togglePrivacy = async (taskId: string, isPrivate: boolean) => {
+  const updateVisibility = async (taskId: string, visibility: TaskVisibility, visibilityList: string[]) => {
     const taskRef = doc(db, 'tasks', taskId);
-    const updateData: Record<string, unknown> = { isPrivate };
-    if (isPrivate) {
-      updateData.friendContent = {}; // Clear so friends can't decrypt
+    const isPrivate = visibility === 'private';
+    const updateData: Record<string, unknown> = {
+      isPrivate,
+      visibility,
+      visibilityList,
+    };
+    if (visibility === 'private') {
+      updateData.friendContent = {};
     } else if (encryptionInitialized && (userData?.friends?.length ?? 0) > 0) {
       const taskDoc = await getDoc(taskRef);
       const task = taskDoc.exists() ? (taskDoc.data() as Task) : null;
       if (task?.text) {
         const plaintext = await decryptForSelf(task.text);
         if (plaintext && !plaintext.includes("Couldn't decrypt")) {
+          let targetFriendIds: string[];
+          if (visibility === 'everyone') {
+            targetFriendIds = userData!.friends;
+          } else if (visibility === 'only') {
+            targetFriendIds = visibilityList;
+          } else {
+            targetFriendIds = userData!.friends.filter((f) => !visibilityList.includes(f));
+          }
           const friendContent: Record<string, string> = {};
-          for (const friendId of userData!.friends) {
+          for (const friendId of targetFriendIds) {
             friendContent[friendId] = await encryptForFriend(plaintext, friendId);
           }
           updateData.friendContent = friendContent;
@@ -922,6 +976,11 @@ export function useTasks() {
     }
     await updateDoc(taskRef, updateData);
     setTimeout(() => setReconnectTrigger((prev) => prev + 1), 300);
+  };
+
+  const togglePrivacy = async (taskId: string, isPrivate: boolean) => {
+    const visibility: TaskVisibility = isPrivate ? 'private' : 'everyone';
+    await updateVisibility(taskId, visibility, []);
   };
 
   const toggleCommitment = async (taskId: string, committed: boolean) => {
@@ -1851,6 +1910,7 @@ export function useTasks() {
     updateTaskNotes,
     toggleComplete,
     togglePrivacy,
+    updateVisibility,
     toggleCommitment,
     toggleSkipRollover,
     deleteTask,

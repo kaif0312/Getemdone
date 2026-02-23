@@ -113,9 +113,9 @@ function ScrollWheelColumn<T extends string | number>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const isUserScrollingRef = useRef(false);
 
   const itemHeight = ROW_HEIGHT;
-  const totalHeight = items.length * itemHeight;
   const paddingHeight = PADDING_ROWS * itemHeight;
 
   const scrollToIndex = useCallback(
@@ -132,16 +132,24 @@ function ScrollWheelColumn<T extends string | number>({
   const safeIndex = indexOfValue >= 0 ? indexOfValue : 0;
 
   useEffect(() => {
-    if (!isEditing && scrollRef.current) {
-      scrollToIndex(safeIndex, false);
-    }
-  }, [safeIndex, isEditing]);
+    if (isEditing) return;
+    const el = scrollRef.current;
+    if (!el || isUserScrollingRef.current) return;
+    const targetScroll = safeIndex * itemHeight;
+    if (Math.abs(el.scrollTop - targetScroll) < 2) return;
+    scrollToIndex(safeIndex, false);
+  }, [safeIndex, isEditing, scrollToIndex, itemHeight]);
 
   const scrollEndRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (scrollEndRef.current) clearTimeout(scrollEndRef.current);
+  }, []);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
+    isUserScrollingRef.current = true;
     const scrollTop = el.scrollTop;
     const index = Math.round(scrollTop / itemHeight);
     const clamped = Math.max(0, Math.min(index, items.length - 1));
@@ -153,13 +161,15 @@ function ScrollWheelColumn<T extends string | number>({
     if (scrollEndRef.current) clearTimeout(scrollEndRef.current);
     scrollEndRef.current = setTimeout(() => {
       scrollEndRef.current = null;
+      isUserScrollingRef.current = false;
       const st = el.scrollTop;
       const idx = Math.round(st / itemHeight);
       const c = Math.max(0, Math.min(idx, items.length - 1));
-      scrollToIndex(c, true);
-      const v = items[c];
-      if (v !== value) onChange(v);
-    }, 100);
+      const targetScroll = c * itemHeight;
+      if (Math.abs(el.scrollTop - targetScroll) > 2) {
+        el.scrollTo({ top: targetScroll, behavior: 'auto' });
+      }
+    }, 150);
   };
 
   const handleEditBlur = () => {
@@ -194,10 +204,11 @@ function ScrollWheelColumn<T extends string | number>({
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+      className="flex-1 overflow-y-auto scrollbar-hide"
       style={{
         height: VISIBLE_HEIGHT,
-        scrollSnapType: 'y mandatory',
+        overscrollBehavior: 'contain',
+        overflowAnchor: 'none',
       }}
       onScroll={handleScroll}
     >
@@ -205,7 +216,7 @@ function ScrollWheelColumn<T extends string | number>({
       {items.map((item, i) => (
         <div
           key={String(item)}
-          className="flex items-center justify-center flex-shrink-0 snap-center cursor-pointer select-none"
+          className="flex items-center justify-center flex-shrink-0 cursor-pointer select-none"
           style={{ height: itemHeight }}
           onClick={() => {
             if (editable && item === value && onEditCommit) {

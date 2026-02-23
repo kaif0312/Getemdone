@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LuX, LuSparkles, LuWrench, LuHeart } from 'react-icons/lu';
+import { LuX, LuSparkles, LuWrench, LuHeart, LuEye } from 'react-icons/lu';
 import { NudgeIcon } from '@/components/NudgeLogo';
 
 interface QuickInfoModalProps {
@@ -12,6 +12,7 @@ interface QuickInfoModalProps {
 interface UpdateItem {
   type: 'feature' | 'fix';
   text: string;
+  icon?: 'eye';
 }
 
 interface VersionGroup {
@@ -25,6 +26,7 @@ const UPDATES: VersionGroup[] = [
     version: '1.1.0',
     date: 'Feb 2026',
     items: [
+      { type: 'feature', text: 'Selective sharing — choose exactly who sees each task', icon: 'eye' },
       { type: 'feature', text: 'Rebrand to Nudge — new logo and app identity' },
       { type: 'feature', text: 'Category grouping — Inbox for uncategorized, collapsible sections' },
       { type: 'feature', text: 'Improved task list — relative timestamps, compact metadata with icons' },
@@ -130,7 +132,9 @@ export default function QuickInfoModal({ isOpen, onClose }: QuickInfoModalProps)
                         className="flex items-center gap-2 min-h-[36px]"
                       >
                         <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-                          {item.type === 'feature' ? (
+                          {item.icon === 'eye' ? (
+                            <LuEye size={16} className="text-primary" />
+                          ) : item.type === 'feature' ? (
                             <LuSparkles size={16} className="text-success" />
                           ) : (
                             <LuWrench size={16} className="text-warning" />

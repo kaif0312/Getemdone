@@ -64,7 +64,7 @@ export default function FriendTaskCard({
   tagOrder = [],
 }: FriendTaskCardProps) {
   const [showEncouragementModal, setShowEncouragementModal] = useState(false);
-  const publicTasks = tasks.filter(t => !t.isPrivate);
+  const publicTasks = tasks; // Parent already filters by canViewTask
   const publicGroups = groupTasksByTag(publicTasks, tagOrder);
   const completedToday = tasks.filter(t => t.completed).length;
   const pendingCount = publicTasks.filter(t => !t.completed).length;

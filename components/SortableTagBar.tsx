@@ -141,9 +141,14 @@ function SortableTagButton({
             `}
           >
             <Icon size={20} strokeWidth={1.5} className="flex-shrink-0" />
-            {/* Mobile: tiny count badge on icon */}
+            {/* Mobile: count badge - top-right (-4px,-4px), 16px circle / pill, primary bg, 10px */}
             {count !== undefined && count > 0 && (
-              <span className="md:hidden absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 flex items-center justify-center text-[10px] font-medium text-fg-tertiary bg-surface-muted rounded-full">
+              <span
+                className={`md:hidden absolute flex items-center justify-center text-[10px] font-medium text-on-accent bg-primary rounded-full ${
+                  count > 9 ? 'min-w-5 h-4 px-1' : 'w-4 h-4'
+                }`}
+                style={{ top: -4, right: -4 }}
+              >
                 {count > 99 ? '99+' : count}
               </span>
             )}
@@ -175,7 +180,7 @@ function SortableTagButton({
                   {label}
                 </span>
                 {count !== undefined && count > 0 && (
-                  <span className="text-[10px] text-fg-tertiary tabular-nums mt-0.5">
+                  <span className="text-[12px] text-fg-tertiary tabular-nums mt-0.5">
                     {count}
                   </span>
                 )}

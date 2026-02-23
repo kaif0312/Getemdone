@@ -21,6 +21,7 @@ import ProfileSettings from '@/components/ProfileSettings';
 import Avatar from '@/components/Avatar';
 import NotificationSettings from '@/components/NotificationSettings';
 import NotificationToast, { ToastNotification } from '@/components/NotificationToast';
+import CompletionToast from '@/components/CompletionToast';
 import { useNotifications, DEFAULT_NOTIFICATION_SETTINGS } from '@/hooks/useNotifications';
 import type { NotificationSettings as NotificationSettingsType } from '@/lib/types';
 import { useNotificationListener } from '@/hooks/useNotificationListener';
@@ -35,7 +36,7 @@ import AccessRemovedScreen from '@/components/AccessRemovedScreen';
 import FaceIDLockScreen from '@/components/FaceIDLockScreen';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { FaBell } from 'react-icons/fa';
-import { LuFlame, LuInbox, LuChevronDown } from 'react-icons/lu';
+import { LuFlame, LuInbox, LuChevronDown, LuCheck, LuEye, LuX } from 'react-icons/lu';
 import ProfileAvatarDropdown from '@/components/ProfileAvatarDropdown';
 import { NudgeWordmark, NudgeIcon } from '@/components/NudgeLogo';
 import EmptyState from '@/components/EmptyState';
@@ -56,6 +57,7 @@ import { normalizeTagToIconId, getIconForTag, getLabelForTag, getEffectiveLabelF
 import { loadFriendOrder, saveFriendOrder, mergeFriendOrder } from '@/lib/friendOrder';
 import { getAccentForId } from '@/lib/theme';
 import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionKey } from '@/utils/taskGrouping';
+import { canViewTask } from '@/utils/visibility';
 import SortableTagBar from '@/components/SortableTagBar';
 
 export default function Home() {
@@ -127,7 +129,7 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -219,6 +221,10 @@ function MainApp() {
   const [showNotificationsPanel, setShowNotificationsPanel] = useState(false);
   const [showQuickInfo, setShowQuickInfo] = useState(false);
   const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
+  const [completionUndoTaskId, setCompletionUndoTaskId] = useState<string | null>(null);
+  const [undoingTaskId, setUndoingTaskId] = useState<string | null>(null);
+  const [taskCountJustUpdated, setTaskCountJustUpdated] = useState(false);
+  const [streakJustUpdated, setStreakJustUpdated] = useState(false);
   const [noonCheckScheduled, setNoonCheckScheduled] = useState(false);
   const notifications = useNotifications(uid);
 
@@ -377,7 +383,7 @@ function MainApp() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    // Get all friend tasks (both private and public)
+    // Get all friend tasks (both visible and hidden - we filter display in FriendTaskCard)
     const allFriendTasks = tasks.filter((task) => {
       if (task.userId === uid) return false;
       if (task.deleted === true) return false;
@@ -449,7 +455,12 @@ function MainApp() {
     await toggleComplete(taskId, completed, task, dateStr);
     // Update streak data after completing a task
     if (completed) {
+      setTaskCountJustUpdated(true);
+      setStreakJustUpdated(true);
+      setTimeout(() => setTaskCountJustUpdated(false), 350);
+      setTimeout(() => setStreakJustUpdated(false), 450);
       await updateStreakData();
+      setCompletionUndoTaskId(taskId);
     }
     // Mark first task completion as seen
     if (completed && !onboarding.state.hasSeenFirstTask) {
@@ -457,14 +468,25 @@ function MainApp() {
     }
   };
 
+  const handleCompletionUndo = (taskId: string) => {
+    setUndoingTaskId(taskId);
+    setTimeout(async () => {
+      const task = tasks.find((t) => t.id === taskId);
+      await toggleComplete(taskId, false, task);
+      setCompletionUndoTaskId(null);
+      setUndoingTaskId(null);
+    }, 200);
+  };
+
   const handleDeferTask = (taskId: string, deferToDate: string | null) => {
     const task = tasks.find((t) => t.id === taskId);
     deferTask(taskId, deferToDate, task);
   };
 
-  const handleAddTask = async (text: string, isPrivate: boolean, dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null) => {
+  const handleAddTask = async (text: string, visibility: import('@/lib/types').TaskVisibility, visibilityList: string[], dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null) => {
     const tags = activeTagFilters.length > 0 ? activeTagFilters.slice(0, 5) : undefined;
-    await addTask(text, isPrivate, dueDate, scheduledFor, recurrence, tags);
+    const isPrivate = visibility === 'private';
+    await addTask(text, isPrivate, dueDate, scheduledFor, recurrence, tags, visibility, visibilityList);
     // Mark first task as seen
     if (!onboarding.state.hasSeenFirstTask) {
       onboarding.markFeatureSeen('hasSeenFirstTask');
@@ -496,6 +518,20 @@ function MainApp() {
 
   const dismissToastNotification = (id: string) => {
     setToastNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const dismissVisibilityBanner = async () => {
+    if (!uid) return;
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const userDocRef = doc(db, 'users', uid);
+      const current = data.dismissedBanners || [];
+      if (current.includes('visibility_social')) return;
+      await updateDoc(userDocRef, { dismissedBanners: [...current, 'visibility_social'] });
+    } catch (error) {
+      console.error('Error dismissing visibility banner:', error);
+    }
   };
 
   // Schedule deadline reminders for tasks with due dates
@@ -659,8 +695,8 @@ function MainApp() {
     const settings = data.notificationSettings || DEFAULT_NOTIFICATION_SETTINGS;
     if (!settings.enabled || !settings.friendCompletions) return;
 
-    // Check for newly completed friend tasks
-    const friendTasks = tasks.filter(t => t.userId !== uid && !t.isPrivate);
+    // Check for newly completed friend tasks (only tasks visible to us)
+    const friendTasks = tasks.filter(t => t.userId !== uid && canViewTask(t, uid, false));
     
     friendTasks.forEach(task => {
       const wasCompleted = previousFriendTasksRef.current.get(task.id);
@@ -855,9 +891,9 @@ function MainApp() {
                   setShowStreakCalendar(true);
                   if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
                 }}
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-xs
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs
                   bg-primary/5 border border-primary/10
-                  hover:bg-primary/10 transition-colors flex-shrink-0"
+                  hover:bg-primary/10 transition-colors flex-shrink-0 ${streakJustUpdated ? 'streak-just-updated' : ''}`}
                 title="View streak calendar"
               >
                 <LuFlame size={12} className="text-primary shrink-0" strokeWidth={1.5} />
@@ -1047,7 +1083,6 @@ function MainApp() {
 
               // Group by tag: Inbox first, overdue categories higher, then by tagOrder
               const incompleteGroups = groupTasksByTag(incompleteTasks, tagOrder, overdueTaskIds);
-              const completedGroups = groupTasksByTag(completedTasks, tagOrder);
               const flatIncomplete = incompleteGroups.flatMap((g) => g.tasks);
               
               if (myTasks.length === 0) return null;
@@ -1069,7 +1104,7 @@ function MainApp() {
                     />
                     <div className="text-left flex-1 min-w-0">
                       <h2 className="text-lg font-semibold text-fg-primary group-hover:underline truncate leading-tight tracking-tight">{data.displayName || 'You'}</h2>
-                      <p className="text-sm font-normal text-fg-secondary leading-normal">{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
+                      <p className={`text-sm font-normal text-fg-secondary leading-normal ${taskCountJustUpdated ? 'task-count-just-updated' : ''}`}>{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
                     </div>
                   </button>
                   <div className="bg-surface rounded-b-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle border-t-0">
@@ -1127,6 +1162,7 @@ function MainApp() {
                             hideCategoryIcon={true}
                             onToggleComplete={handleToggleComplete}
                             onTogglePrivacy={togglePrivacy}
+                            onUpdateVisibility={updateVisibility}
                             onUpdateTask={updateTask}
                             onUpdateDueDate={updateTaskDueDate}
                             onUpdateNotes={updateTaskNotes}
@@ -1156,13 +1192,10 @@ function MainApp() {
                       </SortableContext>
                     </DndContext>
                     
-                    {/* Completed tasks (not draggable) - grouped by tag */}
-                    {completedGroups.map((group) => {
-                      const key = `done-${sectionKey(group.tag)}`;
+                    {/* Completed tasks (not draggable) - single section at bottom */}
+                    {completedTasks.length > 0 && (() => {
+                      const key = 'done-all';
                       const isCollapsed = collapsedSections.has(key);
-                      const isInbox = group.tag === null;
-                      const Icon = isInbox ? LuInbox : getIconForTag(group.tag!);
-                      const label = isInbox ? 'Inbox' : getEffectiveLabelForTag(group.tag!, data.customTagLabels);
                       return (
                       <div key={key}>
                         <button
@@ -1172,16 +1205,16 @@ function MainApp() {
                         >
                           <div className="flex-1 min-w-0 h-px bg-border-subtle" />
                           <div className="flex items-center gap-2 flex-shrink-0 px-2">
-                            <Icon size={16} strokeWidth={1.5} className="text-fg-tertiary" />
+                            <LuCheck size={16} strokeWidth={1.5} className="text-fg-tertiary" />
                             <span className="text-[13px] text-fg-tertiary uppercase tracking-wider font-medium">
-                              {label}
+                              Completed
                             </span>
                           </div>
                           <div className="flex-1 min-w-0 h-px bg-border-subtle" />
                           <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
                             {isCollapsed && (
                               <span className="text-[12px] text-fg-tertiary tabular-nums">
-                                {group.tasks.length}
+                                {completedTasks.length}
                               </span>
                             )}
                             <LuChevronDown
@@ -1194,14 +1227,17 @@ function MainApp() {
                         </button>
                         {!isCollapsed && (
                         <div className="space-y-2">
-                        {group.tasks.map((task) => (
+                        {completedTasks.map((task) => (
                       <TaskItem
                         key={task.id}
                         task={task}
                         isOwnTask={true}
                         hideCategoryIcon={true}
+                        isUndoing={undoingTaskId === task.id}
+                        justCompleted={completionUndoTaskId === task.id}
                         onToggleComplete={handleToggleComplete}
                         onTogglePrivacy={togglePrivacy}
+                        onUpdateVisibility={updateVisibility}
                         onUpdateTask={updateTask}
                         onUpdateDueDate={updateTaskDueDate}
                         onUpdateNotes={updateTaskNotes}
@@ -1227,7 +1263,7 @@ function MainApp() {
                         )}
                       </div>
                       );
-                    })}
+                    })()}
                   </div>
                 </div>
               );
@@ -1246,8 +1282,8 @@ function MainApp() {
               // Prepare friend summaries for the bar (order matches friendEntriesOrdered)
               const friendSummaries = friendEntriesOrdered.map(([userId, userTasks]) => {
                 const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
-                const publicTasks = userTasks.filter(t => !t.isPrivate);
-                const privateTasks = userTasks.filter(t => t.isPrivate);
+                const publicTasks = userTasks.filter(t => canViewTask(t, uid, false));
+                const privateTasks = userTasks.filter(t => !canViewTask(t, uid, false));
                 const pendingCount = publicTasks.filter(t => !t.completed).length;
                 const completedToday = userTasks.filter(t => t.completed).length;
                 const privateTotal = privateTasks.length;
@@ -1267,8 +1303,27 @@ function MainApp() {
                 };
               });
 
+              const showVisibilityBanner = !data.dismissedBanners?.includes('visibility_social');
+
               return (
                 <>
+                  {/* One-time visibility feature banner - first time viewing friends after feature ships */}
+                  {showVisibilityBanner && (
+                    <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-surface border border-primary rounded-[10px]" style={{ padding: '12px 16px' }}>
+                      <LuEye size={18} className="text-primary flex-shrink-0" />
+                      <p className="flex-1 text-[14px] text-fg-primary">
+                        You can now choose which friends see each task. Look for the eye icon on any task.
+                      </p>
+                      <button
+                        onClick={dismissVisibilityBanner}
+                        className="flex-shrink-0 p-1 text-fg-tertiary hover:text-fg-primary transition-colors"
+                        aria-label="Dismiss"
+                      >
+                        <LuX size={16} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Friends Summary Bar - draggable to reorder */}
                   <SortableFriendsSummaryBar
                     friends={friendSummaries}
@@ -1284,8 +1339,8 @@ function MainApp() {
                   <div className="mb-6">
                     {friendEntriesOrdered.map(([userId, userTasks]) => {
                       const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
-                      const privateTasks = userTasks.filter(t => t.isPrivate);
-                      const publicTasks = userTasks.filter(t => !t.isPrivate);
+                      const publicTasks = userTasks.filter(t => canViewTask(t, uid, false));
+                      const privateTasks = userTasks.filter(t => !canViewTask(t, uid, false));
                       const privateTotal = privateTasks.length;
                       const privateCompleted = privateTasks.filter(t => t.completed).length;
                       
@@ -1303,7 +1358,7 @@ function MainApp() {
                             friendId={userId}
                             friendName={friendName}
                             photoURL={friendPhotoURLMap.get(userId)}
-                            tasks={userTasks}
+                            tasks={publicTasks}
                             tagOrder={tagOrder}
                             privateTotal={privateTotal}
                             privateCompleted={privateCompleted}
@@ -1374,6 +1429,8 @@ function MainApp() {
           onAddTask={handleAddTask} 
           disabled={tasksLoading}
           inputRef={taskInputRef}
+          defaultVisibility={data.defaultVisibility}
+          defaultVisibilityList={data.defaultVisibilityList}
           recentTasks={
             tasks
               .filter(t => t.userId === uid && t.completed)
@@ -1398,6 +1455,7 @@ function MainApp() {
           onClose={() => setShowStreakCalendar(false)}
           onToggleComplete={handleToggleComplete}
           onTogglePrivacy={togglePrivacy}
+          onUpdateVisibility={updateVisibility}
           onUpdateTask={updateTask}
           onUpdateDueDate={updateTaskDueDate}
           onUpdateNotes={updateTaskNotes}
@@ -1539,6 +1597,15 @@ function MainApp() {
         notifications={toastNotifications}
         onDismiss={dismissToastNotification}
       />
+
+      {/* Task completion undo toast */}
+      {completionUndoTaskId && (
+        <CompletionToast
+          taskId={completionUndoTaskId}
+          onUndo={() => handleCompletionUndo(completionUndoTaskId)}
+          onDismiss={() => setCompletionUndoTaskId(null)}
+        />
+      )}
     </div>
   );
 }

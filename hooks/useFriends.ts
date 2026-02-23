@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   collection, 
   query, 
@@ -21,29 +21,57 @@ export function useFriends() {
   const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stable key: only re-fetch when the friends list actually changes (not on every userData update)
+  const friendsKey = useMemo(() => {
+    const arr = userData?.friends;
+    if (!user?.uid || !arr?.length) return null;
+    return [...arr].sort().join(',');
+  }, [user?.uid, userData?.friends]);
+
   useEffect(() => {
-    if (!user || !userData || !userData.friends || userData.friends.length === 0) {
+    // Only clear friends when user is logged out
+    if (!user) {
       setFriends([]);
       setLoading(false);
       return;
     }
 
+    // userData not loaded yet — keep previous state, don't clear (avoids flash during auth)
+    if (!userData) {
+      setLoading(false);
+      return;
+    }
+
+    // Explicitly empty friends array — user has no friends
+    if (!userData.friends || userData.friends.length === 0) {
+      setFriends([]);
+      setLoading(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    const friendIds = userData.friends;
+
     const fetchFriends = async () => {
       const friendsData: User[] = [];
-      
-      for (const friendId of userData.friends) {
+
+      for (const friendId of friendIds) {
+        if (abortController.signal.aborted) return;
         const friendDoc = await getDoc(doc(db, 'users', friendId));
+        if (abortController.signal.aborted) return;
         if (friendDoc.exists()) {
           friendsData.push({ id: friendDoc.id, ...friendDoc.data() } as User);
         }
       }
-      
+
+      if (abortController.signal.aborted) return;
       setFriends(friendsData);
       setLoading(false);
     };
 
     fetchFriends();
-  }, [user, userData]);
+    return () => abortController.abort();
+  }, [user, friendsKey]);
 
   const searchUsers = async (email: string): Promise<User | null> => {
     const usersRef = collection(db, 'users');

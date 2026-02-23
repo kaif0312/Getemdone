@@ -1,8 +1,10 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
+import { LuCalendar } from 'react-icons/lu';
 import StorageUsage from './StorageUsage';
+import GoogleCalendarSettings from './GoogleCalendarSettings';
 import { useEncryption } from '@/hooks/useEncryption';
 import { E2EE_ENABLED } from '@/lib/config';
 
@@ -15,12 +17,14 @@ interface SettingsMenuProps {
   onAdmin?: () => void;
   onWhatsAppShare: () => void;
   onFeedback: () => void;
+  onGoogleCalendarConnected?: (message: string) => void;
   deletedCount: number;
   isAdmin: boolean;
   notificationPermission: NotificationPermission;
   userId: string;
   storageUsed?: number;
   storageLimit?: number;
+  googleCalendarConnected?: boolean;
 }
 
 export default function SettingsMenu({
@@ -32,15 +36,18 @@ export default function SettingsMenu({
   onAdmin,
   onWhatsAppShare,
   onFeedback,
+  onGoogleCalendarConnected,
   deletedCount,
   isAdmin,
   notificationPermission,
   userId,
   storageUsed = 0,
   storageLimit,
+  googleCalendarConnected = false,
 }: SettingsMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInitialized: encryptionInitialized, masterKey } = useEncryption();
+  const [showGoogleCalendarSettings, setShowGoogleCalendarSettings] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -138,6 +145,29 @@ export default function SettingsMenu({
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* INTEGRATIONS */}
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-[11px] text-fg-tertiary uppercase tracking-wider mb-2">Integrations</p>
+            </div>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowGoogleCalendarSettings(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowGoogleCalendarSettings(true); } }}
+              className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-surface-muted transition-colors text-left cursor-pointer"
+            >
+              <span className="text-[13px] text-fg-secondary">
+                {googleCalendarConnected ? (
+                  <>Google Calendar · Connected</>
+                ) : (
+                  <>
+                    Google Calendar · Connect to see your existing events in Nudge
+                    <span className="text-primary ml-1">Connect</span>
+                  </>
+                )}
+              </span>
             </div>
 
             {/* Storage Usage - Non-clickable display */}
@@ -241,6 +271,16 @@ export default function SettingsMenu({
                 </div>
               </div>
             </button>
+
+            <GoogleCalendarSettings
+              isOpen={showGoogleCalendarSettings}
+              onClose={() => setShowGoogleCalendarSettings(false)}
+              onSuccess={(msg) => {
+                if (msg === 'Google Calendar connected') {
+                  onGoogleCalendarConnected?.(msg);
+                }
+              }}
+            />
 
             {/* Admin Dashboard (only if admin) */}
             {isAdmin && onAdmin && (

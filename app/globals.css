@@ -502,6 +502,17 @@ input[type="datetime-local"] {
   }
 }
 
+/* Event form title validation shake */
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-4px); }
+}
+.animate-input-shake {
+  animation: input-shake 200ms ease-in-out;
+}
+
 /* Notification toast progress animation */
 @keyframes progress {
   from {
@@ -685,6 +696,15 @@ input[type="datetime-local"] {
 }
 .animate-nudge-pulse {
   animation: nudge-pulse 2s ease-in-out infinite;
+}
+
+/* NOW badge pulse (schedule card) */
+@keyframes now-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-now-pulse {
+  animation: now-badge-pulse 2s ease-in-out infinite;
 }
 
 /* Quick info / about modal */

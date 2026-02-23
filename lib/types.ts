@@ -75,6 +75,41 @@ export interface User {
   customTagLabels?: Record<string, string>;
   /** IDs of dismissed one-time banners (e.g. 'visibility_social') */
   dismissedBanners?: string[];
+  /** Google Calendar: encrypted tokens (access_token, refresh_token, expires_at) */
+  googleCalendarTokens?: string;
+  /** Google Calendar: selected calendar IDs to display */
+  googleCalendarSelectedIds?: string[];
+  /** Google Calendar: default event visibility to friends */
+  defaultEventVisibility?: TaskVisibility;
+  /** Google Calendar: default visibility list when defaultEventVisibility is only/except */
+  defaultEventVisibilityList?: string[];
+}
+
+/** Google Calendar event (from API or our overlay) */
+export interface CalendarEvent {
+  id: string;
+  calendarId: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  colorId?: string;
+  /** Resolved from calendar or colorId */
+  backgroundColor?: string;
+  htmlLink?: string;
+  /** Nudge: visibility to friends (stored in Firestore, not in Google) */
+  visibility?: TaskVisibility;
+  visibilityList?: string[];
+}
+
+/** Google Calendar list item */
+export interface GoogleCalendarListItem {
+  id: string;
+  summary: string;
+  primary?: boolean;
+  backgroundColor?: string;
+  foregroundColor?: string;
 }
 
 export interface Reaction {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { LuTriangleAlert } from 'react-icons/lu';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -47,6 +47,8 @@ import { useRouter } from 'next/navigation';
 import { shareMyTasks } from '@/utils/share';
 import { useDataMigration } from '@/hooks/useDataMigration';
 import { useTagMigration } from '@/hooks/useTagMigration';
+import { useGoogleCalendar } from '@/hooks/useGoogleCalendar';
+import { useFriendSchedulesToday } from '@/hooks/useFriendSchedulesToday';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { shouldShowInTodayView, countRolledOverTasks, getTodayString, getDateString } from '@/utils/taskFilter';
@@ -59,6 +61,7 @@ import { getAccentForId } from '@/lib/theme';
 import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionKey } from '@/utils/taskGrouping';
 import { canViewTask } from '@/utils/visibility';
 import SortableTagBar from '@/components/SortableTagBar';
+import TodaysScheduleCard from '@/components/TodaysScheduleCard';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading } = useAuth();
@@ -129,10 +132,12 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
+  const { isConnected: googleCalendarConnected, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
+  const [calendarOpenWith, setCalendarOpenWith] = useState<{ date?: string; event?: import('@/lib/types').CalendarEvent | null; addEvent?: boolean } | null>(null);
   const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
@@ -436,6 +441,33 @@ function MainApp() {
   // Load friend order from localStorage on mount
   useEffect(() => {
     setFriendOrder(loadFriendOrder());
+  }, []);
+
+  // Fetch friend schedules for today (parallel, 10min cache)
+  const friendIdsForSchedule = useMemo(
+    () => friendEntriesOrdered.map(([id]) => id),
+    [friendEntriesOrdered]
+  );
+  const friendSchedules = useFriendSchedulesToday(friendIdsForSchedule, getFriendEvents);
+
+  // Load own calendar events for today's schedule (native when not connected, Google when connected)
+  useEffect(() => {
+    if (loadEventsForMonth) {
+      const now = new Date();
+      loadEventsForMonth(now.getFullYear(), now.getMonth());
+    }
+  }, [loadEventsForMonth]);
+
+  // Check if user can nudge a friend today (rate limit: 1 per day)
+  const canNudgeFriendToday = useCallback((friendId: string) => {
+    try {
+      const key = `nudge_sent_${friendId}`;
+      const last = localStorage.getItem(key);
+      const today = new Date().toDateString();
+      return last !== today;
+    } catch {
+      return true;
+    }
   }, []);
 
   // Smart defaults: Expand first 2-3 friends by default (only on first load, not after manual interaction)
@@ -888,6 +920,7 @@ function MainApp() {
               <button
                 ref={streakButtonRef}
                 onClick={() => {
+                  setCalendarOpenWith(null);
                   setShowStreakCalendar(true);
                   if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
                 }}
@@ -1107,6 +1140,26 @@ function MainApp() {
                       <p className={`text-sm font-normal text-fg-secondary leading-normal ${taskCountJustUpdated ? 'task-count-just-updated' : ''}`}>{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
                     </div>
                   </button>
+                  <TodaysScheduleCard
+                    events={myCalendarEvents.filter((e) => {
+                      const d = e.start?.date || e.start?.dateTime?.slice(0, 10);
+                      return d === getTodayString();
+                    })}
+                    currentUserId={uid}
+                    ownerId={uid}
+                    isOwn={true}
+                    loading={calendarEventsLoading}
+                    hideSection={false}
+                    onEventTap={(ev) => {
+                      const dateStr = ev.start?.date || ev.start?.dateTime?.slice(0, 10);
+                      setCalendarOpenWith({ date: dateStr, event: ev });
+                      setShowStreakCalendar(true);
+                    }}
+                    onAddEvent={() => {
+                      setCalendarOpenWith({ date: getTodayString(), addEvent: true });
+                      setShowStreakCalendar(true);
+                    }}
+                  />
                   <div className="bg-surface rounded-b-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle border-t-0">
                     <DndContext
                       sensors={sensors}
@@ -1379,7 +1432,12 @@ function MainApp() {
                             onAddAttachment={addAttachment}
                             onDeleteAttachment={deleteAttachment}
                             onSendEncouragement={sendEncouragement}
+                            onSendNudge={sendNudge}
                             currentUserId={uid}
+                            scheduleEvents={friendSchedules.get(userId)?.events ?? []}
+                            scheduleLoading={friendSchedules.get(userId)?.loading ?? false}
+                            friendHasCalendar={!!friendUsers.find((f) => f.id === userId)?.googleCalendarSelectedIds?.length}
+                            canNudgeToday={canNudgeFriendToday(userId)}
                           />
                         </div>
                       );
@@ -1450,9 +1508,9 @@ function MainApp() {
       {showStreakCalendar && data.streakData && (
         <StreakCalendar 
           streakData={data.streakData}
-          tasks={tasks.filter(t => t.userId === uid)}
+          tasks={tasks}
           currentUserId={uid}
-          onClose={() => setShowStreakCalendar(false)}
+          onClose={() => { setShowStreakCalendar(false); setCalendarOpenWith(null); }}
           onToggleComplete={handleToggleComplete}
           onTogglePrivacy={togglePrivacy}
           onUpdateVisibility={updateVisibility}
@@ -1464,6 +1522,12 @@ function MainApp() {
           onOpenComments={setSelectedTaskForComments}
           onDeferTask={handleDeferTask}
           onUpdateTaskRecurrence={updateTaskRecurrence}
+          onToast={(type, title, message = '', duration = 5000) => {
+            addToastNotification({ type, title, message, duration });
+          }}
+          initialDate={calendarOpenWith?.date}
+          initialEvent={calendarOpenWith?.event ?? undefined}
+          initialAddEvent={calendarOpenWith?.addEvent}
         />
       )}
 
@@ -1574,12 +1638,18 @@ function MainApp() {
         onAdmin={data.isAdmin ? () => router.push('/admin') : undefined}
         onWhatsAppShare={handleShare}
         onFeedback={() => setShowBugReportModal(true)}
+        onGoogleCalendarConnected={(msg) => {
+          if (msg === 'Google Calendar connected') {
+            addToastNotification({ type: 'success', title: 'Google Calendar connected', message: '' });
+          }
+        }}
         deletedCount={deletedCount}
         isAdmin={data.isAdmin || false}
         notificationPermission={notifications.permission}
         userId={uid}
         storageUsed={userStorageUsage}
         storageLimit={data.storageLimit}
+        googleCalendarConnected={googleCalendarConnected}
       />
 
       {/* Notification Settings Modal */}

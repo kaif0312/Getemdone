@@ -238,5 +238,16 @@ service cloud.firestore {
       // Users can read and update their own migration status
       allow read, write: if isAuthenticated() && userId == request.auth.uid;
     }
+    
+    // Calendar event visibility (per-event friend visibility for Google Calendar events)
+    match /calendarEventVisibility/{userId} {
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
+    
+    // Calendar events (synced from Google for friend visibility)
+    match /calendarEvents/{userId}/months/{monthKey} {
+      allow read: if isAuthenticated() && (userId == request.auth.uid || areFriends(userId));
+      allow write: if isAuthenticated() && userId == request.auth.uid;
+    }
   }
 }

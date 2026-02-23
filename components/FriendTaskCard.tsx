@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import TaskItem from './TaskItem';
 import EncouragementModal from './EncouragementModal';
-import { TaskWithUser, Attachment } from '@/lib/types';
+import TodaysScheduleCard from './TodaysScheduleCard';
+import { TaskWithUser, Attachment, CalendarEvent } from '@/lib/types';
 import { groupTasksByTag } from '@/utils/taskGrouping';
 import { getIconForTag } from '@/lib/tagIcons';
 import { FaChevronDown, FaChevronUp, FaLock, FaFire } from 'react-icons/fa';
@@ -32,8 +33,16 @@ interface FriendTaskCardProps {
   onAddAttachment?: (taskId: string, attachment: Attachment) => void;
   onDeleteAttachment?: (taskId: string, attachmentId: string) => void;
   onSendEncouragement?: (friendId: string, message: string) => Promise<void>;
+  onSendNudge?: (friendId: string) => Promise<void>;
   currentUserId: string;
   tagOrder?: string[];
+  /** Today's schedule for this friend (only if friend has calendar connected) */
+  scheduleEvents?: CalendarEvent[];
+  scheduleLoading?: boolean;
+  /** Friend has Google Calendar connected */
+  friendHasCalendar?: boolean;
+  /** Can show nudge (free all day + pending tasks + not rate limited) */
+  canNudgeToday?: boolean;
 }
 
 export default function FriendTaskCard({
@@ -60,8 +69,13 @@ export default function FriendTaskCard({
   onAddAttachment,
   onDeleteAttachment,
   onSendEncouragement,
+  onSendNudge,
   currentUserId,
   tagOrder = [],
+  scheduleEvents = [],
+  scheduleLoading = false,
+  friendHasCalendar = false,
+  canNudgeToday = true,
 }: FriendTaskCardProps) {
   const [showEncouragementModal, setShowEncouragementModal] = useState(false);
   const publicTasks = tasks; // Parent already filters by canViewTask
@@ -128,7 +142,21 @@ export default function FriendTaskCard({
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="bg-surface rounded-lg shadow-elevation-2 border border-border-subtle p-4 space-y-2 mt-2 animate-in slide-in-from-top-2 duration-200">
+        <div className="mt-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+          {friendHasCalendar && (
+            <TodaysScheduleCard
+              events={scheduleEvents}
+              currentUserId={currentUserId}
+              ownerId={friendId}
+              isOwn={false}
+              loading={scheduleLoading}
+              hideSection={!friendHasCalendar}
+              pendingTaskCount={pendingCount}
+              onNudge={onSendNudge ? () => onSendNudge(friendId) : undefined}
+              canNudge={!!(onSendNudge && canNudgeToday && pendingCount > 0 && !scheduleLoading && scheduleEvents.length === 0)}
+            />
+          )}
+          <div className="bg-surface rounded-lg shadow-elevation-2 border border-border-subtle p-4 space-y-2">
           {privateTotal > 0 && (
             <div className="bg-surface-muted rounded-lg px-3 py-2 border border-border-subtle flex items-center gap-2 text-xs md:text-sm text-fg-secondary">
               <FaLock size={14} className="text-fg-secondary" />
@@ -188,6 +216,7 @@ export default function FriendTaskCard({
               ))}
             </div>
           ))}
+          </div>
         </div>
       )}
       </div>

@@ -1843,6 +1843,27 @@ export function useTasks() {
     }
   };
 
+  // Send nudge to a friend (rate limited: 1 per friend per day)
+  const NUDGE_STORAGE_KEY = 'nudge_sent_';
+  const sendNudge = async (friendId: string) => {
+    if (!user || !userData) return;
+    const today = new Date().toDateString();
+    const key = `${NUDGE_STORAGE_KEY}${friendId}`;
+    try {
+      const last = localStorage.getItem(key);
+      if (last === today) return; // Already nudged today
+    } catch {
+      /* ignore */
+    }
+    const fromName = userData.displayName?.trim() || user.displayName || user.email?.split('@')[0] || 'A friend';
+    await sendEncouragement(friendId, `${fromName} nudged you to get things done today!`);
+    try {
+      localStorage.setItem(key, today);
+    } catch {
+      /* ignore */
+    }
+  };
+
   // Send encouragement to a friend
   const sendEncouragement = async (friendId: string, message: string) => {
     if (!user || !userData) {
@@ -1876,11 +1897,12 @@ export function useTasks() {
             console.warn('[sendEncouragement] Encrypt for notification failed:', encErr);
           }
         }
+        const isNudge = message.includes('nudged you');
         const notificationData = {
           userId: friendId,
           type: 'encouragement',
-          title: `💪 ${fromName} sent you encouragement!`,
-          message: `${fromName} sent you encouragement`,
+          title: isNudge ? `💪 ${message}` : `💪 ${fromName} sent you encouragement!`,
+          message: isNudge ? message : `${fromName} sent you encouragement`,
           fromUserId: user.uid,
           fromUserName: fromName,
           fromUserPhotoURL: userData.photoURL,
@@ -1928,6 +1950,7 @@ export function useTasks() {
     addAttachment,
     deleteAttachment,
     sendEncouragement,
+    sendNudge,
     userStorageUsage,
     updateTaskTags,
     recordRecentlyUsedTag,

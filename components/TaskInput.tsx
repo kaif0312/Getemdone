@@ -46,6 +46,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   const [showPrivateNudge, setShowPrivateNudge] = useState(false);
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef || internalInputRef;
+  const formRef = useRef<HTMLFormElement>(null);
   const eyeIconRef = useRef<HTMLButtonElement>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressFiredRef = useRef(false);
@@ -103,6 +104,30 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     inputRef.current?.focus();
   }, [inputRef]);
 
+  // Keep the form anchored just above the keyboard using the Visual Viewport API.
+  // Without this, position:fixed elements sit behind the keyboard on mobile.
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const reposition = () => {
+      if (!formRef.current) return;
+      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+      formRef.current.style.bottom = `${Math.max(0, keyboardHeight)}px`;
+    };
+
+    vv.addEventListener('resize', reposition);
+    vv.addEventListener('scroll', reposition);
+    reposition();
+
+    return () => {
+      vv.removeEventListener('resize', reposition);
+      vv.removeEventListener('scroll', reposition);
+      if (formRef.current) formRef.current.style.bottom = '';
+    };
+  }, [isOpen]);
+
   const handleClose = useCallback(() => {
     setIsOpen(false);
     setText('');
@@ -118,18 +143,11 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     if (text.trim() && !disabled) {
       try {
         await onAddTask(text.trim(), visibility, visibilityList, dueDate, scheduledFor, recurrence);
-        setText('');
-        setDueDate(null);
-        setScheduledFor(null);
-        setRecurrence(null);
-        setShowUnifiedPicker(false);
-        // Visibility persists for batch creation
-        // Keep sheet open and re-focus for batch task entry
-        inputRef.current?.focus();
         // First-time tooltip: show after first task created (progressive disclosure)
         if (typeof window !== 'undefined' && !localStorage.getItem(VISIBILITY_TOOLTIP_SHOWN_KEY)) {
           setShowFirstTaskTooltip(true);
         }
+        handleClose();
       } catch (error: any) {
         console.error('Error adding task:', error);
         const errorMessage = error.message || 'Failed to add task. Please try again.';
@@ -239,6 +257,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
       />
 
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
         onKeyDown={handleKeyDown}
         className="fixed inset-x-0 bottom-0 bg-surface border-t border-border-subtle z-[99999] dark:shadow-none shadow-elevation-top rounded-t-2xl md:rounded-none animate-in slide-in-from-bottom duration-200"

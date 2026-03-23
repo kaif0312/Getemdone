@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes, FaClock } from 'react-icons/fa';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes, FaClock, FaPlus } from 'react-icons/fa';
 import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
 import RecurrenceChip from './RecurrenceChip';
@@ -28,6 +28,7 @@ interface TaskInputProps {
 }
 
 export default function TaskInput({ onAddTask, disabled = false, recentTasks = [], inputRef: externalInputRef, defaultVisibility, defaultVisibilityList }: TaskInputProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [visibility, setVisibility] = useState<TaskVisibility>('everyone');
   const [visibilityList, setVisibilityList] = useState<string[]>([]);
@@ -93,14 +94,26 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     };
   }, [showFirstTaskTooltip]);
 
+  // Auto-focus input when sheet opens
   useEffect(() => {
-    // Auto-focus on mount
-    inputRef.current?.focus();
+    if (isOpen) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setText('');
+    setDueDate(null);
+    setScheduledFor(null);
+    setRecurrence(null);
+    setShowUnifiedPicker(false);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (text.trim() && !disabled) {
       try {
         await onAddTask(text.trim(), visibility, visibilityList, dueDate, scheduledFor, recurrence);
@@ -110,6 +123,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         setRecurrence(null);
         setShowUnifiedPicker(false);
         // Visibility persists for batch creation
+        // Keep sheet open and re-focus for batch task entry
         inputRef.current?.focus();
         // First-time tooltip: show after first task created (progressive disclosure)
         if (typeof window !== 'undefined' && !localStorage.getItem(VISIBILITY_TOOLTIP_SHOWN_KEY)) {
@@ -121,6 +135,12 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         alert(errorMessage);
         // Don't clear input on error so user can retry
       }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleClose();
     }
   };
 
@@ -180,12 +200,48 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     }
   }, [showUnifiedPicker]);
 
+  // ── Collapsed state: show FAB (mobile) or pill button (desktop) ──
+  if (!isOpen) {
+    return (
+      <>
+        {/* Mobile: circular FAB bottom-center */}
+        <button
+          className="md:hidden fixed left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg z-50 active:scale-95 transition-transform"
+          style={{ bottom: 'max(24px, env(safe-area-inset-bottom, 0px) + 16px)' }}
+          onClick={() => setIsOpen(true)}
+          aria-label="Add a task"
+          disabled={disabled}
+        >
+          <FaPlus size={20} />
+        </button>
+
+        {/* Desktop: pill button centered at bottom */}
+        <button
+          className="hidden md:flex fixed bottom-6 left-1/2 -translate-x-1/2 items-center gap-2 px-5 py-2.5 rounded-full bg-surface border border-border-subtle text-fg-secondary hover:text-fg-primary hover:border-border-emphasized shadow-elevation-1 z-50 text-sm transition-all"
+          onClick={() => setIsOpen(true)}
+          disabled={disabled}
+        >
+          <FaPlus size={14} />
+          Add a task
+        </button>
+      </>
+    );
+  }
+
+  // ── Expanded state: bottom sheet (mobile) / animated bar (desktop) ──
   return (
     <>
-      <form 
-        onSubmit={handleSubmit} 
-        className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border-subtle z-50 dark:shadow-none shadow-elevation-top"
-        style={{ 
+      {/* Mobile backdrop — tap to dismiss */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99998] md:hidden"
+        onClick={handleClose}
+      />
+
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={handleKeyDown}
+        className="fixed inset-x-0 bottom-0 bg-surface border-t border-border-subtle z-[99999] dark:shadow-none shadow-elevation-top rounded-t-2xl md:rounded-none animate-in slide-in-from-bottom duration-200"
+        style={{
           paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
           paddingLeft: 'max(env(safe-area-inset-left, 0px), 12px)',
           paddingRight: 'max(env(safe-area-inset-right, 0px), 12px)',
@@ -195,6 +251,9 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
           boxSizing: 'border-box',
         }}
       >
+        {/* Drag handle — mobile only */}
+        <div className="md:hidden w-10 h-1 bg-border-subtle rounded-full mx-auto mb-3" />
+
         <div className="max-w-3xl mx-auto" style={{ width: '100%', maxWidth: '100%' }}>
           <div className="flex items-center gap-2 flex-nowrap w-full">
             {/* Templates - desktop only, 20px secondary */}
@@ -234,7 +293,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                   <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary rounded-full" />
                 )}
               </button>
-              
+
               {/* Schedule/Deadline Picker - Bottom Sheet */}
               <ScheduleDeadlinePicker
                 isOpen={showUnifiedPicker}

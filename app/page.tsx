@@ -901,7 +901,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-[80px] md:pb-24 safe-area-inset-bottom transition-[background-color,color] duration-200 ease-out" style={{ paddingBottom: 'max(80px, env(safe-area-inset-bottom, 0px) + 80px)' }}>
+    <div className="min-h-screen bg-background pb-32 safe-area-inset-bottom transition-[background-color,color] duration-200 ease-out" style={{ paddingBottom: 'max(120px, env(safe-area-inset-bottom, 0px) + 120px)' }}>
       {/* Header */}
       <header className="bg-surface border-b border-border-emphasized sticky top-0 z-40 shadow-elevation-1 transition-[background-color,color,border-color] duration-200 ease-out" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-3xl mx-auto px-4 py-3 md:py-4" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes, FaClock, FaPlus } from 'react-icons/fa';
 import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
@@ -94,13 +95,13 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     };
   }, [showFirstTaskTooltip]);
 
-  // Auto-focus input when sheet opens
-  useEffect(() => {
-    if (isOpen) {
-      const t = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
+  const handleOpen = useCallback(() => {
+    // flushSync forces React to render the input synchronously within the click
+    // handler, so focus() is called while the user gesture is still active —
+    // this is required for mobile browsers to open the keyboard.
+    flushSync(() => setIsOpen(true));
+    inputRef.current?.focus();
+  }, [inputRef]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -208,7 +209,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         <button
           className="md:hidden fixed left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-lg z-50 active:scale-95 transition-transform"
           style={{ bottom: 'max(24px, env(safe-area-inset-bottom, 0px) + 16px)' }}
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           aria-label="Add a task"
           disabled={disabled}
         >
@@ -218,7 +219,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
         {/* Desktop: pill button centered at bottom */}
         <button
           className="hidden md:flex fixed bottom-6 left-1/2 -translate-x-1/2 items-center gap-2 px-5 py-2.5 rounded-full bg-surface border border-border-subtle text-fg-secondary hover:text-fg-primary hover:border-border-emphasized shadow-elevation-1 z-50 text-sm transition-all"
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           disabled={disabled}
         >
           <FaPlus size={14} />

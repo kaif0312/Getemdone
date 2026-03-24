@@ -78,6 +78,12 @@ function SortableFriendCard({
     ...(isDragging && { willChange: 'transform' as const }),
   };
 
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const totalTasks = friend.completedToday + friend.pendingCount;
+  const progress = totalTasks > 0 ? friend.completedToday / totalTasks : 0;
+
   return (
     <div ref={setNodeRef} style={style} className="flex-shrink-0">
       <button
@@ -107,6 +113,31 @@ function SortableFriendCard({
             <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
               {friend.name.charAt(0).toUpperCase()}
             </div>
+          )}
+          {totalTasks > 0 && (
+            <svg
+              className="absolute pointer-events-none"
+              style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
+              viewBox="0 0 46 46"
+              aria-hidden="true"
+            >
+              <circle cx="23" cy="23" r="21" fill="none"
+                stroke="var(--color-fg-tertiary)" strokeWidth="2.5" opacity="0.2"
+                strokeLinecap="round"
+              />
+              <circle cx="23" cy="23" r="21" fill="none"
+                stroke={progress >= 1 ? 'var(--color-success)' : 'var(--color-primary)'}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={RING_CIRCUMFERENCE}
+                strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+                style={{
+                  transform: 'rotate(-90deg)',
+                  transformOrigin: 'center',
+                  transition: prefersReducedMotion ? 'none' : 'stroke-dashoffset 500ms ease, stroke 300ms ease',
+                }}
+              />
+            </svg>
           )}
         </div>
         <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${isActive ? 'text-primary' : 'text-fg-primary'}`}>

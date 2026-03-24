@@ -301,10 +301,11 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               type="button"
               onClick={() => setShowTemplates(true)}
               disabled={disabled}
-              className="hidden md:flex p-2 text-fg-secondary hover:text-fg-primary transition-colors flex-shrink-0 disabled:opacity-50"
+              className="hidden md:flex flex-col items-center gap-0.5 px-2 py-1 text-fg-secondary hover:text-fg-primary transition-colors flex-shrink-0 disabled:opacity-50"
               title="Quick Templates"
             >
-              <FaListUl size={20} />
+              <FaListUl size={18} />
+              <span className="text-[9px] text-fg-tertiary leading-none">Templates</span>
             </button>
 
             {/* Calendar - 20px, secondary, left of input */}
@@ -313,7 +314,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                 type="button"
                 onClick={handleOpenUnifiedPicker}
                 disabled={disabled}
-                className="p-2 text-fg-secondary hover:text-fg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex flex-col items-center gap-0.5 px-2 py-1 text-fg-secondary hover:text-fg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   scheduledFor && dueDate
                     ? 'Schedule & Deadline'
@@ -325,10 +326,11 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                 }
               >
                 {scheduledFor ? (
-                  <FaClock size={20} />
+                  <FaClock size={18} />
                 ) : (
-                  <FaCalendar size={20} />
+                  <FaCalendar size={18} />
                 )}
+                <span className="text-[9px] text-fg-tertiary leading-none">Schedule</span>
                 {scheduledFor && dueDate && (
                   <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary rounded-full" />
                 )}
@@ -452,7 +454,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                   }
                 }}
                 disabled={disabled}
-                className={`p-2 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed relative ${
+                className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed relative ${
                   visibility === 'private'
                     ? 'text-fg-tertiary hover:text-fg-secondary'
                     : visibility === 'only' || visibility === 'except'
@@ -462,15 +464,16 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                 title={visibility === 'private' ? 'Private' : visibility === 'everyone' ? 'Everyone' : 'Custom visibility (hold for more)'}
               >
                 {visibility === 'private' ? (
-                  <FaEyeSlash size={20} />
+                  <FaEyeSlash size={18} />
                 ) : (
                   <>
-                    <FaEye size={20} />
+                    <FaEye size={18} />
                     {(visibility === 'only' || visibility === 'except') && visibilityList.length > 0 && (
                       <span className="absolute top-1 right-1 w-[4px] h-[4px] bg-primary rounded-full" />
                     )}
                   </>
                 )}
+                <span className="text-[9px] leading-none" style={{ color: 'inherit', opacity: 0.7 }}>Visibility</span>
                 {showNewBadge && (
                   <span className="absolute -top-0.5 -right-0.5 px-1.5 py-0.5 text-[8px] font-semibold text-white bg-primary rounded-full leading-none">
                     NEW
@@ -527,12 +530,13 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
                 type="button"
                 onClick={() => setShowTagSelector(true)}
                 disabled={disabled}
-                className={`p-2 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex flex-col items-center gap-0.5 px-2 py-1 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
                   selectedTags.length > 0 ? 'text-primary' : 'text-fg-tertiary hover:text-fg-secondary'
                 }`}
                 title={selectedTags.length > 0 ? `${selectedTags.length} tag(s) selected` : 'Add tags'}
               >
-                <LuTag size={20} />
+                <LuTag size={18} />
+                <span className="text-[9px] text-fg-tertiary leading-none">Tag</span>
                 {selectedTags.length > 0 && (
                   <span className="absolute top-0 right-0 w-[6px] h-[6px] bg-primary rounded-full" />
                 )}

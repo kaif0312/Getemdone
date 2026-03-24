@@ -631,6 +631,10 @@ export default function ScheduleDeadlinePicker({
               </button>
             </div>
 
+            <p className="text-xs text-fg-secondary text-center py-2 border-b border-border-subtle px-4 flex-shrink-0">
+              {activeTab === 'schedule' ? 'When you plan to work on this' : 'When this must be done by'}
+            </p>
+
             <div className="flex-1 overflow-y-auto py-4 space-y-4">
               <div className="flex flex-wrap gap-2">
                 {(['later-today', 'tomorrow', 'next-week', 'pick-date'] as const).map((opt) => {

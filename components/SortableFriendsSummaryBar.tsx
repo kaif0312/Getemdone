@@ -20,7 +20,6 @@ import {
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { FaLock } from 'react-icons/fa';
 import { LuCheck } from 'react-icons/lu';
 import Avatar from './Avatar';
 
@@ -32,8 +31,6 @@ interface FriendSummary {
   photoURL?: string;
   pendingCount: number;
   completedToday: number;
-  privateTotal: number;
-  privateCompleted: number;
   color: { from: string; to: string; text: string };
 }
 
@@ -151,9 +148,6 @@ function SortableFriendCard({
             )}
             {friend.pendingCount === 0 && friend.completedToday === 0 && '—'}
           </span>
-          {friend.privateTotal > 0 && (
-            <FaLock size={12} className="text-fg-tertiary shrink-0" title={`${friend.privateTotal} private`} />
-          )}
         </div>
       </button>
     </div>

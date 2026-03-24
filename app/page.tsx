@@ -837,8 +837,6 @@ function MainApp() {
         photoURL: friendPhotoURLMap.get(userId),
         pendingCount: publicTasks.filter((t) => !t.completed).length,
         completedToday: userTasks.filter((t) => t.completed).length,
-        privateTotal: privateTasks.length,
-        privateCompleted: privateTasks.filter((t) => t.completed).length,
         color: getAccentForId(userId),
       };
     });
@@ -1392,9 +1390,6 @@ function MainApp() {
           {friendEntriesOrdered.map(([userId, userTasks], i) => {
             const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
             const publicTasks = userTasks.filter((t) => canViewTask(t, uid, false));
-            const privateTasks = userTasks.filter((t) => !canViewTask(t, uid, false));
-            const privateTotal = privateTasks.length;
-            const privateCompleted = privateTasks.filter((t) => t.completed).length;
             const color = getAccentForId(userId);
             return (
               <div
@@ -1428,8 +1423,6 @@ function MainApp() {
                     photoURL={friendPhotoURLMap.get(userId)}
                     tasks={publicTasks}
                     tagOrder={tagOrder}
-                    privateTotal={privateTotal}
-                    privateCompleted={privateCompleted}
                     color={color}
                     onToggleComplete={handleToggleComplete}
                     onTogglePrivacy={togglePrivacy}

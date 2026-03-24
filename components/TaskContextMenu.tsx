@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LuPencil, LuClock, LuRepeat, LuStar, LuEye, LuEyeOff, LuTrash2, LuTag, LuUsers } from 'react-icons/lu';
+import { LuPencil, LuClock, LuRepeat, LuStar, LuZap, LuEye, LuEyeOff, LuTrash2, LuTag, LuUsers } from 'react-icons/lu';
 import { Task } from '@/lib/types';
 
 const MENU_WIDTH = 220;
@@ -20,11 +20,13 @@ interface TaskContextMenuProps {
   onSetDeadline?: () => void;
   onSetRecurrence?: () => void;
   onToggleCommitment?: () => void;
+  onToggleFocus?: () => void;
   onTogglePrivacy?: () => void;
   onSetVisibility?: () => void;
   onChangeIcon?: () => void;
   onDelete?: () => void;
   isCommitted?: boolean;
+  isFocused?: boolean;
   isPrivate?: boolean;
   showRecurrenceForCompleted?: boolean;
 }
@@ -39,11 +41,13 @@ export default function TaskContextMenu({
   onSetDeadline,
   onSetRecurrence,
   onToggleCommitment,
+  onToggleFocus,
   onTogglePrivacy,
   onSetVisibility,
   onChangeIcon,
   onDelete,
   isCommitted = false,
+  isFocused = false,
   isPrivate = false,
   showRecurrenceForCompleted = false,
 }: TaskContextMenuProps) {
@@ -129,6 +133,12 @@ export default function TaskContextMenu({
           {isCommitted ? 'Remove commitment' : 'Commit to complete'}
         </button>
       )}
+      {onToggleFocus && !task.completed && (
+        <button onClick={wrapAction(onToggleFocus)} className={itemClass}>
+          <LuZap size={iconSize} className={iconClass} strokeWidth={1.5} />
+          {isFocused ? "Remove from Today's Focus" : "Add to Today's Focus"}
+        </button>
+      )}
       {onSetVisibility && !task.completed && (
         <button onClick={wrapAction(onSetVisibility)} className={itemClass}>
           <LuUsers size={iconSize} className={iconClass} strokeWidth={1.5} />
@@ -211,6 +221,7 @@ export default function TaskContextMenu({
     onSetDeadline && !task.completed,
     onSetRecurrence && (!task.completed || showRecurrenceForCompleted),
     onToggleCommitment && !task.completed,
+    onToggleFocus && !task.completed,
     onTogglePrivacy && !task.completed,
     onChangeIcon && !task.completed,
     onDelete,

@@ -215,6 +215,7 @@ export interface Task {
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted
   committed?: boolean; // Commitment Mode - must complete today!
+  focusDate?: string | null; // YYYY-MM-DD — the date this task is in Today's Focus; null = not focused
   skipRollover?: boolean; // If true, don't auto-rollover to next day
   notes?: string; // Personal notes/description for the task
   attachments?: Attachment[]; // Media attachments (max 3)

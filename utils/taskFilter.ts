@@ -46,6 +46,14 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
     return false;
   }
 
+  // Focus tasks always appear on their focus date, regardless of deferral
+  if (task.focusDate === todayStr) {
+    if (task.completed && task.completedAt) {
+      return getDateString(task.completedAt) === todayStr;
+    }
+    return true;
+  }
+
   // Recurring tasks: template spawns instance each scheduled day
   if (task.recurrence) {
     if (!dateMatchesRecurrence(task.recurrence, todayStr)) return false;

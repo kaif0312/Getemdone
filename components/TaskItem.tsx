@@ -8,7 +8,7 @@ import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser, Attachment, Subtask, TaskVisibility } from '@/lib/types';
 import { getEffectiveVisibility } from './VisibilityBottomSheet';
 import { FaEye, FaEyeSlash, FaTrash, FaSmile, FaCheck, FaGripVertical, FaStar, FaComment, FaEdit, FaTimes, FaCheck as FaCheckIcon, FaClock, FaStickyNote, FaEllipsisV, FaPlus, FaPaperclip } from 'react-icons/fa';
-import { LuChevronDown, LuCalendar, LuHeart, LuUsers } from 'react-icons/lu';
+import { LuChevronDown, LuCalendar, LuHeart, LuUsers, LuZap } from 'react-icons/lu';
 import { LuRepeat, LuCheck, LuMessageCircle, LuSquareCheck, LuClock } from 'react-icons/lu';
 import ScheduleDeadlinePicker from './ScheduleDeadlinePicker';
 import EmojiPicker from './EmojiPicker';
@@ -232,6 +232,7 @@ interface TaskItemProps {
   onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
   onUpdateNotes?: (taskId: string, notes: string, existingSubtasks?: Subtask[]) => Promise<void>;
   onToggleCommitment?: (taskId: string, committed: boolean) => void;
+  onToggleFocus?: (taskId: string, focusDate: string | null) => void;
   onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;
@@ -272,6 +273,7 @@ export default function TaskItem({
   onUpdateDueDate,
   onUpdateNotes,
   onToggleCommitment,
+  onToggleFocus,
   onToggleSkipRollover,
   onAddReaction,
   onOpenComments,
@@ -1051,11 +1053,19 @@ export default function TaskItem({
             onDoubleClick={handleDoubleClick}
           >
             {task.committed && (
-              <FaStar 
-                className="text-warning mt-0.5 flex-shrink-0 z-10" 
-                size={12} 
-                title="Committed Task - Must Complete Today!" 
+              <FaStar
+                className="text-warning mt-0.5 flex-shrink-0 z-10"
+                size={12}
+                title="Committed Task - Must Complete Today!"
                 style={{ minWidth: '12px', minHeight: '12px' }}
+              />
+            )}
+            {task.focusDate === getTodayString() && (
+              <LuZap
+                size={12}
+                className="text-primary mt-0.5 flex-shrink-0 z-10"
+                style={{ minWidth: '12px', minHeight: '12px' }}
+                title="In Today's Focus"
               />
             )}
             {task.recurrence && (
@@ -1326,6 +1336,23 @@ export default function TaskItem({
                 >
                   <FaStickyNote size={10} className={task.notes ? 'text-primary' : ''} />
                   <span>Note</span>
+                </button>
+              )}
+              {onToggleFocus && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const todayStr = getTodayString();
+                    onToggleFocus(task.id, task.focusDate === todayStr ? null : todayStr);
+                  }}
+                  className={`flex items-center gap-1 text-xs transition-colors ${
+                    task.focusDate === getTodayString()
+                      ? 'text-primary hover:text-primary/80'
+                      : 'text-fg-tertiary hover:text-fg-secondary'
+                  }`}
+                >
+                  <LuZap size={10} />
+                  <span>{task.focusDate === getTodayString() ? 'Focused' : 'Focus'}</span>
                 </button>
               )}
               {onAddAttachment && (!task.attachments || task.attachments.length === 0) && (
@@ -1940,6 +1967,10 @@ export default function TaskItem({
             onToggleCommitment(task.id, !task.committed);
           }
         }}
+        onToggleFocus={onToggleFocus ? () => {
+          const todayStr = getTodayString();
+          onToggleFocus(task.id, task.focusDate === todayStr ? null : todayStr);
+        } : undefined}
         onSetVisibility={onUpdateVisibility ? () => setShowVisibilitySheet(true) : undefined}
         onTogglePrivacy={() => {
           onTogglePrivacy(task.id, !task.isPrivate);
@@ -1949,6 +1980,7 @@ export default function TaskItem({
           onDelete(task.id);
         }}
         isCommitted={!!task.committed}
+        isFocused={task.focusDate === getTodayString()}
         isPrivate={task.isPrivate}
       />
 

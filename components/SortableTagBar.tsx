@@ -19,7 +19,7 @@ import {
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { LuLayoutGrid } from 'react-icons/lu';
+import { LuLayoutGrid, LuZap } from 'react-icons/lu';
 import { getIconForTag, getEffectiveLabelForTag, getLabelForTag } from '@/lib/tagIcons';
 
 const RENAME_TOOLTIP_KEY = 'nudge_tag_rename_tooltip_seen';
@@ -33,6 +33,9 @@ interface SortableTagBarProps {
   onReorder: (newOrder: string[]) => void;
   customTagLabels?: Record<string, string> | null;
   onSaveCustomLabel?: (tagId: string, label: string) => Promise<void>;
+  focusCount?: number;
+  isFocusActive?: boolean;
+  onFocusClick?: () => void;
 }
 
 function SortableTagButton({
@@ -205,6 +208,9 @@ export default function SortableTagBar({
   onReorder,
   customTagLabels,
   onSaveCustomLabel,
+  focusCount = 0,
+  isFocusActive = false,
+  onFocusClick,
 }: SortableTagBarProps) {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [flashTagId, setFlashTagId] = useState<string | null>(null);
@@ -379,6 +385,26 @@ export default function SortableTagBar({
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-primary rounded-full md:hidden" />
             )}
           </button>
+          {onFocusClick && (
+            <button
+              onClick={onFocusClick}
+              className={`relative flex flex-col items-center justify-end flex-shrink-0 min-w-[32px] transition-all duration-150 md:min-w-[48px] md:h-12 ${
+                isFocusActive ? 'text-primary' : 'text-fg-secondary hover:text-fg-primary'
+              }`}
+            >
+              <span className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                isFocusActive ? 'bg-primary/[0.08] dark:bg-primary/[0.10]' : ''
+              }`}>
+                <LuZap size={20} strokeWidth={1.5} className="flex-shrink-0" />
+              </span>
+              <span className={`hidden md:block text-[11px] mt-0.5 ${isFocusActive ? 'text-primary' : 'text-fg-secondary'}`}>
+                {focusCount > 0 ? `Focus ${focusCount}` : 'Focus'}
+              </span>
+              {isFocusActive && (
+                <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-primary rounded-full md:hidden" />
+              )}
+            </button>
+          )}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={tagIds} strategy={horizontalListSortingStrategy}>
               <div className="flex items-center" style={{ gap: '24px' }}>

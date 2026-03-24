@@ -990,6 +990,13 @@ export function useTasks() {
     });
   };
 
+  const toggleFocus = async (taskId: string, focusDate: string | null) => {
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, {
+      focusDate: focusDate ?? null,
+    });
+  };
+
   const updateTask = async (taskId: string, text: string) => {
     if (!user) return;
     
@@ -1934,6 +1941,7 @@ export function useTasks() {
     togglePrivacy,
     updateVisibility,
     toggleCommitment,
+    toggleFocus,
     toggleSkipRollover,
     deleteTask,
     restoreTask,

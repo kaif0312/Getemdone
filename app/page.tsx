@@ -36,7 +36,7 @@ import AccessRemovedScreen from '@/components/AccessRemovedScreen';
 import FaceIDLockScreen from '@/components/FaceIDLockScreen';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { FaBell } from 'react-icons/fa';
-import { LuFlame, LuInbox, LuChevronDown, LuCheck, LuEye, LuX } from 'react-icons/lu';
+import { LuFlame, LuInbox, LuChevronDown, LuCheck, LuEye, LuX, LuZap } from 'react-icons/lu';
 import ProfileAvatarDropdown from '@/components/ProfileAvatarDropdown';
 import { NudgeWordmark, NudgeIcon } from '@/components/NudgeLogo';
 import EmptyState from '@/components/EmptyState';
@@ -132,7 +132,7 @@ function MainApp() {
   // Auto-cleanup expired recycle bin items
   useRecycleCleanup(uid);
 
-  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
+  const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleFocus, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
   const { isConnected: googleCalendarConnected, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
@@ -153,6 +153,7 @@ function MainApp() {
   const pageTrackRef = useRef<HTMLDivElement>(null);
   const pageTouchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
+  const [focusFilterActive, setFocusFilterActive] = useState(false);
   const [tagOrder, setTagOrder] = useState<string[]>(() => loadTagOrder());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => loadCollapsedSections());
 
@@ -827,31 +828,38 @@ function MainApp() {
   }, [friendUsers]);
 
   const friendSummaries = useMemo(() => {
+    const todayStr = getTodayString();
     return friendEntriesOrdered.map(([userId, userTasks]) => {
       const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
       const publicTasks = userTasks.filter((t) => canViewTask(t, uid, false));
-      const privateTasks = userTasks.filter((t) => !canViewTask(t, uid, false));
+      const focusTasks = publicTasks.filter((t) => t.focusDate === todayStr);
+      const hasFocus = focusTasks.length > 0;
       return {
         id: userId,
         name: friendName,
         photoURL: friendPhotoURLMap.get(userId),
-        pendingCount: publicTasks.filter((t) => !t.completed).length,
-        completedToday: userTasks.filter((t) => t.completed).length,
+        // When friend has focus tasks: ring tracks focus. Otherwise: no ring (both 0).
+        pendingCount: hasFocus ? focusTasks.filter((t) => !t.completed).length : 0,
+        completedToday: hasFocus ? focusTasks.filter((t) => t.completed).length : 0,
         color: getAccentForId(userId),
       };
     });
   }, [friendEntriesOrdered, friendDisplayNameMap, friendPhotoURLMap, uid]);
 
-  // Self stats for the Me tab
+  // Self stats for the Me tab — ring tracks focus tasks only
   const selfStats = useMemo(() => {
     const todayStr = getTodayString();
-    const myTasks = tasks.filter(
-      (t) => t.userId === uid && !t.deleted && shouldShowInTodayView(t, todayStr)
+    const focusTasks = tasks.filter(
+      (t) => t.userId === uid && !t.deleted && t.focusDate === todayStr
     );
-    return {
-      pendingCount: myTasks.filter((t) => !t.completed).length,
-      completedToday: myTasks.filter((t) => t.completed).length,
-    };
+    if (focusTasks.length > 0) {
+      return {
+        pendingCount: focusTasks.filter((t) => !t.completed).length,
+        completedToday: focusTasks.filter((t) => t.completed).length,
+      };
+    }
+    // No focus tasks → totalTasks = 0 → ring won't render
+    return { pendingCount: 0, completedToday: 0 };
   }, [tasks, uid]);
 
   // Page-level swipe touch handlers
@@ -1052,32 +1060,46 @@ function MainApp() {
               style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}
             >
               {/* Tag filter bar — Me page only */}
-              {tagBarData.orderedTags.length > 0 && (
-                <div className="mb-4">
-                  <SortableTagBar
-                    tagIds={tagBarData.orderedTags}
-                    tagCounts={tagBarData.tagCountMap}
-                    activeTagFilters={activeTagFilters}
-                    onTagClick={(tagId) => {
-                      setActiveTagFilters((prev) =>
-                        prev.includes(tagId) ? prev.filter((e) => e !== tagId) : [...prev, tagId]
-                      );
-                    }}
-                    onAllClick={() => setActiveTagFilters([])}
-                    onReorder={setTagOrder}
-                    customTagLabels={data.customTagLabels}
-                    onSaveCustomLabel={async (tagId, label) => {
-                      const { doc, updateDoc } = await import('firebase/firestore');
-                      const { db } = await import('@/lib/firebase');
-                      const userRef = doc(db, 'users', uid);
-                      const current = data.customTagLabels || {};
-                      const next = { ...current };
-                      if (label) { next[tagId] = label; } else { delete next[tagId]; }
-                      await updateDoc(userRef, { customTagLabels: next });
-                    }}
-                  />
-                </div>
-              )}
+              {(() => {
+                const todayStrBar = getTodayString();
+                const focusTaskCount = tasks.filter(
+                  (t) => t.userId === uid && !t.deleted && t.focusDate === todayStrBar
+                ).length;
+                if (tagBarData.orderedTags.length === 0 && focusTaskCount === 0) return null;
+                return (
+                  <div className="mb-4">
+                    <SortableTagBar
+                      tagIds={tagBarData.orderedTags}
+                      tagCounts={tagBarData.tagCountMap}
+                      activeTagFilters={activeTagFilters}
+                      onTagClick={(tagId) => {
+                        setFocusFilterActive(false);
+                        setActiveTagFilters((prev) =>
+                          prev.includes(tagId) ? prev.filter((e) => e !== tagId) : [...prev, tagId]
+                        );
+                      }}
+                      onAllClick={() => { setActiveTagFilters([]); setFocusFilterActive(false); }}
+                      onReorder={setTagOrder}
+                      customTagLabels={data.customTagLabels}
+                      onSaveCustomLabel={async (tagId, label) => {
+                        const { doc, updateDoc } = await import('firebase/firestore');
+                        const { db } = await import('@/lib/firebase');
+                        const userRef = doc(db, 'users', uid);
+                        const current = data.customTagLabels || {};
+                        const next = { ...current };
+                        if (label) { next[tagId] = label; } else { delete next[tagId]; }
+                        await updateDoc(userRef, { customTagLabels: next });
+                      }}
+                      focusCount={focusTaskCount}
+                      isFocusActive={focusFilterActive}
+                      onFocusClick={() => {
+                        setFocusFilterActive((f) => !f);
+                        setActiveTagFilters([]);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               {/* Me page content — reuse existing conditional rendering block below */}
         {!data ? (
           <div className="bg-warning-bg border border-warning-border rounded-lg p-6 text-center">
@@ -1173,8 +1195,11 @@ function MainApp() {
               
               // Debug logging removed
 
-              // Apply tag filter (OR logic)
-              const filteredTasks = activeTagFilters.length === 0
+              // Apply focus or tag filter
+              const todayForFilter = getTodayString();
+              const filteredTasks = focusFilterActive
+                ? myTasks.filter((t) => t.focusDate === todayForFilter)
+                : activeTagFilters.length === 0
                 ? myTasks
                 : myTasks.filter((t) => activeTagFilters.some((filterId) => t.tags?.some((tag) => normalizeTagToIconId(tag) === filterId)));
 
@@ -1215,6 +1240,17 @@ function MainApp() {
                       setShowStreakCalendar(true);
                     }}
                   />
+                  {focusFilterActive && filteredTasks.length === 0 && (
+                    <div className="bg-surface rounded-xl border border-border-subtle p-8 flex flex-col items-center gap-3 text-center">
+                      <div className="w-12 h-12 rounded-full bg-surface-muted flex items-center justify-center">
+                        <LuZap size={22} className="text-fg-tertiary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-fg-primary">No focus tasks yet</p>
+                        <p className="text-xs text-fg-tertiary mt-0.5">Tap ⚡ on any task to add it to today&apos;s focus</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="bg-surface rounded-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle">
                     <DndContext
                       sensors={sensors}
@@ -1275,6 +1311,7 @@ function MainApp() {
                             onUpdateDueDate={updateTaskDueDate}
                             onUpdateNotes={updateTaskNotes}
                             onToggleCommitment={toggleCommitment}
+                            onToggleFocus={toggleFocus}
                             onToggleSkipRollover={toggleSkipRollover}
                             onDelete={deleteTask}
                             onAddReaction={addReaction}
@@ -1352,6 +1389,7 @@ function MainApp() {
                         onUpdateDueDate={updateTaskDueDate}
                         onUpdateNotes={updateTaskNotes}
                         onToggleCommitment={toggleCommitment}
+                        onToggleFocus={toggleFocus}
                         onToggleSkipRollover={toggleSkipRollover}
                         onDelete={deleteTask}
                         onAddReaction={addReaction}

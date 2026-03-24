@@ -17,6 +17,7 @@ interface SortableTaskItemProps {
   onUpdateDueDate?: (taskId: string, dueDate: number | null) => Promise<void>;
   onUpdateNotes?: (taskId: string, notes: string, existingSubtasks?: { id: string; title: string; completed: boolean }[]) => Promise<void>;
   onToggleCommitment?: (taskId: string, committed: boolean) => void;
+  onToggleFocus?: (taskId: string, focusDate: string | null) => void;
   onToggleSkipRollover?: (taskId: string, skipRollover: boolean) => void;
   onAddReaction?: (taskId: string, emoji: string) => void;
   onOpenComments?: (taskId: string) => void;

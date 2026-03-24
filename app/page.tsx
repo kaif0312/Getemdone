@@ -147,6 +147,7 @@ function MainApp() {
   const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
   const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const [isPageDragging, setIsPageDragging] = useState(false);
   const [pageDragOffset, setPageDragOffset] = useState(0);
   const pageTrackRef = useRef<HTMLDivElement>(null);
@@ -1307,6 +1308,8 @@ function MainApp() {
                             userStorageUsed={data.storageUsed}
                             userStorageLimit={data.storageLimit}
                             currentUserId={uid}
+                            isExpanded={focusedTaskId === task.id}
+                            onExpand={() => setFocusedTaskId((prev) => prev === task.id ? null : task.id)}
                           />
                             ))}
                             </div>
@@ -1382,6 +1385,8 @@ function MainApp() {
                         userStorageUsed={data.storageUsed}
                         userStorageLimit={data.storageLimit}
                         currentUserId={uid}
+                        isExpanded={focusedTaskId === task.id}
+                        onExpand={() => setFocusedTaskId((prev) => prev === task.id ? null : task.id)}
                       />
                         ))}
                         </div>

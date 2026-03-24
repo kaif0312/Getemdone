@@ -252,6 +252,10 @@ interface TaskItemProps {
   isUndoing?: boolean;
   /** When true, play slide-in animation (task just moved to Completed section) */
   justCompleted?: boolean;
+  /** When false, secondary actions (+ Subtask, Note, Attach) and timestamp are hidden. Undefined = always show (legacy). */
+  isExpanded?: boolean;
+  /** Called when user taps the task text to expand/collapse it */
+  onExpand?: () => void;
 }
 
 export default function TaskItem({ 
@@ -284,6 +288,8 @@ export default function TaskItem({
   hideCategoryIcon = false,
   isUndoing = false,
   justCompleted = false,
+  isExpanded,
+  onExpand,
 }: TaskItemProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUnifiedDatePicker, setShowUnifiedDatePicker] = useState(false);
@@ -292,8 +298,10 @@ export default function TaskItem({
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeShelfRevealed, setSwipeShelfRevealed] = useState(false);
   const swipeThreshold = 80; // Threshold for triggering action
-  const maxSwipeDistance = 120; // Maximum swipe distance
+  const maxSwipeDistance = 220; // Maximum swipe distance
+  const SHELF_WIDTH = 192; // 3 × 64px action buttons
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(task.text);
   const [isSaving, setIsSaving] = useState(false);
@@ -782,61 +790,60 @@ export default function TaskItem({
           : -maxSwipeDistance - excess * 0.3;
       }
       
-      // Only allow swipe if not already completed (for complete action) or if completed (for delete)
-      if (deltaX > 0 && !task.completed) {
-        // Swipe right - Complete
-        setSwipeOffset(swipeDistance);
-        setSwipeAction(absX > swipeThreshold ? 'complete' : null);
-      } else if (deltaX < 0) {
-        // Swipe left - Delete
+      // Swipe right while shelf open → track toward closing
+      if (swipeShelfRevealed && deltaX > 0) {
+        const newOffset = Math.min(0, -SHELF_WIDTH + swipeDistance);
+        setSwipeOffset(newOffset);
+        return;
+      }
+
+      // Only allow left swipe (action shelf)
+      if (deltaX < 0 && !swipeShelfRevealed) {
         setSwipeOffset(swipeDistance);
         setSwipeAction(absX > swipeThreshold ? 'delete' : null);
-      } else {
-        // Swipe back towards center - allow undo
-        setSwipeOffset(swipeDistance);
+      } else if (!swipeShelfRevealed) {
+        setSwipeOffset(0);
         setSwipeAction(null);
       }
     },
     onSwiped: (eventData) => {
       if (!isOwnTask) {
-        // Always reset if not own task
         setIsSwiping(false);
         setSwipeOffset(0);
         setSwipeAction(null);
         return;
       }
-      
+
       const absX = Math.abs(eventData.deltaX);
       const absY = Math.abs(eventData.deltaY);
-      
+
       // Only trigger action if it was clearly a horizontal swipe
       if (absY > absX * 0.5) {
-        // Was more vertical than horizontal - cancel swipe and reset
         setIsSwiping(false);
+        setSwipeOffset(swipeShelfRevealed ? -SHELF_WIDTH : 0);
+        setSwipeAction(null);
+        return;
+      }
+
+      // Swipe right while shelf open → close shelf
+      if (swipeShelfRevealed && eventData.deltaX > 0) {
+        setIsSwiping(false);
+        setSwipeShelfRevealed(false);
         setSwipeOffset(0);
         setSwipeAction(null);
         return;
       }
-      
-      // Check if swipe exceeded threshold
-      if (absX > swipeThreshold) {
-        if (eventData.deltaX > 0 && !task.completed) {
-          // Complete task
-          handleToggleComplete();
-          if ('vibrate' in navigator) {
-            navigator.vibrate(50);
-          }
-        } else if (eventData.deltaX < 0) {
-          // Delete task
-          onDelete(task.id);
-          if ('vibrate' in navigator) {
-            navigator.vibrate([30, 50]);
-          }
-        }
+
+      // Swipe left → reveal action shelf
+      if (absX > swipeThreshold && eventData.deltaX < 0) {
+        setIsSwiping(false);
+        setSwipeOffset(-SHELF_WIDTH);
+        setSwipeAction(null);
+        setSwipeShelfRevealed(true);
+        if ('vibrate' in navigator) navigator.vibrate(15);
+        return;
       }
-      
-      // ALWAYS reset swipe state after any swipe ends (whether action triggered or not)
-      // Use setTimeout to ensure state updates happen after any action handlers
+
       setTimeout(() => {
         setIsSwiping(false);
         setSwipeOffset(0);
@@ -869,25 +876,30 @@ export default function TaskItem({
       <div className="relative rounded-lg" style={{ overflow: 'visible' }}>
         {/* Swipe Action Background */}
         {swipeOffset !== 0 && isOwnTask && (
-          <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
-            {swipeOffset > 0 && (
-              <div className={`flex items-center gap-2 transition-all duration-200 ${
-                swipeAction === 'complete' ? 'scale-110' : 'scale-100'
-              }`}>
-                <div className="w-10 h-10 rounded-full bg-success flex items-center justify-center">
-                  <FaCheck className="text-white" size={18} />
-                </div>
-                <span className="text-green-600 dark:text-green-400 font-semibold">Complete</span>
-              </div>
-            )}
-            {swipeOffset < 0 && (
-              <div className={`ml-auto flex items-center gap-2 transition-all duration-200 ${
-                swipeAction === 'delete' ? 'scale-110' : 'scale-100'
-              }`}>
-                <span className="text-red-600 dark:text-red-400 font-semibold">Delete</span>
-                <div className="w-10 h-10 rounded-full bg-error flex items-center justify-center">
-                  <FaTrash className="text-white" size={16} />
-                </div>
+          <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none" style={{ pointerEvents: 'none' }}>
+            {swipeOffset < 0 && isOwnTask && !task.completed && (
+              <div className="absolute right-0 top-0 bottom-0 flex items-stretch pointer-events-auto rounded-r-[12px] overflow-hidden" style={{ width: SHELF_WIDTH }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowUnifiedDatePicker(true); setUnifiedDatePickerTab('schedule'); setSwipeShelfRevealed(false); setSwipeOffset(0); }}
+                  className="flex-1 flex flex-col items-center justify-center gap-1 bg-primary text-white text-[11px] font-medium"
+                >
+                  <LuCalendar size={18} />
+                  <span>Schedule</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowTagPicker(true); setSwipeShelfRevealed(false); setSwipeOffset(0); }}
+                  className="flex-1 flex flex-col items-center justify-center gap-1 bg-purple-500 text-white text-[11px] font-medium"
+                >
+                  <FaPlus size={15} />
+                  <span>Tag</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(task.id); setSwipeShelfRevealed(false); setSwipeOffset(0); if ('vibrate' in navigator) navigator.vibrate([30, 50]); }}
+                  className="flex-1 flex flex-col items-center justify-center gap-1 bg-error text-white text-[11px] font-medium"
+                >
+                  <FaTrash size={15} />
+                  <span>Delete</span>
+                </button>
               </div>
             )}
           </div>
@@ -901,6 +913,7 @@ export default function TaskItem({
           onTouchEnd={handleTouchEnd}
           onTouchMove={handleTouchMove}
           onContextMenu={handleContextMenu}
+          onClick={() => { if (swipeShelfRevealed) { setSwipeShelfRevealed(false); setSwipeOffset(0); } }}
           onMouseDown={(e) => {
             // Prevent text selection on mouse down (for desktop)
             if (isOwnTask && !isEditing && e.button === 0) {
@@ -923,17 +936,17 @@ export default function TaskItem({
             /* Light: white + shadow, no border. Dark: surface + 1px border */
             'bg-white dark:bg-surface border-0 dark:border dark:border-border-subtle'
           } shadow-elevation-1 dark:shadow-none ${
-            swipeAction === 'complete' ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/40' : ''
-          } ${
-            swipeAction === 'delete' ? 'border-red-400 dark:border-red-600 bg-red-100 dark:bg-red-900/40' : ''
-          } ${
             isEditing ? 'border-primary ring-2 ring-primary/20' : ''
           } ${
             isLongPressing ? 'ring-2 ring-primary ring-offset-2 scale-[0.98]' : ''
-          }           ${
+          } ${
             (task.completed || isCompleting || isUndoing) ? 'opacity-60' : ''
           } transition-opacity duration-200`}
         >
+          {/* Overdue left-border accent */}
+          {isOverdue && isOwnTask && !task.completed && (
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-error z-10" aria-hidden="true" />
+          )}
         <div className="flex items-start gap-1">
           {dragHandleProps && (
             <button
@@ -1079,7 +1092,7 @@ export default function TaskItem({
               </div>
             ) : (
               <div className="flex-1 min-w-0">
-                <p 
+                <p
                   className={`text-base font-medium leading-[1.4] ${
                     (task.completed || isCompleting || isUnchecking || isUndoing) ? 'text-fg-secondary' : 'text-fg-primary'
                   } ${
@@ -1088,9 +1101,10 @@ export default function TaskItem({
                     task.completed && !isCompleting && !isUnchecking && !isUndoing ? 'task-complete-strikethrough strikethrough-expanded' : ''
                   } ${
                     (isUnchecking || isUndoing) ? 'task-uncheck-strikethrough' : ''
-                  } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`} 
+                  } ${isOwnTask && !task.completed && onUpdateTask ? 'cursor-text select-text touch-none' : ''}`}
                   suppressHydrationWarning
                   title={isOwnTask && !task.completed && onUpdateTask ? 'Long-press or double-click to edit' : undefined}
+                  onClick={!isEditing && onExpand ? (e) => { e.stopPropagation(); onExpand(); } : undefined}
                 >
                   {task.text}
                 </p>
@@ -1267,8 +1281,8 @@ export default function TaskItem({
             </div>
           )}
 
-          {/* Quick-action row: + Subtask, Note, Attach - fades out on complete */}
-          {isOwnTask && (!task.completed || isCompleting) && (onUpdateNotes || onUpdateTaskSubtasks || onAddAttachment) && (
+          {/* Quick-action row: + Subtask, Note, Attach - hidden until card is expanded */}
+          {isExpanded !== false && isOwnTask && (!task.completed || isCompleting) && (onUpdateNotes || onUpdateTaskSubtasks || onAddAttachment) && (
             <div className={`flex items-center gap-4 mt-2 transition-opacity duration-150 ${isCompleting ? 'opacity-0' : ''}`}>
               {onUpdateTaskSubtasks && (
                 <button
@@ -1611,10 +1625,12 @@ export default function TaskItem({
           
           {/* Metadata row - 12px icons, tertiary text, 12px gaps */}
           <div className="flex items-center gap-3 mt-1 flex-wrap text-[12px] text-fg-tertiary leading-[1.4]">
-            <span className="flex items-center gap-1" suppressHydrationWarning>
-              <LuClock size={12} className="flex-shrink-0" />
-              {formatRelativeTime(task.createdAt)}
-            </span>
+            {isExpanded !== false && (
+              <span className="flex items-center gap-1" suppressHydrationWarning>
+                <LuClock size={12} className="flex-shrink-0" />
+                {formatRelativeTime(task.createdAt)}
+              </span>
+            )}
             {task.completed && task.completedAt && (
               <span className="text-success flex items-center gap-1" suppressHydrationWarning>
                 <LuCheck size={12} className="flex-shrink-0" />

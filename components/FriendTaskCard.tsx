@@ -74,6 +74,7 @@ export default function FriendTaskCard({
   canNudgeToday = true,
 }: FriendTaskCardProps) {
   const [showEncouragementModal, setShowEncouragementModal] = useState(false);
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const publicTasks = tasks; // Parent already filters by canViewTask
   const publicGroups = groupTasksByTag(publicTasks, tagOrder);
   const completedToday = tasks.filter(t => t.completed).length;
@@ -190,6 +191,8 @@ export default function FriendTaskCard({
               onAddAttachment={onAddAttachment}
               onDeleteAttachment={onDeleteAttachment}
               currentUserId={currentUserId}
+              isExpanded={focusedTaskId === task.id}
+              onExpand={() => setFocusedTaskId((prev) => prev === task.id ? null : task.id)}
             />
               ))}
             </div>

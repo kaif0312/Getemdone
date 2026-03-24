@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { getTodayString } from '@/utils/taskFilter';
 
@@ -592,7 +593,7 @@ export default function ScheduleDeadlinePicker({
 
   if (!isOpen) return null;
 
-  return (
+  const content = (
     <>
       <div
         className="fixed inset-0 z-[99998] bg-black/40 backdrop-blur-[4px] animate-in fade-in duration-200"
@@ -791,4 +792,6 @@ export default function ScheduleDeadlinePicker({
       </div>
     </>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 }

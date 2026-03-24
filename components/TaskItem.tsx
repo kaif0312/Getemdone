@@ -894,7 +894,8 @@ export default function TaskItem({
         )}
 
         {/* Task Item with Swipe */}
-        <div 
+        <div
+          data-task-swipe=""
           {...(isOwnTask && !isEditing ? swipeHandlers : {})}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

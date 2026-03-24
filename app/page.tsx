@@ -146,10 +146,11 @@ function MainApp() {
   const [hasHandledNotificationOpen, setHasHandledNotificationOpen] = useState(false);
   const [dismissedRolloverNotice, setDismissedRolloverNotice] = useState(false);
   const [lastNoticeDate, setLastNoticeDate] = useState<string | null>(null);
-  const [expandedFriends, setExpandedFriends] = useState<Set<string>>(new Set());
-  const [showAllFriends, setShowAllFriends] = useState(false);
-  const [collapsedFriends, setCollapsedFriends] = useState<Set<string>>(new Set()); // Track explicitly collapsed friends
-  const [hasManuallyInteracted, setHasManuallyInteracted] = useState(false); // Track if user has manually expanded/collapsed
+  const [activePageIndex, setActivePageIndex] = useState(0);
+  const [isPageDragging, setIsPageDragging] = useState(false);
+  const [pageDragOffset, setPageDragOffset] = useState(0);
+  const pageTrackRef = useRef<HTMLDivElement>(null);
+  const pageTouchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const [activeTagFilters, setActiveTagFilters] = useState<string[]>([]);
   const [tagOrder, setTagOrder] = useState<string[]>(() => loadTagOrder());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => loadCollapsedSections());
@@ -244,7 +245,6 @@ function MainApp() {
   // Track unread notification count
   const unreadNotifications = useUnreadNotifications(uid);
 
-  const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [friendOrder, setFriendOrder] = useState<string[]>([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -469,18 +469,6 @@ function MainApp() {
       return true;
     }
   }, []);
-
-  // Smart defaults: Expand first 2-3 friends by default (only on first load, not after manual interaction)
-  useEffect(() => {
-    if (!hasManuallyInteracted && expandedFriends.size === 0 && friendEntriesOrdered.length > 0) {
-      const defaultExpanded = new Set<string>();
-      const maxDefault = Math.min(3, friendEntriesOrdered.length);
-      for (let i = 0; i < maxDefault; i++) {
-        defaultExpanded.add(friendEntriesOrdered[i][0]);
-      }
-      setExpandedFriends(defaultExpanded);
-    }
-  }, [friendEntriesOrdered.length, expandedFriends.size, hasManuallyInteracted]);
 
   const handleToggleComplete = async (taskId: string, completed: boolean, dateStr?: string) => {
     const task = tasks.find((t) => t.id === taskId);
@@ -815,70 +803,106 @@ function MainApp() {
     scheduleReminder(eveningTime, 'evening');
   }, [uid, tasks, data.notificationSettings, notifications, commitmentCheckScheduled]);
 
-  // Helper function to toggle friend expansion
-  const toggleFriend = (friendId: string) => {
-    // Mark that user has manually interacted
-    setHasManuallyInteracted(true);
+  // Computed values for page track
+  const pageCount = 1 + friendEntriesOrdered.length;
 
-    // If "Show All" is active, toggle the collapsed set instead
-    if (showAllFriends) {
-      setCollapsedFriends(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(friendId)) {
-          newSet.delete(friendId); // Remove from collapsed = expand it
-        } else {
-          newSet.add(friendId); // Add to collapsed = collapse it
-        }
-        return newSet;
-      });
-    } else {
-      // Normal toggle when "Show All" is not active
-      setExpandedFriends(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(friendId)) {
-          newSet.delete(friendId); // Collapse
-        } else {
-          newSet.add(friendId); // Expand
-        }
-        return newSet;
-      });
-      // Also remove from collapsed set if it was there (cleanup)
-      setCollapsedFriends(prev => {
-        if (prev.has(friendId)) {
-          const newSet = new Set(prev);
-          newSet.delete(friendId);
-          return newSet;
-        }
-        return prev;
-      });
-    }
-  };
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Scroll to friend when clicked in summary bar
-  const handleFriendClick = (friendId: string) => {
-    setActiveFriendId(friendId);
-    // Expand if not already expanded (check both states)
-    const isCurrentlyExpanded = showAllFriends 
-      ? !collapsedFriends.has(friendId)
-      : expandedFriends.has(friendId);
-    
-    const needsExpand = !isCurrentlyExpanded;
-    if (needsExpand) {
-      toggleFriend(friendId);
+  // Hoist friendSummaries out of render for use in tab bar and page list
+  const friendPhotoURLMap = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    friendUsers.forEach((f) => map.set(f.id, f.photoURL));
+    return map;
+  }, [friendUsers]);
+
+  const friendDisplayNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    friendUsers.forEach((f) => map.set(f.id, f.displayName || 'Unknown'));
+    return map;
+  }, [friendUsers]);
+
+  const friendSummaries = useMemo(() => {
+    return friendEntriesOrdered.map(([userId, userTasks]) => {
+      const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
+      const publicTasks = userTasks.filter((t) => canViewTask(t, uid, false));
+      const privateTasks = userTasks.filter((t) => !canViewTask(t, uid, false));
+      return {
+        id: userId,
+        name: friendName,
+        photoURL: friendPhotoURLMap.get(userId),
+        pendingCount: publicTasks.filter((t) => !t.completed).length,
+        completedToday: userTasks.filter((t) => t.completed).length,
+        privateTotal: privateTasks.length,
+        privateCompleted: privateTasks.filter((t) => t.completed).length,
+        color: getAccentForId(userId),
+      };
+    });
+  }, [friendEntriesOrdered, friendDisplayNameMap, friendPhotoURLMap, uid]);
+
+  // Self stats for the Me tab
+  const selfStats = useMemo(() => {
+    const todayStr = getTodayString();
+    const myTasks = tasks.filter(
+      (t) => t.userId === uid && !t.deleted && shouldShowInTodayView(t, todayStr)
+    );
+    return {
+      pendingCount: myTasks.filter((t) => !t.completed).length,
+      completedToday: myTasks.filter((t) => t.completed).length,
+    };
+  }, [tasks, uid]);
+
+  // Page-level swipe touch handlers
+  const handlePageTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    pageTouchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+  }, []);
+
+  const handlePageTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!pageTouchStartRef.current) return;
+    // Yield to task-level swipe
+    if ((e.target as HTMLElement).closest('[data-task-swipe]')) return;
+    const dx = e.touches[0].clientX - pageTouchStartRef.current.x;
+    const dy = e.touches[0].clientY - pageTouchStartRef.current.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (!isPageDragging) {
+      if (absX < 12 && absY < 12) return;
+      if (absY > absX * 0.5) return; // vertical intent — let the page scroll
+      setIsPageDragging(true);
     }
-    // Wait for layout to settle (longer when expanding), then scroll
-    const delay = needsExpand ? 250 : 50;
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const element = document.getElementById(`friend-${friendId}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        });
-      });
-    }, delay);
-  };
+    if (prefersReducedMotion) return;
+    const atStart = activePageIndex === 0 && dx > 0;
+    const atEnd = activePageIndex === pageCount - 1 && dx < 0;
+    setPageDragOffset(atStart || atEnd ? dx * 0.2 : dx);
+  }, [isPageDragging, activePageIndex, pageCount, prefersReducedMotion]);
+
+  const handlePageTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!pageTouchStartRef.current) {
+      setIsPageDragging(false);
+      setPageDragOffset(0);
+      return;
+    }
+    if (!isPageDragging) {
+      pageTouchStartRef.current = null;
+      setPageDragOffset(0);
+      return;
+    }
+    const dx = e.changedTouches[0].clientX - pageTouchStartRef.current.x;
+    const elapsed = Date.now() - pageTouchStartRef.current.time;
+    const velocity = Math.abs(dx) / Math.max(elapsed, 1);
+    const trackWidth = pageTrackRef.current?.clientWidth ?? window.innerWidth;
+    const SNAP = trackWidth * 0.3;
+    const FLICK = 0.4;
+    let next = activePageIndex;
+    if (dx < -SNAP || (dx < -10 && velocity > FLICK)) next = Math.min(activePageIndex + 1, pageCount - 1);
+    else if (dx > SNAP || (dx > 10 && velocity > FLICK)) next = Math.max(activePageIndex - 1, 0);
+    setActivePageIndex(next);
+    setIsPageDragging(false);
+    setPageDragOffset(0);
+    pageTouchStartRef.current = null;
+  }, [isPageDragging, activePageIndex, pageCount]);
 
   // Show iOS installation prompt if needed (blocks access until installed)
   if (showIOSInstallPrompt && !isCheckingIOSInstall) {
@@ -900,13 +924,23 @@ function MainApp() {
     );
   }
 
+  // Computed page track transform
+  const trackWidth = typeof window !== 'undefined' ? (pageTrackRef.current?.clientWidth ?? window.innerWidth) : 390;
+  const baseTranslateX = -activePageIndex * trackWidth;
+  const trackTranslateX = isPageDragging && !prefersReducedMotion
+    ? baseTranslateX + pageDragOffset
+    : baseTranslateX;
+
   return (
-    <div className="min-h-screen bg-background pb-32 safe-area-inset-bottom transition-[background-color,color] duration-200 ease-out" style={{ paddingBottom: 'max(120px, env(safe-area-inset-bottom, 0px) + 120px)' }}>
+    <div
+      className="fixed inset-0 flex flex-col bg-background overflow-hidden transition-[background-color,color] duration-200 ease-out"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
       {/* Header */}
-      <header className="bg-surface border-b border-border-emphasized sticky top-0 z-40 shadow-elevation-1 transition-[background-color,color,border-color] duration-200 ease-out" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <header className="bg-surface border-b border-border-emphasized z-40 shadow-elevation-1 transition-[background-color,color,border-color] duration-200 ease-out flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 py-3 md:py-4" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>
           <div className="flex items-center justify-between gap-2 min-h-[44px]">
-            {/* Left: Logo + Nudge */}
+            {/* Left: Logo */}
             <button
               onClick={() => setShowQuickInfo(true)}
               className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0 min-w-0"
@@ -915,7 +949,7 @@ function MainApp() {
               <NudgeWordmark iconSize={28} />
             </button>
 
-            {/* Center: Streak pill (compact) */}
+            {/* Center: Streak pill */}
             {data.streakData && (
               <button
                 ref={streakButtonRef}
@@ -924,9 +958,7 @@ function MainApp() {
                   setShowStreakCalendar(true);
                   if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
                 }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs
-                  bg-primary/5 border border-primary/10
-                  hover:bg-primary/10 transition-colors flex-shrink-0 ${streakJustUpdated ? 'streak-just-updated' : ''}`}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors flex-shrink-0 ${streakJustUpdated ? 'streak-just-updated' : ''}`}
                 title="View streak calendar"
               >
                 <LuFlame size={12} className="text-primary shrink-0" strokeWidth={1.5} />
@@ -938,7 +970,7 @@ function MainApp() {
               </button>
             )}
 
-            {/* Right: Notification bell + Profile avatar */}
+            {/* Right: Bell + Avatar */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
                 onClick={() => setShowNotificationsPanel(true)}
@@ -971,41 +1003,81 @@ function MainApp() {
               />
             </div>
           </div>
-
-          {/* Tag filter bar - sortable, only tags with 1+ tasks, counts for badges */}
-          {tagBarData.orderedTags.length > 0 && (
-              <SortableTagBar
-                tagIds={tagBarData.orderedTags}
-                tagCounts={tagBarData.tagCountMap}
-                activeTagFilters={activeTagFilters}
-                onTagClick={(tagId) => {
-                  setActiveTagFilters((prev) =>
-                    prev.includes(tagId) ? prev.filter((e) => e !== tagId) : [...prev, tagId]
-                  );
-                }}
-                onAllClick={() => setActiveTagFilters([])}
-                onReorder={setTagOrder}
-                customTagLabels={data.customTagLabels}
-                onSaveCustomLabel={async (tagId, label) => {
-                  const { doc, updateDoc } = await import('firebase/firestore');
-                  const { db } = await import('@/lib/firebase');
-                  const userRef = doc(db, 'users', uid);
-                  const current = data.customTagLabels || {};
-                  const next = { ...current };
-                  if (label) {
-                    next[tagId] = label;
-                  } else {
-                    delete next[tagId];
-                  }
-                  await updateDoc(userRef, { customTagLabels: next });
-                }}
-              />
-          )}
         </div>
       </header>
 
-      {/* Task Feed */}
-      <main className="max-w-3xl mx-auto px-4 py-6 transition-[background-color,color] duration-200 ease-out" style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}>
+      {/* Tab bar — only when there are friends */}
+      {friendEntriesOrdered.length > 0 && (
+        <SortableFriendsSummaryBar
+          selfName={data.displayName || 'Me'}
+          selfPhotoURL={data.photoURL}
+          selfPendingCount={selfStats.pendingCount}
+          selfCompletedToday={selfStats.completedToday}
+          friends={friendSummaries}
+          activePageIndex={activePageIndex}
+          onPageChange={setActivePageIndex}
+          onReorder={(newOrder) => {
+            saveFriendOrder(newOrder);
+            setFriendOrder(newOrder);
+          }}
+        />
+      )}
+
+      {/* Page track viewport */}
+      <div
+        ref={pageTrackRef}
+        className="flex-1 overflow-hidden relative"
+        onTouchStart={handlePageTouchStart}
+        onTouchMove={handlePageTouchMove}
+        onTouchEnd={handlePageTouchEnd}
+      >
+        {/* Horizontal slide track */}
+        <div
+          className="flex h-full"
+          style={{
+            width: `${pageCount * 100}%`,
+            transform: `translateX(${trackTranslateX}px)`,
+            transition: isPageDragging ? 'none' : `transform 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`,
+            willChange: isPageDragging ? 'transform' : 'auto',
+          }}
+        >
+          {/* ── Page 0: Me ── */}
+          <div
+            className="overflow-y-auto overflow-x-hidden h-full"
+            style={{ width: `${100 / pageCount}%` }}
+          >
+            <div
+              className="max-w-3xl mx-auto px-4 py-6 pb-32 transition-[background-color,color] duration-200 ease-out"
+              style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}
+            >
+              {/* Tag filter bar — Me page only */}
+              {tagBarData.orderedTags.length > 0 && (
+                <div className="mb-4">
+                  <SortableTagBar
+                    tagIds={tagBarData.orderedTags}
+                    tagCounts={tagBarData.tagCountMap}
+                    activeTagFilters={activeTagFilters}
+                    onTagClick={(tagId) => {
+                      setActiveTagFilters((prev) =>
+                        prev.includes(tagId) ? prev.filter((e) => e !== tagId) : [...prev, tagId]
+                      );
+                    }}
+                    onAllClick={() => setActiveTagFilters([])}
+                    onReorder={setTagOrder}
+                    customTagLabels={data.customTagLabels}
+                    onSaveCustomLabel={async (tagId, label) => {
+                      const { doc, updateDoc } = await import('firebase/firestore');
+                      const { db } = await import('@/lib/firebase');
+                      const userRef = doc(db, 'users', uid);
+                      const current = data.customTagLabels || {};
+                      const next = { ...current };
+                      if (label) { next[tagId] = label; } else { delete next[tagId]; }
+                      await updateDoc(userRef, { customTagLabels: next });
+                    }}
+                  />
+                </div>
+              )}
+              {/* Me page content — reuse existing conditional rendering block below */}
         {!data ? (
           <div className="bg-warning-bg border border-warning-border rounded-lg p-6 text-center">
             <LuTriangleAlert className="text-warning mb-3" size={48} />
@@ -1322,47 +1394,32 @@ function MainApp() {
               );
             })()}
 
-            {/* Friends' Tasks - Hybrid Approach */}
-            {friendEntriesOrdered.length > 0 && (() => {
-              // Create maps for friend photoURL and displayName (for friends with no tasks)
-              const friendPhotoURLMap = new Map<string, string | undefined>();
-              const friendDisplayNameMap = new Map<string, string>();
-              friendUsers.forEach((friend) => {
-                friendPhotoURLMap.set(friend.id, friend.photoURL);
-                friendDisplayNameMap.set(friend.id, friend.displayName || 'Unknown');
-              });
+          </>
+        )}
+            </div>{/* /Me page inner content */}
+          </div>{/* /Me page overflow-y-auto */}
 
-              // Prepare friend summaries for the bar (order matches friendEntriesOrdered)
-              const friendSummaries = friendEntriesOrdered.map(([userId, userTasks]) => {
-                const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
-                const publicTasks = userTasks.filter(t => canViewTask(t, uid, false));
-                const privateTasks = userTasks.filter(t => !canViewTask(t, uid, false));
-                const pendingCount = publicTasks.filter(t => !t.completed).length;
-                const completedToday = userTasks.filter(t => t.completed).length;
-                const privateTotal = privateTasks.length;
-                const privateCompleted = privateTasks.filter(t => t.completed).length;
-                
-                const color = getAccentForId(userId);
-
-                return {
-                  id: userId,
-                  name: friendName,
-                  photoURL: friendPhotoURLMap.get(userId),
-                  pendingCount,
-                  completedToday,
-                  privateTotal,
-                  privateCompleted,
-                  color,
-                };
-              });
-
-              const showVisibilityBanner = !data.dismissedBanners?.includes('visibility_social');
-
-              return (
-                <>
-                  {/* One-time visibility feature banner - first time viewing friends after feature ships */}
-                  {showVisibilityBanner && (
-                    <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-surface border border-primary rounded-[10px]" style={{ padding: '12px 16px' }}>
+          {/* Pages 1..n: one page per friend */}
+          {friendEntriesOrdered.map(([userId, userTasks], i) => {
+            const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
+            const publicTasks = userTasks.filter((t) => canViewTask(t, uid, false));
+            const privateTasks = userTasks.filter((t) => !canViewTask(t, uid, false));
+            const privateTotal = privateTasks.length;
+            const privateCompleted = privateTasks.filter((t) => t.completed).length;
+            const color = getAccentForId(userId);
+            return (
+              <div
+                key={userId}
+                className="overflow-y-auto overflow-x-hidden h-full"
+                style={{ width: `${100 / pageCount}%` }}
+              >
+                <div
+                  className="max-w-3xl mx-auto px-4 py-6 pb-32"
+                  style={{ paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))', paddingRight: 'max(16px, env(safe-area-inset-right, 0px))' }}
+                >
+                  {/* Visibility banner — only on the first friend page, once */}
+                  {i === 0 && !data.dismissedBanners?.includes('visibility_social') && (
+                    <div className="mb-4 flex items-center gap-3 bg-surface border border-primary rounded-[10px]" style={{ padding: '12px 16px' }}>
                       <LuEye size={18} className="text-primary flex-shrink-0" />
                       <p className="flex-1 text-[14px] text-fg-primary">
                         You can now choose which friends see each task. Look for the eye icon on any task.
@@ -1376,128 +1433,58 @@ function MainApp() {
                       </button>
                     </div>
                   )}
-
-                  {/* Friends Summary Bar - draggable to reorder */}
-                  <SortableFriendsSummaryBar
-                    friends={friendSummaries}
-                    activeFriendId={activeFriendId}
-                    onFriendClick={handleFriendClick}
-                    onReorder={(newOrder) => {
-                      saveFriendOrder(newOrder);
-                      setFriendOrder(newOrder);
-                    }}
+                  <FriendTaskCard
+                    friendId={userId}
+                    friendName={friendName}
+                    photoURL={friendPhotoURLMap.get(userId)}
+                    tasks={publicTasks}
+                    tagOrder={tagOrder}
+                    privateTotal={privateTotal}
+                    privateCompleted={privateCompleted}
+                    color={color}
+                    onToggleComplete={handleToggleComplete}
+                    onTogglePrivacy={togglePrivacy}
+                    onUpdateTask={updateTask}
+                    onUpdateDueDate={updateTaskDueDate}
+                    onUpdateNotes={updateTaskNotes}
+                    onToggleCommitment={toggleCommitment}
+                    onToggleSkipRollover={toggleSkipRollover}
+                    onDelete={deleteTask}
+                    onAddReaction={addReaction}
+                    onOpenComments={setSelectedTaskForComments}
+                    onDeferTask={handleDeferTask}
+                    onAddAttachment={addAttachment}
+                    onDeleteAttachment={deleteAttachment}
+                    onSendEncouragement={sendEncouragement}
+                    onSendNudge={sendNudge}
+                    currentUserId={uid}
+                    scheduleEvents={friendSchedules.get(userId)?.events ?? []}
+                    scheduleLoading={friendSchedules.get(userId)?.loading ?? false}
+                    friendHasCalendar={!!friendUsers.find((f) => f.id === userId)?.googleCalendarSelectedIds?.length}
+                    canNudgeToday={canNudgeFriendToday(userId)}
                   />
+                </div>
+              </div>
+            );
+          })}
+        </div>{/* /horizontal slide track */}
+      </div>{/* /page track viewport */}
 
-                  {/* Friends' Task Cards - order matches summary bar */}
-                  <div className="mb-6">
-                    {friendEntriesOrdered.map(([userId, userTasks]) => {
-                      const friendName = userTasks[0]?.userName || friendDisplayNameMap.get(userId) || 'Unknown';
-                      const publicTasks = userTasks.filter(t => canViewTask(t, uid, false));
-                      const privateTasks = userTasks.filter(t => !canViewTask(t, uid, false));
-                      const privateTotal = privateTasks.length;
-                      const privateCompleted = privateTasks.filter(t => t.completed).length;
-                      
-                      const color = getAccentForId(userId);
-
-                      // If "Show All" is active, check if friend is NOT in collapsed set
-                      // Otherwise, check if friend is in expanded set
-                      const isExpanded = showAllFriends 
-                        ? !collapsedFriends.has(userId)
-                        : expandedFriends.has(userId);
-
-                      return (
-                        <div key={userId} id={`friend-${userId}`} className="scroll-mt-[140px] md:scroll-mt-[170px]">
-                          <FriendTaskCard
-                            friendId={userId}
-                            friendName={friendName}
-                            photoURL={friendPhotoURLMap.get(userId)}
-                            tasks={publicTasks}
-                            tagOrder={tagOrder}
-                            privateTotal={privateTotal}
-                            privateCompleted={privateCompleted}
-                            isExpanded={isExpanded}
-                            onToggleExpand={() => toggleFriend(userId)}
-                            color={color}
-                            onToggleComplete={handleToggleComplete}
-                            onTogglePrivacy={togglePrivacy}
-                            onUpdateTask={updateTask}
-                            onUpdateDueDate={updateTaskDueDate}
-                            onUpdateNotes={updateTaskNotes}
-                            onToggleCommitment={toggleCommitment}
-                            onToggleSkipRollover={toggleSkipRollover}
-                            onDelete={deleteTask}
-                            onAddReaction={addReaction}
-                            onOpenComments={setSelectedTaskForComments}
-                            onDeferTask={handleDeferTask}
-                            onAddAttachment={addAttachment}
-                            onDeleteAttachment={deleteAttachment}
-                            onSendEncouragement={sendEncouragement}
-                            onSendNudge={sendNudge}
-                            currentUserId={uid}
-                            scheduleEvents={friendSchedules.get(userId)?.events ?? []}
-                            scheduleLoading={friendSchedules.get(userId)?.loading ?? false}
-                            friendHasCalendar={!!friendUsers.find((f) => f.id === userId)?.googleCalendarSelectedIds?.length}
-                            canNudgeToday={canNudgeFriendToday(userId)}
-                          />
-                        </div>
-                      );
-                    })}
-
-                    {/* Show All / Collapse All Button */}
-                    {friendEntriesOrdered.length > 3 && (
-                      <div className="flex justify-center mt-4">
-                        <button
-                          onClick={() => {
-                            if (showAllFriends) {
-                              setShowAllFriends(false);
-                              // Restore default expanded state
-                              const defaultExpanded = new Set<string>();
-                              const maxDefault = Math.min(3, friendEntriesOrdered.length);
-                              for (let i = 0; i < maxDefault; i++) {
-                                defaultExpanded.add(friendEntriesOrdered[i][0]);
-                              }
-                              setExpandedFriends(defaultExpanded);
-                              // Clear collapsed set when turning off "Show All"
-                              setCollapsedFriends(new Set());
-                            } else {
-                              setShowAllFriends(true);
-                              // Expand all (clear collapsed set)
-                              setCollapsedFriends(new Set());
-                            }
-                            setActiveFriendId(null);
-                          }}
-                          className="px-4 py-2 bg-surface-muted text-fg-primary rounded-lg font-medium hover:bg-elevated transition-colors text-sm"
-                        >
-                          {showAllFriends ? 'Collapse All' : `Show All (${friendEntriesOrdered.length} friends)`}
-                        </button>
-                      </div>
-                    )}
-        </div>
-                </>
-              );
-            })()}
-
-          </>
-        )}
-      </main>
-
-      {/* Task Input (Fixed at Bottom) */}
-      <div className="relative">
-        <TaskInput 
-          onAddTask={handleAddTask} 
-          disabled={tasksLoading}
-          inputRef={taskInputRef}
-          defaultVisibility={data.defaultVisibility}
-          defaultVisibilityList={data.defaultVisibilityList}
-          recentTasks={
-            tasks
-              .filter(t => t.userId === uid && t.completed)
-              .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
-              .slice(0, 10)
-              .map(t => t.text)
-          }
-        />
-      </div>
+      {/* Task Input */}
+      <TaskInput
+        onAddTask={handleAddTask}
+        disabled={tasksLoading}
+        inputRef={taskInputRef}
+        defaultVisibility={data.defaultVisibility}
+        defaultVisibilityList={data.defaultVisibilityList}
+        recentTasks={
+          tasks
+            .filter((t) => t.userId === uid && t.completed)
+            .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+            .slice(0, 10)
+            .map((t) => t.text)
+        }
+      />
 
       {/* Friends Modal */}
       {showFriendsModal && (

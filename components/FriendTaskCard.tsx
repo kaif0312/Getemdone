@@ -7,7 +7,7 @@ import TodaysScheduleCard from './TodaysScheduleCard';
 import { TaskWithUser, Attachment, CalendarEvent } from '@/lib/types';
 import { groupTasksByTag } from '@/utils/taskGrouping';
 import { getIconForTag } from '@/lib/tagIcons';
-import { FaChevronDown, FaChevronUp, FaLock, FaFire } from 'react-icons/fa';
+import { FaLock, FaFire } from 'react-icons/fa';
 
 interface FriendTaskCardProps {
   friendId: string;
@@ -16,8 +16,6 @@ interface FriendTaskCardProps {
   tasks: TaskWithUser[];
   privateTotal: number;
   privateCompleted: number;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
   color: { from: string; to: string; text: string };
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onTogglePrivacy: (taskId: string, isPrivate: boolean) => void;
@@ -52,8 +50,6 @@ export default function FriendTaskCard({
   tasks,
   privateTotal,
   privateCompleted,
-  isExpanded,
-  onToggleExpand,
   color,
   onToggleComplete,
   onTogglePrivacy,
@@ -92,57 +88,39 @@ export default function FriendTaskCard({
   return (
     <>
       <div className="mb-4 md:mb-6">
-        {/* Compact Header - minimal section header with left border accent */}
+        {/* Header */}
         <div className="border-l-4 border-primary pl-4 py-2 rounded-r-lg">
           <div className="flex items-center justify-between gap-2">
-            <button
-              onClick={onToggleExpand}
-              className="flex items-center gap-2 flex-1 min-w-0 text-left group"
-            >
-              {/* Section header: name (16px semibold) + task count (secondary) */}
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base font-semibold text-fg-primary truncate">{friendName}</h2>
-                <div className="flex items-center gap-2 text-sm text-fg-secondary">
-                  <span>
-                    {tasks.length === 0
-                      ? 'No tasks yet'
-                      : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} pending${completedToday > 0 ? ` • ${completedToday} done today` : ''}`}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-fg-primary truncate">{friendName}</h2>
+              <div className="flex items-center gap-2 text-sm text-fg-secondary">
+                <span>
+                  {tasks.length === 0
+                    ? 'No tasks yet'
+                    : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} pending${completedToday > 0 ? ` • ${completedToday} done today` : ''}`}
+                </span>
+                {privateTotal > 0 && (
+                  <span className="flex items-center gap-1">
+                    <FaLock size={12} className="text-fg-tertiary" />
+                    {privateTotal}
                   </span>
-                  {privateTotal > 0 && (
-                    <span className="flex items-center gap-1">
-                      <FaLock size={12} className="text-fg-tertiary" />
-                      {privateTotal}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Streak/Encouragement - secondary */}
-              {onSendEncouragement && (
-                <button
-                  onClick={() => setShowEncouragementModal(true)}
-                  className="p-2 text-fg-secondary hover:text-fg-primary rounded-lg transition-colors"
-                  title="Send encouragement"
-                >
-                  <FaFire size={16} />
-                </button>
-              )}
-              {/* Collapse chevron - tertiary, 20px */}
-              <button onClick={onToggleExpand} className="p-1 text-fg-tertiary hover:text-fg-secondary transition-colors">
-                {isExpanded ? (
-                  <FaChevronUp size={20} />
-                ) : (
-                  <FaChevronDown size={20} />
                 )}
-              </button>
+              </div>
             </div>
+            {onSendEncouragement && (
+              <button
+                onClick={() => setShowEncouragementModal(true)}
+                className="p-2 text-fg-secondary hover:text-fg-primary rounded-lg transition-colors flex-shrink-0"
+                title="Send encouragement"
+              >
+                <FaFire size={16} />
+              </button>
+            )}
           </div>
         </div>
 
-      {/* Expandable Content */}
-      {isExpanded && (
-        <div className="mt-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+        {/* Content — always visible */}
+        <div className="mt-2 space-y-2">
           {friendHasCalendar && (
             <TodaysScheduleCard
               events={scheduleEvents}
@@ -218,7 +196,6 @@ export default function FriendTaskCard({
           ))}
           </div>
         </div>
-      )}
       </div>
 
       {/* Encouragement Modal */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -36,20 +36,28 @@ interface FriendSummary {
 }
 
 interface SortableFriendsSummaryBarProps {
+  /** The logged-in user's display name — shown as the "Me" pill */
+  selfName: string;
+  selfPhotoURL?: string;
+  selfPendingCount: number;
+  selfCompletedToday: number;
   friends: FriendSummary[];
-  activeFriendId: string | null;
-  onFriendClick: (friendId: string) => void;
+  /** 0 = Me, 1..n = friend[i-1] */
+  activePageIndex: number;
+  onPageChange: (index: number) => void;
   onReorder: (newOrder: string[]) => void;
 }
 
 function SortableFriendCard({
   friend,
   isActive,
-  onFriendClick,
+  tabRef,
+  onPageChange,
 }: {
   friend: FriendSummary;
   isActive: boolean;
-  onFriendClick: (friendId: string) => void;
+  tabRef: (el: HTMLButtonElement | null) => void;
+  onPageChange: () => void;
 }) {
   const {
     attributes,
@@ -71,19 +79,21 @@ function SortableFriendCard({
   return (
     <div ref={setNodeRef} style={style} className="flex-shrink-0">
       <button
-        ref={setActivatorNodeRef}
+        ref={(el) => {
+          setActivatorNodeRef(el);
+          tabRef(el);
+        }}
         {...attributes}
         {...listeners}
         onClick={(e) => {
           e.stopPropagation();
-          onFriendClick(friend.id);
+          onPageChange();
         }}
-        className="flex flex-col items-center gap-1 min-w-[56px] touch-manipulation cursor-grab active:cursor-grabbing transition-colors"
+        className="flex flex-col items-center gap-1 min-w-[56px] pb-3 touch-manipulation cursor-grab active:cursor-grabbing transition-colors"
         style={{ touchAction: 'pan-x' }}
-        title="Tap to select, hold to reorder"
+        title="Tap to view, hold to reorder"
       >
-        {/* Avatar: 40px, surface-elevated for letter fallback, 1px border for photo. Active: subtle ring primary 40% */}
-        <div className={`relative flex-shrink-0 rounded-full ${isActive ? 'ring-2 ring-primary/40' : ''}`}>
+        <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${isActive ? 'scale-105' : ''}`}>
           {friend.photoURL ? (
             <Avatar
               photoURL={friend.photoURL}
@@ -96,17 +106,16 @@ function SortableFriendCard({
               {friend.name.charAt(0).toUpperCase()}
             </div>
           )}
-          {/* Active indicator: small primary dot below */}
         </div>
-        {/* Name: 13px medium, primary, single line ellipsis */}
-        <div className="text-sm font-medium text-fg-primary truncate max-w-[72px] text-center">
+        <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${isActive ? 'text-primary' : 'text-fg-primary'}`}>
           {friend.name}
         </div>
-        {/* Pending count: 12px secondary. Lock icon 12px tertiary next to it */}
         <div className="flex items-center justify-center gap-1 text-xs text-fg-secondary">
           <span>
             {friend.pendingCount > 0 && `${friend.pendingCount} pending`}
-            {friend.completedToday > 0 && friend.pendingCount === 0 && <span className="inline-flex items-center gap-0.5">{friend.completedToday}<LuCheck size={10} /></span>}
+            {friend.completedToday > 0 && friend.pendingCount === 0 && (
+              <span className="inline-flex items-center gap-0.5">{friend.completedToday}<LuCheck size={10} /></span>
+            )}
             {friend.pendingCount === 0 && friend.completedToday === 0 && '—'}
           </span>
           {friend.privateTotal > 0 && (
@@ -119,24 +128,50 @@ function SortableFriendCard({
 }
 
 export default function SortableFriendsSummaryBar({
+  selfName,
+  selfPhotoURL,
+  selfPendingCount,
+  selfCompletedToday,
   friends,
-  activeFriendId,
-  onFriendClick,
+  activePageIndex,
+  onPageChange,
   onReorder,
 }: SortableFriendsSummaryBarProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // One ref per tab: index 0 = Me, 1..n = friends
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
   const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 400, tolerance: 20 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 400, tolerance: 20 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // Update sliding indicator position when activePageIndex or tabs change
+  useEffect(() => {
+    const activeTab = tabRefs.current[activePageIndex];
+    const container = scrollContainerRef.current;
+    if (!activeTab || !container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    const scrollLeft = container.scrollLeft;
+
+    setIndicatorStyle({
+      left: tabRect.left - containerRect.left + scrollLeft,
+      width: tabRect.width,
+    });
+  }, [activePageIndex, friends.length]);
+
+  // Auto-scroll active tab into view
+  useEffect(() => {
+    tabRefs.current[activePageIndex]?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'nearest',
+      block: 'nearest',
+    });
+  }, [activePageIndex]);
 
   const handleDragStart = (_event: DragStartEvent) => {
     if (scrollContainerRef.current) {
@@ -154,56 +189,95 @@ export default function SortableFriendsSummaryBar({
 
   const handleDragEnd = (event: DragEndEvent) => {
     restoreScrollContainer();
-
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const friendIds = friends.map((f) => f.id);
     const oldIndex = friendIds.indexOf(active.id as string);
     const newIndex = friendIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(friendIds, oldIndex, newIndex);
-    onReorder(reordered);
+    onReorder(arrayMove(friendIds, oldIndex, newIndex));
   };
 
-  const handleDragCancel = () => {
-    restoreScrollContainer();
-  };
+  const handleDragCancel = () => restoreScrollContainer();
 
-  if (friends.length === 0) return null;
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   return (
-    <div className="sticky top-[73px] md:top-[81px] z-30 bg-surface border-b border-border-emphasized shadow-sm">
-      <div className="max-w-3xl mx-auto px-4 py-3">
-        <div
-          ref={scrollContainerRef}
-          className="flex items-center gap-6 overflow-x-auto scrollbar-hide pb-2 friends-bar-fade"
-          style={{
-            WebkitOverflowScrolling: 'touch',
-            overscrollBehaviorX: 'contain',
-          }}
-        >
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
+    <div className="bg-surface border-b border-border-emphasized shadow-sm z-30">
+      <div className="max-w-3xl mx-auto px-4 pt-3">
+        <div className="relative">
+          <div
+            ref={scrollContainerRef}
+            className="flex items-start gap-6 overflow-x-auto scrollbar-hide friends-bar-fade"
+            style={{ WebkitOverflowScrolling: 'touch', overscrollBehaviorX: 'contain' }}
           >
-            <SortableContext items={friends.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
-              <div className="flex items-center gap-6 min-w-max">
-                {friends.map((friend) => (
-                  <SortableFriendCard
-                    key={friend.id}
-                    friend={friend}
-                    isActive={activeFriendId === friend.id}
-                    onFriendClick={onFriendClick}
+            {/* Me pill — always page 0, not sortable */}
+            <button
+              ref={(el) => { tabRefs.current[0] = el; }}
+              onClick={() => onPageChange(0)}
+              className="flex flex-col items-center gap-1 min-w-[56px] pb-3 flex-shrink-0 touch-manipulation"
+            >
+              <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${activePageIndex === 0 ? 'scale-105' : ''}`}>
+                {selfPhotoURL ? (
+                  <Avatar
+                    photoURL={selfPhotoURL}
+                    displayName={selfName}
+                    size="md"
+                    className="w-10 h-10 border border-border-subtle"
                   />
-                ))}
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
+                    {selfName.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </div>
-            </SortableContext>
-          </DndContext>
+              <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${activePageIndex === 0 ? 'text-primary' : 'text-fg-primary'}`}>
+                Me
+              </div>
+              <div className="text-xs text-fg-secondary">
+                {selfPendingCount > 0
+                  ? `${selfPendingCount} pending`
+                  : selfCompletedToday > 0
+                  ? <span className="inline-flex items-center gap-0.5">{selfCompletedToday}<LuCheck size={10} /></span>
+                  : '—'}
+              </div>
+            </button>
+
+            {/* Friend pills — sortable */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              <SortableContext items={friends.map((f) => f.id)} strategy={horizontalListSortingStrategy}>
+                <div className="flex items-start gap-6 min-w-max">
+                  {friends.map((friend, i) => (
+                    <SortableFriendCard
+                      key={friend.id}
+                      friend={friend}
+                      isActive={activePageIndex === i + 1}
+                      tabRef={(el) => { tabRefs.current[i + 1] = el; }}
+                      onPageChange={() => onPageChange(i + 1)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+
+          {/* Sliding active underline */}
+          <div
+            className="absolute bottom-0 h-[2px] bg-primary rounded-full"
+            style={{
+              left: indicatorStyle.left,
+              width: indicatorStyle.width,
+              transition: prefersReducedMotion ? 'none' : 'left 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94), width 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            }}
+          />
         </div>
       </div>
     </div>

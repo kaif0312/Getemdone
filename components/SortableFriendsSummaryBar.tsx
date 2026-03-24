@@ -24,6 +24,8 @@ import { FaLock } from 'react-icons/fa';
 import { LuCheck } from 'react-icons/lu';
 import Avatar from './Avatar';
 
+const RING_CIRCUMFERENCE = 2 * Math.PI * 21; // r=21, viewBox 46×46
+
 interface FriendSummary {
   id: string;
   name: string;
@@ -219,20 +221,52 @@ export default function SortableFriendsSummaryBar({
               onClick={() => onPageChange(0)}
               className="flex flex-col items-center gap-1 min-w-[56px] pb-3 flex-shrink-0 touch-manipulation"
             >
-              <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${activePageIndex === 0 ? 'scale-105' : ''}`}>
-                {selfPhotoURL ? (
-                  <Avatar
-                    photoURL={selfPhotoURL}
-                    displayName={selfName}
-                    size="md"
-                    className="w-10 h-10 border border-border-subtle"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
-                    {selfName.charAt(0).toUpperCase()}
+              {(() => {
+                const totalTasks = selfCompletedToday + selfPendingCount;
+                const progress = totalTasks > 0 ? selfCompletedToday / totalTasks : 0;
+                return (
+                  <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${activePageIndex === 0 ? 'scale-105' : ''}`}>
+                    {selfPhotoURL ? (
+                      <Avatar
+                        photoURL={selfPhotoURL}
+                        displayName={selfName}
+                        size="md"
+                        className="w-10 h-10 border border-border-subtle"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
+                        {selfName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {totalTasks > 0 && (
+                      <svg
+                        className="absolute pointer-events-none"
+                        style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
+                        viewBox="0 0 46 46"
+                        aria-hidden="true"
+                      >
+                        <circle cx="23" cy="23" r="21" fill="none"
+                          stroke="var(--color-fg-tertiary)" strokeWidth="2.5" opacity="0.2"
+                          strokeLinecap="round"
+                        />
+                        <circle cx="23" cy="23" r="21" fill="none"
+                          stroke={progress >= 1 ? 'var(--color-success)' : 'var(--color-primary)'}
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeDasharray={RING_CIRCUMFERENCE}
+                          strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+                          style={{
+                            transform: 'rotate(-90deg)',
+                            transformOrigin: 'center',
+                            transition: prefersReducedMotion ? 'none' : 'stroke-dashoffset 500ms ease, stroke 300ms ease',
+                          }}
+                        />
+                      </svg>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
+
               <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${activePageIndex === 0 ? 'text-primary' : 'text-fg-primary'}`}>
                 Me
               </div>

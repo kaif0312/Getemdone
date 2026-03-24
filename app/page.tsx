@@ -504,8 +504,10 @@ function MainApp() {
     deferTask(taskId, deferToDate, task);
   };
 
-  const handleAddTask = async (text: string, visibility: import('@/lib/types').TaskVisibility, visibilityList: string[], dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null) => {
-    const tags = activeTagFilters.length > 0 ? activeTagFilters.slice(0, 5) : undefined;
+  const handleAddTask = async (text: string, visibility: import('@/lib/types').TaskVisibility, visibilityList: string[], dueDate?: number | null, scheduledFor?: string | null, recurrence?: import('@/lib/types').Recurrence | null, explicitTags?: string[]) => {
+    const tags = explicitTags && explicitTags.length > 0
+      ? explicitTags.slice(0, 5)
+      : activeTagFilters.length > 0 ? activeTagFilters.slice(0, 5) : undefined;
     const isPrivate = visibility === 'private';
     await addTask(text, isPrivate, dueDate, scheduledFor, recurrence, tags, visibility, visibilityList);
     // Mark first task as seen
@@ -1195,24 +1197,6 @@ function MainApp() {
               
               return (
                 <div className="mb-6">
-                  {/* Profile section - quiet header: avatar, name, task count */}
-                  <button 
-                    onClick={() => setShowProfileSettings(true)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-t-xl
-                      bg-surface border border-border-subtle border-b-0
-                      hover:bg-surface-muted transition-colors group"
-                    title="Profile Settings"
-                  >
-                    <Avatar
-                      photoURL={data.photoURL}
-                      displayName={data.displayName}
-                      size="md"
-                    />
-                    <div className="text-left flex-1 min-w-0">
-                      <h2 className="text-lg font-semibold text-fg-primary group-hover:underline truncate leading-tight tracking-tight">{data.displayName || 'You'}</h2>
-                      <p className={`text-sm font-normal text-fg-secondary leading-normal ${taskCountJustUpdated ? 'task-count-just-updated' : ''}`}>{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}</p>
-                    </div>
-                  </button>
                   <TodaysScheduleCard
                     events={myCalendarEvents.filter((e) => {
                       const d = e.start?.date || e.start?.dateTime?.slice(0, 10);
@@ -1233,7 +1217,7 @@ function MainApp() {
                       setShowStreakCalendar(true);
                     }}
                   />
-                  <div className="bg-surface rounded-b-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle border-t-0">
+                  <div className="bg-surface rounded-xl shadow-elevation-2 p-4 space-y-2 border border-border-subtle">
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
@@ -1482,6 +1466,10 @@ function MainApp() {
         inputRef={taskInputRef}
         defaultVisibility={data.defaultVisibility}
         defaultVisibilityList={data.defaultVisibilityList}
+        userTagIds={tagBarData.orderedTags}
+        customTagLabels={data.customTagLabels ?? null}
+        recentlyUsedTags={data.recentlyUsedTags || []}
+        onRecordRecentTag={recordRecentlyUsedTag}
         recentTasks={
           tasks
             .filter((t) => t.userId === uid && t.completed)

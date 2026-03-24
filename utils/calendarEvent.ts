@@ -63,6 +63,16 @@ export function isEventOngoing(event: CalendarEvent): boolean {
   return new Date(start).getTime() <= now && new Date(end).getTime() > now;
 }
 
+/** True if event starts within the next `windowMinutes` minutes (and hasn't started yet) */
+export function isEventUpNext(event: CalendarEvent, windowMinutes = 120): boolean {
+  if (event.start?.date) return false;
+  const start = event.start?.dateTime;
+  if (!start) return false;
+  const now = Date.now();
+  const startMs = new Date(start).getTime();
+  return startMs > now && startMs - now <= windowMinutes * 60 * 1000;
+}
+
 /** Get event start/end in minutes from midnight for dateStr. Returns null for all-day. */
 export function getEventTimeRange(event: CalendarEvent, dateStr: string): { start: number; end: number } | null {
   if (event.start?.date) return null;

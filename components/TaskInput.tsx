@@ -3,12 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { FaEye, FaEyeSlash, FaPaperPlane, FaListUl, FaCalendar, FaTimes, FaClock, FaPlus } from 'react-icons/fa';
+import { LuTag } from 'react-icons/lu';
 import TaskTemplates from './TaskTemplates';
 import VoiceButton from './VoiceButton';
 import RecurrenceChip from './RecurrenceChip';
 import ScheduleDeadlinePicker from './ScheduleDeadlinePicker';
 import RecurrenceBottomSheet from './RecurrenceBottomSheet';
 import VisibilityBottomSheet from './VisibilityBottomSheet';
+import QuickTagSelector from './QuickTagSelector';
+import { getIconForTag, getTintClassForTag, getTintBgClassForTag, getEffectiveLabelForTag } from '@/lib/tagIcons';
 import { Recurrence, TaskVisibility } from '@/lib/types';
 import { parseRecurrenceFromText } from '@/utils/recurrence';
 import { getTodayString } from '@/utils/taskFilter';
@@ -19,16 +22,20 @@ const VISIBILITY_PRIVATE_NUDGE_COUNT_KEY = 'visibility_private_nudge_count';
 const VISIBILITY_FEATURE_SHIP_MS = new Date('2025-02-23').getTime(); // Feature ship date — NEW badge shows for 3 days
 
 interface TaskInputProps {
-  onAddTask: (text: string, visibility: TaskVisibility, visibilityList: string[], dueDate?: number | null, scheduledFor?: string | null, recurrence?: Recurrence | null) => Promise<void>;
+  onAddTask: (text: string, visibility: TaskVisibility, visibilityList: string[], dueDate?: number | null, scheduledFor?: string | null, recurrence?: Recurrence | null, tags?: string[]) => Promise<void>;
   disabled?: boolean;
   recentTasks?: string[];
   inputRef?: React.RefObject<HTMLInputElement | null>;
   /** User's default visibility (from "Set as default for new tasks") - used when input bar loads */
   defaultVisibility?: TaskVisibility;
   defaultVisibilityList?: string[];
+  userTagIds?: string[];
+  customTagLabels?: Record<string, string> | null;
+  recentlyUsedTags?: string[];
+  onRecordRecentTag?: (iconId: string) => void;
 }
 
-export default function TaskInput({ onAddTask, disabled = false, recentTasks = [], inputRef: externalInputRef, defaultVisibility, defaultVisibilityList }: TaskInputProps) {
+export default function TaskInput({ onAddTask, disabled = false, recentTasks = [], inputRef: externalInputRef, defaultVisibility, defaultVisibilityList, userTagIds = [], customTagLabels, recentlyUsedTags = [], onRecordRecentTag }: TaskInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [text, setText] = useState('');
   const [visibility, setVisibility] = useState<TaskVisibility>('everyone');
@@ -42,6 +49,8 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
   const [showRecurrenceSheet, setShowRecurrenceSheet] = useState(false);
   const [showVisibilitySheet, setShowVisibilitySheet] = useState(false);
   const [visibilityAnchorRect, setVisibilityAnchorRect] = useState<DOMRect | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagSelector, setShowTagSelector] = useState(false);
   const [showFirstTaskTooltip, setShowFirstTaskTooltip] = useState(false);
   const [showPrivateNudge, setShowPrivateNudge] = useState(false);
   const internalInputRef = useRef<HTMLInputElement>(null);
@@ -135,6 +144,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     setScheduledFor(null);
     setRecurrence(null);
     setShowUnifiedPicker(false);
+    setSelectedTags([]);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,7 +152,7 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
 
     if (text.trim() && !disabled) {
       try {
-        await onAddTask(text.trim(), visibility, visibilityList, dueDate, scheduledFor, recurrence);
+        await onAddTask(text.trim(), visibility, visibilityList, dueDate, scheduledFor, recurrence, selectedTags.length > 0 ? selectedTags : undefined);
         // First-time tooltip: show after first task created (progressive disclosure)
         if (typeof window !== 'undefined' && !localStorage.getItem(VISIBILITY_TOOLTIP_SHOWN_KEY)) {
           setShowFirstTaskTooltip(true);
@@ -179,6 +189,16 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
     setText(templateText);
     inputRef.current?.focus();
   };
+
+  const handleToggleTag = useCallback((tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((t) => t !== tagId)
+        : prev.length < 5
+        ? [...prev, tagId]
+        : prev
+    );
+  }, []);
 
   // Parse recurrence from text as user types
   const handleTextChange = (value: string) => {
@@ -501,6 +521,24 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
               <VoiceButton onTranscript={handleVoiceTranscript} disabled={disabled} variant="ghost" />
             </div>
 
+            {/* Tag selector button */}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowTagSelector(true)}
+                disabled={disabled}
+                className={`p-2 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  selectedTags.length > 0 ? 'text-primary' : 'text-fg-tertiary hover:text-fg-secondary'
+                }`}
+                title={selectedTags.length > 0 ? `${selectedTags.length} tag(s) selected` : 'Add tags'}
+              >
+                <LuTag size={20} />
+                {selectedTags.length > 0 && (
+                  <span className="absolute top-0 right-0 w-[6px] h-[6px] bg-primary rounded-full" />
+                )}
+              </button>
+            </div>
+
             {/* Input with send inside - pill shape, recessed well */}
             <div className="flex-1 min-w-0 relative flex items-center">
               <input
@@ -526,6 +564,28 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
             </div>
           </div>
 
+          {/* Selected tag pills - shown when tags are selected */}
+          {selectedTags.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              {selectedTags.map((tagId) => {
+                const Icon = getIconForTag(tagId);
+                return (
+                  <button
+                    key={tagId}
+                    type="button"
+                    onClick={() => handleToggleTag(tagId)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${getTintBgClassForTag(tagId)} ${getTintClassForTag(tagId)}`}
+                    title={`Remove ${getEffectiveLabelForTag(tagId, customTagLabels)}`}
+                  >
+                    <Icon size={11} />
+                    <span>{getEffectiveLabelForTag(tagId, customTagLabels)}</span>
+                    <FaTimes size={8} className="ml-0.5 opacity-70" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Recurrence chip - shown when recurrence is set */}
           {recurrence && (
             <RecurrenceChip
@@ -549,6 +609,17 @@ export default function TaskInput({ onAddTask, disabled = false, recentTasks = [
             onRemove={recurrence ? () => setRecurrence(null) : undefined}
             currentRecurrence={recurrence}
             scheduledDate={scheduledFor ?? undefined}
+          />
+
+          <QuickTagSelector
+            isOpen={showTagSelector}
+            onClose={() => setShowTagSelector(false)}
+            tagIds={userTagIds}
+            selectedTags={selectedTags}
+            onToggleTag={handleToggleTag}
+            recentlyUsed={recentlyUsedTags}
+            onRecordRecentTag={onRecordRecentTag ?? (() => {})}
+            customTagLabels={customTagLabels}
           />
         </div>
       </form>

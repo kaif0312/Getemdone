@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+
+// Module-level sentinel: prevents multiple tasks from animating the swipe hint simultaneously
+let _swipeHintFired = false;
 import { useSwipeable } from 'react-swipeable';
 import { TaskWithUser, Attachment, Subtask, TaskVisibility } from '@/lib/types';
 import { getEffectiveVisibility } from './VisibilityBottomSheet';
@@ -486,6 +489,18 @@ export default function TaskItem({
   useEffect(() => () => {
     if (hapticTimerRef.current) clearTimeout(hapticTimerRef.current);
   }, []);
+
+  // First-use swipe hint: peek left once to teach the swipe shelf gesture
+  useEffect(() => {
+    if (!isOwnTask || task.completed) return;
+    const alreadySeen = localStorage.getItem('swipeHintDone') === '1';
+    if (alreadySeen || _swipeHintFired) return;
+    _swipeHintFired = true;
+    localStorage.setItem('swipeHintDone', '1');
+    const t1 = setTimeout(() => setSwipeOffset(-44), 1400);
+    const t2 = setTimeout(() => setSwipeOffset(0), 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Long-press detection for mobile - show context menu
   const handleTouchStart = (e: React.TouchEvent) => {

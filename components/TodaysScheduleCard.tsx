@@ -5,7 +5,7 @@ import { LuCalendar, LuChevronDown, LuChevronUp, LuLock, LuCalendarPlus } from '
 import type { CalendarEvent } from '@/lib/types';
 import { canViewEvent } from '@/utils/visibility';
 import { getEventColor } from './CalendarEventForm';
-import { formatEventTime, isEventPast, isEventOngoing } from '@/utils/calendarEvent';
+import { formatEventTime, isEventPast, isEventOngoing, isEventUpNext } from '@/utils/calendarEvent';
 
 function getEventColorForEvent(event: CalendarEvent): string {
   return getEventColor(event.colorId, event.backgroundColor);
@@ -103,6 +103,21 @@ export default function TodaysScheduleCard({
   const freeAllDay = !hasAnyEvents;
   const schedulePrivate = events.length > 0 && visibleEvents.length === 0; // They have events but none shared
 
+  // For smart collapsed preview — find the most relevant event to surface
+  const ongoingEvent = visibleEvents.find((e) => isEventOngoing(e) && !isEventPast(e));
+  const upNextEvent = !ongoingEvent ? visibleEvents.find((e) => !isEventPast(e) && !isEventOngoing(e)) : undefined;
+  function getStartTimeShort(event: CalendarEvent): string {
+    const dt = event.start?.dateTime;
+    if (!dt) return '';
+    const d = new Date(dt);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  const collapsedPreviewLabel = ongoingEvent
+    ? `${ongoingEvent.summary || 'Untitled'} · now`
+    : upNextEvent
+      ? `${upNextEvent.summary || 'Untitled'} at ${getStartTimeShort(upNextEvent)}`
+      : null;
+
   // No events and not "schedule private" - could be free all day or no data
   const headerText = freeAllDay
     ? "Today's Schedule · Free all day"
@@ -117,14 +132,21 @@ export default function TodaysScheduleCard({
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <LuCalendar size={14} className="text-fg-secondary flex-shrink-0" />
-          <span
-            className={`text-[13px] font-semibold truncate ${
-              freeAllDay || schedulePrivate ? 'text-fg-secondary' : 'text-fg-primary'
-            }`}
-          >
-            {headerText}
-          </span>
+          <LuCalendar size={14} className="text-fg-secondary flex-shrink-0 self-start mt-0.5" />
+          <div className="flex flex-col min-w-0">
+            <span
+              className={`text-[13px] font-semibold truncate ${
+                freeAllDay || schedulePrivate ? 'text-fg-secondary' : 'text-fg-primary'
+              }`}
+            >
+              {headerText}
+            </span>
+            {!expanded && collapsedPreviewLabel && (
+              <span className="text-[12px] text-fg-secondary truncate mt-0.5">
+                {collapsedPreviewLabel}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="text-[12px] text-fg-tertiary">{formatDateShort()}</span>
@@ -148,10 +170,6 @@ export default function TodaysScheduleCard({
               <LuLock size={12} />
               Schedule is private
             </p>
-          )}
-
-          {freeAllDay && !schedulePrivate && (
-            <p className="text-[13px] text-fg-tertiary">Free all day</p>
           )}
 
           {hasAnyEvents && (
@@ -232,6 +250,7 @@ function ScheduleEventRow({
   const timeStr = formatEventTime(event);
   const isPast = isEventPast(event);
   const isOngoing = isEventOngoing(event);
+  const isUpNext = !isPast && !isOngoing && isEventUpNext(event);
   const title = viewLevel === 'full' ? (event.summary || 'Untitled') : 'Busy';
   const color = viewLevel === 'busy' ? 'rgba(128,128,128,0.3)' : getEventColorForEvent(event);
 
@@ -246,7 +265,7 @@ function ScheduleEventRow({
         {timeStr}
       </span>
       <div
-        className="w-1.5 h-1.5 rounded-full flex-shrink-0 ml-2"
+        className="w-[3px] h-7 rounded-full flex-shrink-0"
         style={{ backgroundColor: color }}
       />
       <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -258,11 +277,16 @@ function ScheduleEventRow({
           {title}
         </span>
         {event.calendarId !== 'nudge' && (
-          <span className="text-[8px] text-fg-tertiary font-medium shrink-0">G</span>
+          <span className="text-[9px] text-fg-tertiary font-medium border border-fg-tertiary/30 rounded px-0.5 shrink-0">G</span>
         )}
         {isOngoing && !isPast && (
-          <span className="flex-shrink-0 px-2 py-0.5 text-[8px] font-medium text-white bg-primary rounded-full animate-now-pulse">
+          <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-medium text-white bg-primary rounded-full animate-now-pulse">
             NOW
+          </span>
+        )}
+        {isUpNext && (
+          <span className="flex-shrink-0 px-2 py-0.5 text-[10px] font-medium text-white bg-emerald-600 rounded-full">
+            NEXT
           </span>
         )}
       </div>

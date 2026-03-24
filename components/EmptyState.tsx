@@ -25,7 +25,8 @@ export default function EmptyState({
           description: 'Add your first task below to start tracking your progress',
           tips: [
             'Type a task and press Enter',
-            'Swipe right to complete',
+            'Tap the checkbox to complete',
+            'Swipe left for quick actions',
             'Long-press for more options',
           ],
           actionLabel: actionLabel || 'Add Your First Task',

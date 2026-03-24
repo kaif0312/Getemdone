@@ -153,9 +153,24 @@ export default function FriendTaskCard({
             </p>
           )}
           {publicTasks.length === 0 && privateTotal === 0 && (
-            <p className="text-center text-fg-tertiary text-sm py-4">
-              No tasks yet.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-surface-muted flex items-center justify-center">
+                <FaFire size={22} className="text-fg-tertiary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-fg-primary">{friendName} hasn&apos;t added tasks yet</p>
+                <p className="text-xs text-fg-tertiary mt-0.5">Check back later or send some encouragement</p>
+              </div>
+              {onSendEncouragement && (
+                <button
+                  onClick={() => setShowEncouragementModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                >
+                  <FaFire size={14} />
+                  Send Encouragement
+                </button>
+              )}
+            </div>
           )}
           {publicGroups.map((group) => (
             <div key={group.tag ?? 'no-tag'}>

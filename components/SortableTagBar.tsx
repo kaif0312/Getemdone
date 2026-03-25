@@ -425,29 +425,35 @@ export default function SortableTagBar({
           <button
             onClick={onAllClick}
             className={`
-              relative flex flex-col items-center justify-end flex-shrink-0 min-w-[48px] h-12 transition-all duration-150
+              relative flex flex-col items-center justify-end flex-shrink-0 w-12 h-12 transition-all duration-150
               ${activeTagFilters.length === 0 ? 'text-primary' : 'text-fg-secondary hover:text-fg-primary'}
             `}
           >
             <span className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${activeTagFilters.length === 0 ? 'bg-primary/[0.08] dark:bg-primary/[0.10]' : ''}`}>
               <LuLayoutGrid size={20} strokeWidth={1.5} className="flex-shrink-0" />
             </span>
-            <span className={`text-[11px] mt-0.5 ${activeTagFilters.length === 0 ? 'text-primary' : 'text-fg-secondary'}`}>All</span>
+            <span className="flex flex-col items-center mt-0.5 w-full max-w-[80px] min-w-[80px]">
+              <span className={`text-[11px] ${activeTagFilters.length === 0 ? 'text-primary' : 'text-fg-secondary'}`}>All</span>
+              <span className="text-[12px] invisible" aria-hidden>0</span>
+            </span>
           </button>
 
           {/* Focus */}
           {onFocusClick && (
             <button
               onClick={onFocusClick}
-              className={`relative flex flex-col items-center justify-end flex-shrink-0 min-w-[48px] h-12 transition-all duration-150 ${
+              className={`relative flex flex-col items-center justify-end flex-shrink-0 w-12 h-12 transition-all duration-150 ${
                 isFocusActive ? 'text-primary' : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
               <span className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isFocusActive ? 'bg-primary/[0.08] dark:bg-primary/[0.10]' : ''}`}>
                 <LuZap size={20} strokeWidth={1.5} className="flex-shrink-0" />
               </span>
-              <span className={`text-[11px] mt-0.5 ${isFocusActive ? 'text-primary' : 'text-fg-secondary'}`}>
-                {focusCount > 0 ? `Focus ${focusCount}` : 'Focus'}
+              <span className="flex flex-col items-center mt-0.5 w-full max-w-[80px] min-w-[80px]">
+                <span className={`text-[11px] ${isFocusActive ? 'text-primary' : 'text-fg-secondary'}`}>
+                  {focusCount > 0 ? `Focus ${focusCount}` : 'Focus'}
+                </span>
+                <span className="text-[12px] invisible" aria-hidden>0</span>
               </span>
             </button>
           )}

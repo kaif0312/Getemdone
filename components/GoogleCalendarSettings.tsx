@@ -23,6 +23,7 @@ export default function GoogleCalendarSettings({
   const { user, userData } = useAuth();
   const {
     isConnected,
+    needsReconnect,
     connecting,
     calendars,
     selectedCalendarIds,
@@ -159,16 +160,36 @@ export default function GoogleCalendarSettings({
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-fg-secondary">Status</span>
                     <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-success" />
-                      <span className="text-[13px] text-success font-medium">Connected</span>
+                      {needsReconnect ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+                          <span className="text-[13px] text-warning font-medium">Token expired</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                          <span className="text-[13px] text-success font-medium">Connected</span>
+                        </>
+                      )}
                     </div>
                   </div>
+                  {needsReconnect && (
+                    <button
+                      onClick={() => connect(() => onSuccess?.('Google Calendar reconnected'))}
+                      disabled={connecting}
+                      className="w-full px-4 py-2.5 rounded-[20px] text-[13px] font-medium bg-primary text-on-accent hover:opacity-90 disabled:opacity-50"
+                    >
+                      {connecting ? 'Reconnecting...' : 'Reconnect'}
+                    </button>
+                  )}
+                  {!needsReconnect && (
                   <button
                     onClick={() => setView('calendars')}
                     className="w-full text-[13px] text-primary hover:underline text-left"
                   >
                     Manage calendars
                   </button>
+                  )}
                   <div>
                     <p className="text-[11px] text-fg-tertiary uppercase tracking-wider mb-2">
                       Default event visibility to friends

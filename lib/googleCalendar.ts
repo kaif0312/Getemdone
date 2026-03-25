@@ -125,6 +125,9 @@ export async function fetchEvents(
       `${GOOGLE_CALENDAR_API_BASE}/calendars/${encodeURIComponent(calId)}/events?${params}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('CALENDAR_AUTH_EXPIRED');
+    }
     if (!res.ok) continue;
     const data: EventsResponse = await res.json();
     if (data.items) {

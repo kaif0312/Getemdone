@@ -134,7 +134,7 @@ function MainApp() {
 
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleFocus, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
   const { friends: friendUsers } = useFriends();
-  const { isConnected: googleCalendarConnected, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
+  const { isConnected: googleCalendarConnected, needsReconnect: calendarNeedsReconnect, connect: reconnectCalendar, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
   const [calendarOpenWith, setCalendarOpenWith] = useState<{ date?: string; event?: import('@/lib/types').CalendarEvent | null; addEvent?: boolean } | null>(null);
@@ -1220,6 +1220,17 @@ function MainApp() {
               
               return (
                 <div className="mb-6">
+                  {calendarNeedsReconnect && (
+                    <div className="flex items-center justify-between gap-3 px-3 py-2.5 mb-3 rounded-lg bg-warning-bg border border-warning-border">
+                      <span className="text-[13px] text-warning-text">Google Calendar session expired</span>
+                      <button
+                        onClick={() => reconnectCalendar()}
+                        className="text-[13px] font-medium text-warning-text underline underline-offset-2 shrink-0"
+                      >
+                        Reconnect
+                      </button>
+                    </div>
+                  )}
                   <TodaysScheduleCard
                     events={myCalendarEvents.filter((e) => {
                       const d = e.start?.date || e.start?.dateTime?.slice(0, 10);

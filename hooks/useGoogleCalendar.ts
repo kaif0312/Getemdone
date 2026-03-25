@@ -32,6 +32,7 @@ export function useGoogleCalendar() {
   const { user, userData } = useAuth();
   const { encryptForSelf, decryptForSelf } = useEncryption();
   const [isConnected, setIsConnected] = useState(false);
+  const [needsReconnect, setNeedsReconnect] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [calendars, setCalendars] = useState<GoogleCalendarListItem[]>([]);
@@ -58,8 +59,11 @@ export function useGoogleCalendar() {
         tokenRef.current = parsed.accessToken;
         return parsed.accessToken;
       }
+      // Token exists but is expired — user must reconnect
+      setNeedsReconnect(true);
     } catch {
-      // Token expired or invalid
+      // Token record corrupt or decryption failed — treat as expired
+      setNeedsReconnect(true);
     }
     return null;
   }, [user?.uid, userData?.googleCalendarTokens, decryptForSelf]);
@@ -81,6 +85,7 @@ export function useGoogleCalendar() {
             });
             tokenRef.current = accessToken;
             setIsConnected(true);
+            setNeedsReconnect(false);
             setSyncError(null);
             onConnectSuccess?.();
             // Fetch calendar list for selection
@@ -127,6 +132,7 @@ export function useGoogleCalendar() {
       });
       tokenRef.current = null;
       setIsConnected(false);
+      setNeedsReconnect(false);
       setCalendars([]);
       setSelectedCalendarIds([]);
       setEvents([]);
@@ -212,13 +218,14 @@ export function useGoogleCalendar() {
           } else {
             if (mountedRef.current) setEvents([]);
           }
-        } else {
-          // Not connected: load native events from Firestore
+        } else if (!needsReconnect) {
+          // Truly not connected: load native events from Firestore
           const snap = await getDoc(doc(db, 'calendarEvents', user.uid, 'months', monthKey));
           const data = snap.data();
           const items = (data?.events as CalendarEvent[]) || [];
           if (mountedRef.current) setEvents(items.filter((e) => e.calendarId === NATIVE_CALENDAR_ID));
         }
+        // If needsReconnect: preserve existing events — don't wipe them until user reconnects
         // When connected: merge native events from Firestore (best-effort, don't fail main load)
         if (token) {
           try {
@@ -245,8 +252,12 @@ export function useGoogleCalendar() {
         if (mountedRef.current) setLastFetchedMonth(monthKey);
       } catch (e) {
         if (mountedRef.current) {
-          setSyncError('Could not load events');
-          // Don't clear events on error - preserve last good state to avoid blink-then-disappear
+          if (e instanceof Error && e.message === 'CALENDAR_AUTH_EXPIRED') {
+            setNeedsReconnect(true);
+            // Preserve existing events — don't wipe them, just flag that reconnect is needed
+          } else {
+            setSyncError('Could not load events');
+          }
         }
       } finally {
         if (mountedRef.current) setEventsLoading(false);
@@ -259,6 +270,7 @@ export function useGoogleCalendar() {
       selectedCalendarIds,
       lastFetchedMonth,
       calendars,
+      needsReconnect,
     ]
   );
 
@@ -586,6 +598,7 @@ export function useGoogleCalendar() {
 
   return {
     isConnected,
+    needsReconnect,
     loading,
     connecting,
     calendars,

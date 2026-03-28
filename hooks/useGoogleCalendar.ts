@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEncryption } from '@/hooks/useEncryption';
 import {
   loadGoogleScript,
-  requestCalendarAccessToken,
+  requestCalendarAuthCode,
   fetchCalendarList,
   fetchEvents,
   createEvent as apiCreateEvent,
@@ -23,6 +23,7 @@ import type {
 interface StoredTokens {
   accessToken: string;
   expiresAt: number;
+  refreshToken?: string; // present for accounts connected via code flow; absent for legacy token flow
 }
 
 const TOKEN_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 min before expiry
@@ -55,30 +56,79 @@ export function useGoogleCalendar() {
     try {
       const decrypted = await decryptForSelf(userData.googleCalendarTokens);
       const parsed: StoredTokens = JSON.parse(decrypted);
+
       if (parsed.expiresAt > Date.now() + TOKEN_BUFFER_MS) {
+        // Token still valid
         tokenRef.current = parsed.accessToken;
         return parsed.accessToken;
       }
-      // Token exists but is expired — user must reconnect
+
+      if (parsed.refreshToken) {
+        // Token expired but we have a refresh token — silently get a new one
+        const res = await fetch('/api/google/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: parsed.refreshToken }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const updated: StoredTokens = {
+            accessToken: data.accessToken,
+            refreshToken: parsed.refreshToken,
+            expiresAt: Date.now() + data.expiresIn * 1000,
+          };
+          const encrypted = await encryptForSelf(JSON.stringify(updated));
+          // Fire-and-forget: update Firestore in the background
+          updateDoc(doc(db, 'users', user.uid), { googleCalendarTokens: encrypted }).catch(() => {});
+          tokenRef.current = data.accessToken;
+          return data.accessToken;
+        }
+
+        // Refresh token revoked (401) — user must reconnect
+        setNeedsReconnect(true);
+        return null;
+      }
+
+      // Legacy token (no refresh token) or expired — user must reconnect once to upgrade
       setNeedsReconnect(true);
     } catch {
-      // Token record corrupt or decryption failed — treat as expired
       setNeedsReconnect(true);
     }
     return null;
-  }, [user?.uid, userData?.googleCalendarTokens, decryptForSelf]);
+  }, [user?.uid, userData?.googleCalendarTokens, decryptForSelf, encryptForSelf]);
 
   const connect = useCallback(async (onConnectSuccess?: () => void) => {
     if (!user?.uid || !clientId) return;
     setConnecting(true);
     try {
       await loadGoogleScript();
-      requestCalendarAccessToken({
+      requestCalendarAuthCode({
         clientId,
-        onToken: async (accessToken, expiresIn = 3600) => {
+        onError: (error) => {
+          console.error('Google auth error:', error);
+          setSyncError('Failed to connect');
+          setConnecting(false);
+        },
+        onCode: async (code) => {
           try {
+            // Exchange the auth code server-side to get access_token + refresh_token
+            const res = await fetch('/api/google/callback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code }),
+            });
+
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              const reason = body?.error || `HTTP ${res.status}`;
+              console.error('[connect] Token exchange failed:', reason);
+              throw new Error(`Token exchange failed: ${reason}`);
+            }
+
+            const { accessToken, refreshToken, expiresIn = 3600 } = await res.json();
             const expiresAt = Date.now() + expiresIn * 1000;
-            const toStore: StoredTokens = { accessToken, expiresAt };
+            const toStore: StoredTokens = { accessToken, expiresAt, ...(refreshToken ? { refreshToken } : {}) };
             const encrypted = await encryptForSelf(JSON.stringify(toStore));
             await updateDoc(doc(db, 'users', user.uid), {
               googleCalendarTokens: encrypted,

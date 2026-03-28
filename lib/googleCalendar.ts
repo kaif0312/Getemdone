@@ -20,15 +20,23 @@ declare global {
             scope: string;
             callback: (response: { access_token: string; expires_in?: number }) => void;
           }) => { requestAccessToken: (options?: { prompt?: string }) => void };
+          initCodeClient: (config: {
+            client_id: string;
+            scope: string;
+            ux_mode: 'popup' | 'redirect';
+            access_type?: 'offline' | 'online';
+            callback: (response: { code?: string; error?: string }) => void;
+          }) => { requestCode: () => void };
         };
       };
     };
   }
 }
 
-export interface TokenClientConfig {
+export interface CodeClientConfig {
   clientId: string;
-  onToken: (accessToken: string, expiresIn?: number) => void;
+  onCode: (code: string) => void;
+  onError?: (error: string) => void;
 }
 
 export function loadGoogleScript(): Promise<void> {
@@ -58,20 +66,27 @@ export function loadGoogleScript(): Promise<void> {
   });
 }
 
-export function requestCalendarAccessToken(config: TokenClientConfig): void {
-  const { clientId, onToken } = config;
+export function requestCalendarAuthCode(config: CodeClientConfig): void {
+  const { clientId, onCode, onError } = config;
   if (!window.google?.accounts?.oauth2) {
     console.error('Google Identity Services not loaded');
     return;
   }
-  const client = window.google.accounts.oauth2.initTokenClient({
+  const client = window.google.accounts.oauth2.initCodeClient({
     client_id: clientId,
     scope: GOOGLE_CALENDAR_SCOPES,
+    ux_mode: 'popup',
+    // access_type 'offline' requests a refresh token so the app stays connected indefinitely
+    access_type: 'offline',
     callback: (response) => {
-      onToken(response.access_token, response.expires_in);
+      if (response.error) {
+        onError?.(response.error);
+      } else if (response.code) {
+        onCode(response.code);
+      }
     },
   });
-  client.requestAccessToken({ prompt: 'consent' });
+  client.requestCode();
 }
 
 export interface CalendarListResponse {

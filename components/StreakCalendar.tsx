@@ -652,18 +652,38 @@ export default function StreakCalendar({
         )}
         <div className="p-4">
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-surface-muted rounded-xl px-4 py-3">
-              <div className="text-2xl font-semibold text-primary">
-                {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.currentStreak}
-              </div>
-              <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Current Streak</div>
-            </div>
-            <div className="bg-surface-muted rounded-xl px-4 py-3">
-              <div className="text-2xl font-semibold text-primary">
-                {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.longestStreak}
-              </div>
-              <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Longest Streak</div>
-            </div>
+            {effectiveStreakData.focusCurrentStreak !== undefined ? (
+              <>
+                <div className="bg-surface-muted rounded-xl px-4 py-3">
+                  <div className="text-2xl font-semibold text-success flex items-center gap-1.5">
+                    {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.focusCurrentStreak}
+                    <LuZap size={18} className="opacity-70" />
+                  </div>
+                  <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Focus Streak</div>
+                </div>
+                <div className="bg-surface-muted rounded-xl px-4 py-3">
+                  <div className="text-2xl font-semibold text-primary">
+                    {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.focusLongestStreak ?? effectiveStreakData.longestStreak}
+                  </div>
+                  <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Best Focus Streak</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-surface-muted rounded-xl px-4 py-3">
+                  <div className="text-2xl font-semibold text-primary">
+                    {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.currentStreak}
+                  </div>
+                  <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Current Streak</div>
+                </div>
+                <div className="bg-surface-muted rounded-xl px-4 py-3">
+                  <div className="text-2xl font-semibold text-primary">
+                    {isViewingFriend && friendStreakLoading ? '—' : effectiveStreakData.longestStreak}
+                  </div>
+                  <div className="text-xs text-fg-secondary uppercase tracking-wider mt-0.5">Longest Streak</div>
+                </div>
+              </>
+            )}
           </div>
           {showFriendSelector && (
             <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
@@ -738,14 +758,35 @@ export default function StreakCalendar({
               </button>
             </p>
           )}
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs text-fg-tertiary">
-            {[0, 1, 2, 3, 4].map((n) => (
-              <div key={n} className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${n === 0 ? 'bg-transparent border border-border-subtle' : n === 1 ? 'bg-primary/15' : n === 2 ? 'bg-primary/30' : n === 3 ? 'bg-primary/50' : 'bg-primary/80'}`} />
-                <span>{n === 4 ? '4+' : n}</span>
+          {effectiveStreakData.focusCompletionHistory ? (
+            <div className="mt-4 flex items-center justify-center gap-3 flex-wrap text-xs text-fg-tertiary">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-success" />
+                <span>All done</span>
               </div>
-            ))}
-          </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-primary/70" />
+                <span>Some done</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-warning/30" />
+                <span>None done</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-primary/20" />
+                <span>No session</span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-center justify-center gap-4 text-xs text-fg-tertiary">
+              {[0, 1, 2, 3, 4].map((n) => (
+                <div key={n} className="flex items-center gap-1.5">
+                  <div className={`w-2 h-2 rounded-full ${n === 0 ? 'bg-transparent border border-border-subtle' : n === 1 ? 'bg-primary/15' : n === 2 ? 'bg-primary/30' : n === 3 ? 'bg-primary/50' : 'bg-primary/80'}`} />
+                  <span>{n === 4 ? '4+' : n}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <GoogleCalendarSettings

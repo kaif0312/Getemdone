@@ -354,6 +354,17 @@ button, a, [role="button"], input, select, textarea {
   animation: streak-bounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+@keyframes focus-counter-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.focus-counter-shake {
+  animation: focus-counter-shake 0.4s ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .task-complete-slide-in,
   .task-count-just-updated,

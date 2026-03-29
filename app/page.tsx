@@ -62,6 +62,9 @@ import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionK
 import { canViewTask } from '@/utils/visibility';
 import SortableTagBar from '@/components/SortableTagBar';
 import TodaysScheduleCard from '@/components/TodaysScheduleCard';
+import MorningFocusSheet from '@/components/MorningFocusSheet';
+import EveningRecapSheet from '@/components/EveningRecapSheet';
+import { useMorningFocusRitual } from '@/hooks/useMorningFocusRitual';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading } = useAuth();
@@ -133,6 +136,8 @@ function MainApp() {
   useRecycleCleanup(uid);
 
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleFocus, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
+
+  const morningRitual = useMorningFocusRitual(uid, userData?.lastFocusSessionDate, !tasksLoading);
   const { friends: friendUsers } = useFriends();
   const { isConnected: googleCalendarConnected, needsReconnect: calendarNeedsReconnect, connect: reconnectCalendar, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
@@ -963,25 +968,33 @@ function MainApp() {
             </button>
 
             {/* Center: Streak pill */}
-            {data.streakData && (
-              <button
-                ref={streakButtonRef}
-                onClick={() => {
-                  setCalendarOpenWith(null);
-                  setShowStreakCalendar(true);
-                  if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
-                }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors flex-shrink-0 ${streakJustUpdated ? 'streak-just-updated' : ''}`}
-                title="View streak calendar"
-              >
-                <LuFlame size={12} className="text-primary shrink-0" strokeWidth={1.5} />
-                <span className="text-fg-secondary">
-                  <span className="font-semibold text-primary" suppressHydrationWarning>{data.streakData.currentStreak}</span>
-                  <span className="min-[376px]:inline hidden">{data.streakData.currentStreak === 1 ? ' day' : ' days'}</span>
-                  <span className="max-[375px]:inline hidden">d</span>
-                </span>
-              </button>
-            )}
+            {data.streakData && (() => {
+              const hasFocusStreak = data.streakData!.focusCurrentStreak !== undefined;
+              const streakCount = hasFocusStreak ? data.streakData!.focusCurrentStreak! : data.streakData!.currentStreak;
+              const streakLabel = hasFocusStreak ? 'Focus streak' : 'View streak calendar';
+              return (
+                <button
+                  ref={streakButtonRef}
+                  onClick={() => {
+                    setCalendarOpenWith(null);
+                    setShowStreakCalendar(true);
+                    if (!onboarding.state.hasSeenStreak) onboarding.markFeatureSeen('hasSeenStreak');
+                  }}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors flex-shrink-0 ${streakJustUpdated ? 'streak-just-updated' : ''}`}
+                  title={streakLabel}
+                >
+                  {hasFocusStreak
+                    ? <LuZap size={12} className="text-success shrink-0" strokeWidth={1.5} />
+                    : <LuFlame size={12} className="text-primary shrink-0" strokeWidth={1.5} />
+                  }
+                  <span className="text-fg-secondary">
+                    <span className={`font-semibold ${hasFocusStreak ? 'text-success' : 'text-primary'}`} suppressHydrationWarning>{streakCount}</span>
+                    <span className="min-[376px]:inline hidden">{streakCount === 1 ? ' day' : ' days'}</span>
+                    <span className="max-[375px]:inline hidden">d</span>
+                  </span>
+                </button>
+              );
+            })()}
 
             {/* Right: Bell + Avatar */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1700,6 +1713,41 @@ function MainApp() {
           taskId={completionUndoTaskId}
           onUndo={() => handleCompletionUndo(completionUndoTaskId)}
           onDismiss={() => setCompletionUndoTaskId(null)}
+        />
+      )}
+
+      {/* Evening Recap Sheet — shown when yesterday had incomplete focus tasks */}
+      {morningRitual.showRecap && morningRitual.yesterdaySession && (
+        <EveningRecapSheet
+          isOpen={morningRitual.showRecap}
+          yesterdaySession={morningRitual.yesterdaySession}
+          tasks={tasks}
+          todayStr={getTodayString()}
+          onComplete={morningRitual.completeRecap}
+          onSkip={morningRitual.skipRecap}
+          onRolloverTask={(taskId) => {
+            // Task already rolls over naturally — just acknowledge
+          }}
+          onSkipTask={async (taskId) => {
+            await toggleSkipRollover(taskId, true);
+          }}
+          onRescheduleTask={async (taskId, date) => {
+            await deferTask(taskId, date, tasks.find((t) => t.id === taskId));
+          }}
+        />
+      )}
+
+      {/* Morning Focus Sheet — daily ritual to select today's focus tasks */}
+      {morningRitual.showSelection && (
+        <MorningFocusSheet
+          isOpen={morningRitual.showSelection}
+          tasks={tasks.filter((t) => !t.deleted && !t.completed)}
+          todayStr={getTodayString()}
+          onConfirm={async (selectedIds) => {
+            await morningRitual.confirmFocusSelection(selectedIds, toggleFocus);
+            setFocusFilterActive(true);
+          }}
+          onSkip={morningRitual.skipFocusSession}
         />
       )}
     </div>

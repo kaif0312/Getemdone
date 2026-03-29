@@ -551,12 +551,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // --- Focus-based streak ---
+    // Build a map: taskId -> completedDateStr (for quick lookup)
+    const taskCompletedOnDate: { [taskId: string]: string } = {};
+    allTasksSnapshot.forEach((taskDoc) => {
+      const task = taskDoc.data();
+      if (task.completed && task.completedAt) {
+        taskCompletedOnDate[taskDoc.id] = getDateStr(task.completedAt);
+      }
+    });
+
+    // Fetch all focus sessions for this user
+    const sessionsRef = collection(db, 'focusSessions', user.uid, 'sessions');
+    const sessionsSnapshot = await getDocs(sessionsRef);
+
+    const focusCompletionHistory: { [date: string]: 'full' | 'partial' | 'none' } = {};
+
+    sessionsSnapshot.forEach((sessionDoc) => {
+      const session = sessionDoc.data();
+      if (session.skipped || !session.taskIds || session.taskIds.length === 0) return;
+
+      const sessionDate: string = session.date;
+      const focusTaskIds: string[] = session.taskIds;
+
+      const completedCount = focusTaskIds.filter(
+        (id: string) => taskCompletedOnDate[id] === sessionDate
+      ).length;
+
+      if (completedCount === focusTaskIds.length) {
+        focusCompletionHistory[sessionDate] = 'full';
+      } else if (completedCount > 0) {
+        focusCompletionHistory[sessionDate] = 'partial';
+      } else {
+        focusCompletionHistory[sessionDate] = 'none';
+      }
+    });
+
+    // Calculate focusCurrentStreak (working backwards from today)
+    let focusCurrentStreak = 0;
+    const checkFocusDate = new Date(todayDate);
+    let focusFoundGap = false;
+
+    while (!focusFoundGap) {
+      const checkDateStr = `${checkFocusDate.getFullYear()}-${String(checkFocusDate.getMonth() + 1).padStart(2, '0')}-${String(checkFocusDate.getDate()).padStart(2, '0')}`;
+      const status = focusCompletionHistory[checkDateStr];
+
+      if (status === 'full' || status === 'partial') {
+        focusCurrentStreak++;
+      } else if (checkDateStr === todayStr) {
+        // Today is allowed to have no session yet (streak continues)
+      } else {
+        focusFoundGap = true;
+      }
+
+      checkFocusDate.setDate(checkFocusDate.getDate() - 1);
+      if (focusCurrentStreak > 365) break;
+    }
+
+    // Calculate focusLongestStreak
+    const focusSortedDates = Object.keys(focusCompletionHistory)
+      .filter((d) => focusCompletionHistory[d] === 'full' || focusCompletionHistory[d] === 'partial')
+      .sort((a, b) => b.localeCompare(a));
+
+    let focusLongestStreak = focusSortedDates.length > 0 ? 1 : 0;
+    if (focusSortedDates.length > 1) {
+      let focusTempStreak = 1;
+      for (let i = 0; i < focusSortedDates.length - 1; i++) {
+        const curr = new Date(focusSortedDates[i]);
+        const next = new Date(focusSortedDates[i + 1]);
+        const diff = Math.floor((curr.getTime() - next.getTime()) / (1000 * 60 * 60 * 24));
+        if (diff === 1) {
+          focusTempStreak++;
+          focusLongestStreak = Math.max(focusLongestStreak, focusTempStreak);
+        } else {
+          focusTempStreak = 1;
+        }
+      }
+    }
+
     const streakData: StreakData = {
       currentStreak,
       longestStreak,
       lastCompletionDate,
       completionHistory,
       missedCommitments,
+      focusCompletionHistory,
+      focusCurrentStreak,
+      focusLongestStreak,
     };
 
     // Update user document with streak data

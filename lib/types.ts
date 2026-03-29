@@ -4,6 +4,26 @@ export interface StreakData {
   lastCompletionDate: string; // YYYY-MM-DD format
   completionHistory: { [date: string]: number }; // date -> count of completed tasks
   missedCommitments: { [date: string]: number }; // date -> count of missed committed tasks
+  /** Focus-based streak: status per day based on morning ritual completion */
+  focusCompletionHistory?: { [date: string]: 'full' | 'partial' | 'none' };
+  /** Current streak counting days where at least 1 focus task was completed */
+  focusCurrentStreak?: number;
+  /** Longest ever focus-based streak */
+  focusLongestStreak?: number;
+}
+
+/** One day's morning focus ritual — stored at focusSessions/{userId}/sessions/{date} */
+export interface FocusSession {
+  /** YYYY-MM-DD — also the Firestore document ID */
+  date: string;
+  /** Task IDs selected as focus tasks (1–5) */
+  taskIds: string[];
+  /** Subset of taskIds that were completed by end of day */
+  completedTaskIds: string[];
+  /** Timestamp (ms) when the ritual was completed */
+  createdAt: number;
+  /** True if the user tapped "Skip for now" instead of selecting tasks */
+  skipped: boolean;
 }
 
 export interface NotificationSettings {
@@ -83,6 +103,8 @@ export interface User {
   defaultEventVisibility?: TaskVisibility;
   /** Google Calendar: default visibility list when defaultEventVisibility is only/except */
   defaultEventVisibilityList?: string[];
+  /** YYYY-MM-DD of the last completed (or skipped) morning focus ritual — prevents re-showing same day */
+  lastFocusSessionDate?: string;
 }
 
 /** Google Calendar event (from API or our overlay) */

@@ -249,5 +249,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (userId == request.auth.uid || areFriends(userId));
       allow write: if isAuthenticated() && userId == request.auth.uid;
     }
+
+    // Focus sessions (stores daily morning ritual data per user)
+    match /focusSessions/{userId}/sessions/{sessionDate} {
+      // Owner can read and write their own sessions
+      allow read, write: if isAuthenticated() && userId == request.auth.uid;
+    }
   }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { StreakData, TaskWithUser, CalendarEvent } from '@/lib/types';
 import { FaChevronLeft, FaChevronRight, FaTimes, FaArrowLeft, FaExclamationTriangle, FaEllipsisV } from 'react-icons/fa';
-import { LuCheck, LuCalendarPlus, LuList, LuLayoutGrid } from 'react-icons/lu';
+import { LuCheck, LuCalendarPlus, LuList, LuLayoutGrid, LuZap } from 'react-icons/lu';
 import { dateMatchesRecurrence } from '@/utils/recurrence';
 import { shouldShowInTodayView, getTodayString, getDateString } from '@/utils/taskFilter';
 import { formatEventTime, isEventPast, isEventOngoing, getEventTimeRange, getTaskMinutes } from '@/utils/calendarEvent';
@@ -260,6 +260,11 @@ export default function StreakCalendar({
   const getTaskCount = (day: number): number => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return effectiveStreakData.completionHistory[dateStr] || 0;
+  };
+
+  const getFocusDayStatus = (day: number): 'full' | 'partial' | 'none' | undefined => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return effectiveStreakData.focusCompletionHistory?.[dateStr];
   };
   const getMissedCommitmentCount = (day: number): number => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -561,9 +566,12 @@ export default function StreakCalendar({
     );
   }
 
-  const getCellStyles = (count: number, isToday: boolean) => {
+  const getCellStyles = (count: number, isToday: boolean, focusStatus?: 'full' | 'partial' | 'none') => {
     const base = 'w-10 h-10 flex flex-col items-center justify-center rounded-lg transition-all cursor-pointer relative';
     const todayRing = isToday ? 'ring-[1.5px] ring-primary' : '';
+    if (focusStatus === 'full') return `${base} ${todayRing} bg-success text-white`;
+    if (focusStatus === 'partial') return `${base} ${todayRing} bg-primary/70 text-white`;
+    if (focusStatus === 'none') return `${base} ${todayRing} bg-warning/15 text-fg-primary`;
     if (count === 0) return `${base} ${todayRing} hover:bg-surface-muted text-fg-secondary`;
     const opacityMap: Record<number, string> = { 1: 'bg-primary/15', 2: 'bg-primary/30', 3: 'bg-primary/50', 4: 'bg-primary/80' };
     const bg = count >= 4 ? 'bg-primary/80' : opacityMap[count] || 'bg-primary/80';
@@ -581,20 +589,27 @@ export default function StreakCalendar({
     const dayEvents = getEventsForDate(dateStr);
     const today = isToday(day);
     const missedCount = getMissedCommitmentCount(day);
+    const focusStatus = getFocusDayStatus(day);
 
     calendarDays.push(
       <button
         key={day}
         onClick={() => handleDateClick(day)}
-        className={getCellStyles(taskCount, today)}
+        className={getCellStyles(taskCount, today, focusStatus)}
       >
-        {missedCount > 0 && (
+        {focusStatus === 'full' && (
+          <LuZap size={9} className="absolute top-0.5 right-0.5 text-white/80" />
+        )}
+        {focusStatus === 'none' && missedCount === 0 && (
+          <FaExclamationTriangle size={9} className="absolute top-0.5 right-0.5 text-warning" />
+        )}
+        {missedCount > 0 && focusStatus !== 'none' && (
           <FaExclamationTriangle size={10} className="absolute top-0.5 right-0.5 text-warning" />
         )}
         <span className="text-sm font-medium">{day}</span>
         {dayEvents.length > 0 && (
           <div className="flex items-center gap-0.5 mt-0.5">
-            {dayEvents.slice(0, 3).map((ev, i) => (
+            {dayEvents.slice(0, 3).map((ev) => (
               <div
                 key={ev.id}
                 className="w-1 h-1 rounded-full"
@@ -606,7 +621,7 @@ export default function StreakCalendar({
             )}
           </div>
         )}
-        {taskCount > 0 && (
+        {taskCount > 0 && !focusStatus && (
           <span className="text-xs font-medium mt-0.5 flex items-center gap-0.5"><LuCheck size={10} />{taskCount}</span>
         )}
       </button>

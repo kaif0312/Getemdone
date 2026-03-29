@@ -853,9 +853,13 @@ function MainApp() {
       (t) => t.userId === uid && !t.deleted && t.focusDate === todayStr
     );
     if (focusTasks.length > 0) {
+      const isTaskCompletedToday = (t: (typeof focusTasks)[number]) => {
+        if (t.recurrence) return t.recurrence.completedDates?.includes(todayStr) ?? false;
+        return t.completed;
+      };
       return {
-        pendingCount: focusTasks.filter((t) => !t.completed).length,
-        completedToday: focusTasks.filter((t) => t.completed).length,
+        pendingCount: focusTasks.filter((t) => !isTaskCompletedToday(t)).length,
+        completedToday: focusTasks.filter(isTaskCompletedToday).length,
       };
     }
     // No focus tasks → totalTasks = 0 → ring won't render

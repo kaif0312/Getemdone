@@ -12,6 +12,18 @@ export interface StreakData {
   focusLongestStreak?: number;
 }
 
+/**
+ * Real-time focus presence — stored at presence/{userId}
+ * Written when user starts a focus session, cleared when they end it.
+ * Friends subscribe to this doc with onSnapshot for live indicators.
+ */
+export interface FocusPresenceData {
+  isActive: boolean;
+  startedAt: number;    // ms timestamp
+  focusTaskCount: number;
+  updatedAt: number;    // ms timestamp (for stale-detection)
+}
+
 /** One day's morning focus ritual — stored at focusSessions/{userId}/sessions/{date} */
 export interface FocusSession {
   /** YYYY-MM-DD — also the Firestore document ID */
@@ -105,6 +117,8 @@ export interface User {
   defaultEventVisibilityList?: string[];
   /** YYYY-MM-DD of the last completed (or skipped) morning focus ritual — prevents re-showing same day */
   lastFocusSessionDate?: string;
+  /** True while user is in an active focus session — Cloud Function uses this to suppress push notifications */
+  focusModeActive?: boolean;
 }
 
 /** Google Calendar event (from API or our overlay) */

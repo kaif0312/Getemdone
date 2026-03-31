@@ -8,6 +8,10 @@ import { TaskWithUser, Attachment, CalendarEvent } from '@/lib/types';
 import { groupTasksByTag } from '@/utils/taskGrouping';
 import { getIconForTag } from '@/lib/tagIcons';
 import { FaFire } from 'react-icons/fa';
+import { LuZap } from 'react-icons/lu';
+import { FocusPresenceData } from '@/lib/types';
+import { formatElapsed } from '@/hooks/useFocusPresence';
+import { getPresenceElapsedSeconds } from '@/hooks/useFriendPresence';
 
 interface FriendTaskCardProps {
   friendId: string;
@@ -39,6 +43,8 @@ interface FriendTaskCardProps {
   friendHasCalendar?: boolean;
   /** Can show nudge (free all day + pending tasks + not rate limited) */
   canNudgeToday?: boolean;
+  /** Live focus presence for this friend — shows banner when active */
+  focusPresence?: FocusPresenceData | null;
 }
 
 export default function FriendTaskCard({
@@ -68,6 +74,7 @@ export default function FriendTaskCard({
   scheduleLoading = false,
   friendHasCalendar = false,
   canNudgeToday = true,
+  focusPresence,
 }: FriendTaskCardProps) {
   const [showEncouragementModal, setShowEncouragementModal] = useState(false);
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
@@ -85,6 +92,27 @@ export default function FriendTaskCard({
   return (
     <>
       <div className="mb-4 md:mb-6">
+        {/* Focus presence banner */}
+        {focusPresence?.isActive && (() => {
+          const elapsed = getPresenceElapsedSeconds(focusPresence);
+          return (
+            <div className="flex items-center gap-2.5 px-3 py-2 mb-3 rounded-xl bg-success/8 border border-success/15">
+              {/* Pulsing dot */}
+              <span className="relative flex-shrink-0 w-2 h-2">
+                <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-60" />
+                <span className="relative w-2 h-2 rounded-full bg-success block" />
+              </span>
+              <LuZap size={13} className="text-success flex-shrink-0" />
+              <span className="text-sm text-success font-medium flex-1 min-w-0 truncate">
+                {friendName} is in deep focus
+              </span>
+              <span className="text-xs text-success/70 font-medium flex-shrink-0 tabular-nums">
+                {formatElapsed(elapsed)}
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Header */}
         <div className="border-l-4 border-primary pl-4 py-2 rounded-r-lg">
           <div className="flex items-center justify-between gap-2">

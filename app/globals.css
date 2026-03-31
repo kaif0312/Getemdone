@@ -365,6 +365,18 @@ button, a, [role="button"], input, select, textarea {
   animation: focus-counter-shake 0.4s ease-in-out;
 }
 
+/* Focus presence ring — spinning dashed arc on focused avatars */
+@keyframes focus-ring-spin {
+  from { transform: rotate(-90deg); }
+  to   { transform: rotate(270deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-counter-shake {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .task-complete-slide-in,
   .task-count-just-updated,

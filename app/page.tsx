@@ -65,6 +65,8 @@ import TodaysScheduleCard from '@/components/TodaysScheduleCard';
 import MorningFocusSheet from '@/components/MorningFocusSheet';
 import EveningRecapSheet from '@/components/EveningRecapSheet';
 import { useMorningFocusRitual } from '@/hooks/useMorningFocusRitual';
+import { useFocusPresence, formatElapsed } from '@/hooks/useFocusPresence';
+import { useFriendPresence } from '@/hooks/useFriendPresence';
 
 export default function Home() {
   const { user, userData, isWhitelisted, loading: authLoading } = useAuth();
@@ -138,7 +140,12 @@ function MainApp() {
   const { tasks, loading: tasksLoading, addTask, updateTask, updateTaskDueDate, updateTaskNotes, toggleComplete, togglePrivacy, updateVisibility, toggleCommitment, toggleFocus, toggleSkipRollover, deleteTask, restoreTask, permanentlyDeleteTask, permanentlyDeleteAllTasks, getDeletedTasks, addReaction, addComment, addCommentReaction, editComment, deleteComment, deferTask, reorderTasks, addAttachment, deleteAttachment, sendEncouragement, sendNudge, userStorageUsage, updateTaskTags, recordRecentlyUsedTag, updateTaskSubtasks, updateTaskRecurrence } = useTasks();
 
   const morningRitual = useMorningFocusRitual(uid, userData?.lastFocusSessionDate, !tasksLoading);
+
+  // Focus Presence — own session + real-time friends
+  const focusPresence = useFocusPresence(uid);
   const { friends: friendUsers } = useFriends();
+  const friendIds = friendUsers.map((f) => f.id);
+  const friendPresenceMap = useFriendPresence(friendIds);
   const { isConnected: googleCalendarConnected, needsReconnect: calendarNeedsReconnect, connect: reconnectCalendar, events: myCalendarEvents, getFriendEvents, loadEventsForMonth, eventsLoading: calendarEventsLoading } = useGoogleCalendar();
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showStreakCalendar, setShowStreakCalendar] = useState(false);
@@ -996,6 +1003,35 @@ function MainApp() {
               );
             })()}
 
+            {/* Start/End Focus button — only visible when focus tasks exist */}
+            {(focusPresence.isActive || selfStats.pendingCount > 0 || selfStats.completedToday > 0) && (
+              focusPresence.isActive ? (
+                <button
+                  onClick={() => focusPresence.endFocus()}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-success/10 border border-success/20 hover:bg-success/15 transition-colors flex-shrink-0"
+                  title={`In focus · ${formatElapsed(focusPresence.elapsedSeconds)} — tap to end`}
+                >
+                  <span className="relative w-1.5 h-1.5 flex-shrink-0">
+                    <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-60" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-success block" />
+                  </span>
+                  <span className="text-success font-semibold tabular-nums">{formatElapsed(focusPresence.elapsedSeconds)}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    const count = selfStats.pendingCount + selfStats.completedToday;
+                    focusPresence.startFocus(count);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-surface-muted border border-border-subtle hover:bg-success/10 hover:border-success/20 hover:text-success transition-all flex-shrink-0 text-fg-secondary"
+                  title="Start a focus session"
+                >
+                  <LuZap size={11} strokeWidth={2} />
+                  <span className="min-[376px]:inline hidden">Focus</span>
+                </button>
+              )
+            )}
+
             {/* Right: Bell + Avatar */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
@@ -1039,7 +1075,12 @@ function MainApp() {
           selfPhotoURL={data.photoURL}
           selfPendingCount={selfStats.pendingCount}
           selfCompletedToday={selfStats.completedToday}
-          friends={friendSummaries}
+          selfFocusActive={focusPresence.isActive}
+          selfFocusElapsed={focusPresence.elapsedSeconds}
+          friends={friendSummaries.map((s) => ({
+            ...s,
+            focusPresence: friendPresenceMap[s.id] ?? null,
+          }))}
           activePageIndex={activePageIndex}
           onPageChange={setActivePageIndex}
           onReorder={(newOrder) => {
@@ -1510,6 +1551,7 @@ function MainApp() {
                     scheduleLoading={friendSchedules.get(userId)?.loading ?? false}
                     friendHasCalendar={!!friendUsers.find((f) => f.id === userId)?.googleCalendarSelectedIds?.length}
                     canNudgeToday={canNudgeFriendToday(userId)}
+                    focusPresence={friendPresenceMap[userId] ?? null}
                   />
                 </div>
               </div>

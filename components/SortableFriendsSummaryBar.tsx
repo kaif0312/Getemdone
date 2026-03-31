@@ -20,8 +20,11 @@ import {
   horizontalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { LuCheck } from 'react-icons/lu';
+import { LuCheck, LuZap } from 'react-icons/lu';
 import Avatar from './Avatar';
+import { FocusPresenceData } from '@/lib/types';
+import { formatElapsed } from '@/hooks/useFocusPresence';
+import { getPresenceElapsedSeconds } from '@/hooks/useFriendPresence';
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 21; // r=21, viewBox 46×46
 
@@ -32,6 +35,8 @@ interface FriendSummary {
   pendingCount: number;
   completedToday: number;
   color: { from: string; to: string; text: string };
+  /** Live focus presence for this friend — null/undefined = not focused */
+  focusPresence?: FocusPresenceData | null;
 }
 
 interface SortableFriendsSummaryBarProps {
@@ -40,11 +45,27 @@ interface SortableFriendsSummaryBarProps {
   selfPhotoURL?: string;
   selfPendingCount: number;
   selfCompletedToday: number;
+  /** Whether the logged-in user is currently in focus mode */
+  selfFocusActive?: boolean;
+  /** Elapsed seconds of the self focus session (for display) */
+  selfFocusElapsed?: number;
   friends: FriendSummary[];
   /** 0 = Me, 1..n = friend[i-1] */
   activePageIndex: number;
   onPageChange: (index: number) => void;
   onReorder: (newOrder: string[]) => void;
+}
+
+/** Pulsing green dot shown on avatar corner when friend is in focus */
+function FocusDot() {
+  return (
+    <span
+      className="absolute top-0 right-0 w-3 h-3 rounded-full bg-success border-2 border-surface flex items-center justify-center"
+      aria-label="In focus mode"
+    >
+      <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-75" />
+    </span>
+  );
 }
 
 function SortableFriendCard({
@@ -78,8 +99,11 @@ function SortableFriendCard({
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   const totalTasks = friend.completedToday + friend.pendingCount;
   const progress = totalTasks > 0 ? friend.completedToday / totalTasks : 0;
+  const isFocused = !!friend.focusPresence?.isActive;
+  const focusElapsed = isFocused ? getPresenceElapsedSeconds(friend.focusPresence!) : 0;
 
   return (
     <div ref={setNodeRef} style={style} className="flex-shrink-0">
@@ -96,7 +120,7 @@ function SortableFriendCard({
         }}
         className="flex flex-col items-center gap-1 min-w-[56px] pb-3 touch-manipulation cursor-grab active:cursor-grabbing transition-colors"
         style={{ touchAction: 'pan-x' }}
-        title="Tap to view, hold to reorder"
+        title={isFocused ? `${friend.name} is in focus · ${formatElapsed(focusElapsed)}` : 'Tap to view, hold to reorder'}
       >
         <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${isActive ? 'scale-105' : ''}`}>
           {friend.photoURL ? (
@@ -111,7 +135,12 @@ function SortableFriendCard({
               {friend.name.charAt(0).toUpperCase()}
             </div>
           )}
-          {totalTasks > 0 && (
+
+          {/* Focus presence indicator dot */}
+          {isFocused && <FocusDot />}
+
+          {/* Task progress ring — only shown when not in focus and has tasks */}
+          {!isFocused && totalTasks > 0 && (
             <svg
               className="absolute pointer-events-none"
               style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
@@ -136,18 +165,54 @@ function SortableFriendCard({
               />
             </svg>
           )}
+
+          {/* Focus ring — animated green ring when in focus */}
+          {isFocused && (
+            <svg
+              className="absolute pointer-events-none"
+              style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
+              viewBox="0 0 46 46"
+              aria-hidden="true"
+            >
+              <circle cx="23" cy="23" r="21" fill="none"
+                stroke="var(--color-success)" strokeWidth="2.5" opacity="0.3"
+                strokeLinecap="round"
+              />
+              <circle cx="23" cy="23" r="21" fill="none"
+                stroke="var(--color-success)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="12 120"
+                style={{
+                  transform: 'rotate(-90deg)',
+                  transformOrigin: 'center',
+                  animation: prefersReducedMotion ? 'none' : 'focus-ring-spin 3s linear infinite',
+                }}
+              />
+            </svg>
+          )}
         </div>
+
         <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${isActive ? 'text-primary' : 'text-fg-primary'}`}>
           {friend.name}
         </div>
-        <div className="flex items-center justify-center gap-1 text-xs text-fg-secondary">
-          <span>
-            {friend.pendingCount > 0 && `${friend.pendingCount} pending`}
-            {friend.completedToday > 0 && friend.pendingCount === 0 && (
-              <span className="inline-flex items-center gap-0.5">{friend.completedToday}<LuCheck size={10} /></span>
-            )}
-            {friend.pendingCount === 0 && friend.completedToday === 0 && '—'}
-          </span>
+
+        {/* Subtitle: focus elapsed OR task counts */}
+        <div className="flex items-center justify-center gap-0.5 text-xs">
+          {isFocused ? (
+            <span className="text-success font-medium flex items-center gap-0.5">
+              <LuZap size={9} />
+              {formatElapsed(focusElapsed)}
+            </span>
+          ) : (
+            <span className="text-fg-secondary">
+              {friend.pendingCount > 0 && `${friend.pendingCount} pending`}
+              {friend.completedToday > 0 && friend.pendingCount === 0 && (
+                <span className="inline-flex items-center gap-0.5">{friend.completedToday}<LuCheck size={10} /></span>
+              )}
+              {friend.pendingCount === 0 && friend.completedToday === 0 && '—'}
+            </span>
+          )}
         </div>
       </button>
     </div>
@@ -159,6 +224,8 @@ export default function SortableFriendsSummaryBar({
   selfPhotoURL,
   selfPendingCount,
   selfCompletedToday,
+  selfFocusActive = false,
+  selfFocusElapsed = 0,
   friends,
   activePageIndex,
   onPageChange,
@@ -231,6 +298,9 @@ export default function SortableFriendsSummaryBar({
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  const selfTotalTasks = selfCompletedToday + selfPendingCount;
+  const selfProgress = selfTotalTasks > 0 ? selfCompletedToday / selfTotalTasks : 0;
+
   return (
     <div className="bg-surface border-b border-border-emphasized shadow-sm z-30">
       <div className="max-w-3xl mx-auto px-4 pt-3">
@@ -245,62 +315,94 @@ export default function SortableFriendsSummaryBar({
               ref={(el) => { tabRefs.current[0] = el; }}
               onClick={() => onPageChange(0)}
               className="flex flex-col items-center gap-1 min-w-[56px] pb-3 flex-shrink-0 touch-manipulation"
+              title={selfFocusActive ? `You are in focus · ${formatElapsed(selfFocusElapsed)}` : undefined}
             >
-              {(() => {
-                const totalTasks = selfCompletedToday + selfPendingCount;
-                const progress = totalTasks > 0 ? selfCompletedToday / totalTasks : 0;
-                return (
-                  <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${activePageIndex === 0 ? 'scale-105' : ''}`}>
-                    {selfPhotoURL ? (
-                      <Avatar
-                        photoURL={selfPhotoURL}
-                        displayName={selfName}
-                        size="md"
-                        className="w-10 h-10 border border-border-subtle"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
-                        {selfName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    {totalTasks > 0 && (
-                      <svg
-                        className="absolute pointer-events-none"
-                        style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
-                        viewBox="0 0 46 46"
-                        aria-hidden="true"
-                      >
-                        <circle cx="23" cy="23" r="21" fill="none"
-                          stroke="var(--color-fg-tertiary)" strokeWidth="2.5" opacity="0.2"
-                          strokeLinecap="round"
-                        />
-                        <circle cx="23" cy="23" r="21" fill="none"
-                          stroke={progress >= 1 ? 'var(--color-success)' : 'var(--color-primary)'}
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeDasharray={RING_CIRCUMFERENCE}
-                          strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
-                          style={{
-                            transform: 'rotate(-90deg)',
-                            transformOrigin: 'center',
-                            transition: prefersReducedMotion ? 'none' : 'stroke-dashoffset 500ms ease, stroke 300ms ease',
-                          }}
-                        />
-                      </svg>
-                    )}
+              <div className={`relative flex-shrink-0 rounded-full transition-transform duration-150 ${activePageIndex === 0 ? 'scale-105' : ''}`}>
+                {selfPhotoURL ? (
+                  <Avatar
+                    photoURL={selfPhotoURL}
+                    displayName={selfName}
+                    size="md"
+                    className="w-10 h-10 border border-border-subtle"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-elevated flex items-center justify-center font-medium text-sm text-fg-secondary border border-border-subtle">
+                    {selfName.charAt(0).toUpperCase()}
                   </div>
-                );
-              })()}
+                )}
+
+                {selfFocusActive && <FocusDot />}
+
+                {!selfFocusActive && selfTotalTasks > 0 && (
+                  <svg
+                    className="absolute pointer-events-none"
+                    style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
+                    viewBox="0 0 46 46"
+                    aria-hidden="true"
+                  >
+                    <circle cx="23" cy="23" r="21" fill="none"
+                      stroke="var(--color-fg-tertiary)" strokeWidth="2.5" opacity="0.2"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="23" cy="23" r="21" fill="none"
+                      stroke={selfProgress >= 1 ? 'var(--color-success)' : 'var(--color-primary)'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeDasharray={RING_CIRCUMFERENCE}
+                      strokeDashoffset={RING_CIRCUMFERENCE * (1 - selfProgress)}
+                      style={{
+                        transform: 'rotate(-90deg)',
+                        transformOrigin: 'center',
+                        transition: prefersReducedMotion ? 'none' : 'stroke-dashoffset 500ms ease, stroke 300ms ease',
+                      }}
+                    />
+                  </svg>
+                )}
+
+                {selfFocusActive && (
+                  <svg
+                    className="absolute pointer-events-none"
+                    style={{ inset: -3, width: 'calc(100% + 6px)', height: 'calc(100% + 6px)' }}
+                    viewBox="0 0 46 46"
+                    aria-hidden="true"
+                  >
+                    <circle cx="23" cy="23" r="21" fill="none"
+                      stroke="var(--color-success)" strokeWidth="2.5" opacity="0.3"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="23" cy="23" r="21" fill="none"
+                      stroke="var(--color-success)"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeDasharray="12 120"
+                      style={{
+                        transform: 'rotate(-90deg)',
+                        transformOrigin: 'center',
+                        animation: prefersReducedMotion ? 'none' : 'focus-ring-spin 3s linear infinite',
+                      }}
+                    />
+                  </svg>
+                )}
+              </div>
 
               <div className={`text-sm font-medium truncate max-w-[72px] text-center transition-colors ${activePageIndex === 0 ? 'text-primary' : 'text-fg-primary'}`}>
                 Me
               </div>
-              <div className="text-xs text-fg-secondary">
-                {selfPendingCount > 0
-                  ? `${selfPendingCount} pending`
-                  : selfCompletedToday > 0
-                  ? <span className="inline-flex items-center gap-0.5">{selfCompletedToday}<LuCheck size={10} /></span>
-                  : '—'}
+              <div className="text-xs">
+                {selfFocusActive ? (
+                  <span className="text-success font-medium flex items-center gap-0.5">
+                    <LuZap size={9} />
+                    {formatElapsed(selfFocusElapsed)}
+                  </span>
+                ) : (
+                  <span className="text-fg-secondary">
+                    {selfPendingCount > 0
+                      ? `${selfPendingCount} pending`
+                      : selfCompletedToday > 0
+                      ? <span className="inline-flex items-center gap-0.5">{selfCompletedToday}<LuCheck size={10} /></span>
+                      : '—'}
+                  </span>
+                )}
               </div>
             </button>
 

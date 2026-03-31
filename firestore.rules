@@ -255,5 +255,14 @@ service cloud.firestore {
       // Owner can read and write their own sessions
       allow read, write: if isAuthenticated() && userId == request.auth.uid;
     }
+
+    // Real-time focus presence (written when user starts a focus session)
+    // Friends subscribe to this with onSnapshot for live "now focusing" indicators
+    match /presence/{userId} {
+      // Owner can write their own presence
+      allow write: if isAuthenticated() && userId == request.auth.uid;
+      // Any authenticated user can read (needed for friends to subscribe)
+      allow read: if isAuthenticated();
+    }
   }
 }

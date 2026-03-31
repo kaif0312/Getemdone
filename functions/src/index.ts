@@ -38,6 +38,13 @@ export const sendPushNotification = functions.firestore
       }
 
       const userData = userDoc.data();
+
+      // Suppress push (but keep in-app notification) when recipient is in focus mode
+      if (userData?.focusModeActive === true) {
+        console.log(`[sendPushNotification] User ${notification.userId} is in focus mode — push suppressed`);
+        return null;
+      }
+
       const fcmToken = userData?.fcmToken;
 
       if (!fcmToken) {

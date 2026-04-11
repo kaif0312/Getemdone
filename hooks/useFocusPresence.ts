@@ -141,9 +141,9 @@ export function useFocusPresence(
   return { isActive, startedAt, elapsedSeconds, focusTaskCount, startFocus, endFocus };
 }
 
-/** Format elapsed seconds as "18 min" or "1 h 5 min" */
+/** Format elapsed seconds as "32s", "18 min", or "1 h 5 min" */
 export function formatElapsed(seconds: number): string {
-  if (seconds < 60) return '< 1 min';
+  if (seconds < 60) return `${seconds}s`;
   const mins = Math.floor(seconds / 60);
   if (mins < 60) return `${mins} min`;
   const hrs = Math.floor(mins / 60);

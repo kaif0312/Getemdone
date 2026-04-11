@@ -373,10 +373,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const userDocRef = doc(db, 'users', user.uid);
     const tasksRef = collection(db, 'tasks');
-    
+
     // Get ALL tasks (not just completed) to calculate completion percentage
     const allTasksQuery = query(tasksRef, where('userId', '==', user.uid));
-    const allTasksSnapshot = await getDocs(allTasksQuery);
+    let allTasksSnapshot;
+    try {
+      allTasksSnapshot = await getDocs(allTasksQuery);
+    } catch (err) {
+      console.warn('[updateStreakData] Failed to fetch tasks, skipping streak update:', err);
+      return;
+    }
+
+    // Guard: if no tasks returned, Firestore may be unavailable or returning stale cache.
+    // Don't overwrite stored streak data with zeros.
+    if (allTasksSnapshot.empty) return;
     
     // Build task counts per day: total tasks and completed tasks
     // For each day, count all tasks that were "active" (should be shown) on that day
@@ -639,6 +649,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       focusCurrentStreak,
       focusLongestStreak,
     };
+
+    // Protect longestStreak: never write a lower value than what's already stored.
+    // This guards against a partial/empty task fetch overwriting a legitimate high streak.
+    const existingLongest = userData?.streakData?.longestStreak ?? 0;
+    if (streakData.longestStreak < existingLongest) {
+      streakData.longestStreak = existingLongest;
+    }
+    const existingFocusLongest = userData?.streakData?.focusLongestStreak ?? 0;
+    if ((streakData.focusLongestStreak ?? 0) < existingFocusLongest) {
+      streakData.focusLongestStreak = existingFocusLongest;
+    }
 
     // Update user document with streak data
     await setDoc(userDocRef, { streakData }, { merge: true });

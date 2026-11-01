@@ -46,4 +46,5 @@ export const defaultDeps: BotDeps = {
   nudgeFriend: social.nudgeFriend,
   reactToTask: social.reactToTask,
   friendsActivity: social.friendsActivity,
+  answerInvite: social.answerInvite,
 };

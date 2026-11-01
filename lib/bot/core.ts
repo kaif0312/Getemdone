@@ -141,6 +141,15 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;
     case 'nudge': await ctx.text((await nudgeUid(ctx, f.uid)).join('\n')); return;
+    case 'invite':
+      try {
+        await d.answerInvite(ctx.uid, f.id, f.accept);
+        await ctx.text(f.accept ? "🤝 You're now friends on Nudge. Send *friends* to see how everyone's doing." : 'Invite declined.');
+      } catch (e) {
+        const code = String((e as Error).message);
+        await ctx.text(code === 'invite_already_answered' ? 'You already answered that invite.' : "That invite isn't valid any more.");
+      }
+      return;
     case 'react':
       await d.reactToTask(ctx.uid, f.taskId, f.emoji);
       await ctx.text(`${f.emoji} Sent!`);

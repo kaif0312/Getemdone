@@ -71,6 +71,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
     listFriends: async () => [],
     findFriend: async (_u, name) => (name.toLowerCase() === 'ali' ? { uid: 'f1', displayName: 'Ali', waLinked: true } : null),
     nudgeFriend: async (_u, f, m) => { log(`nudge ${f} ${m ?? ''}`); return { ok: true }; },
+    answerInvite: async (_u, id, accept) => { log(`invite ${id} ${accept}`); },
     reactToTask: async (_u, id, e) => { log(`react ${id} ${e}`); },
     friendsActivity: async () => [{ uid: 'f1', displayName: 'Ali', doneToday: [{ taskId: 'ft1', text: 'Study' }], workoutsToday: ['ran 5k'], streak: 12 }],
   };

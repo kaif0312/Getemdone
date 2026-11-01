@@ -69,6 +69,7 @@ export interface BotDeps {
   nudgeFriend: typeof Social.nudgeFriend;
   reactToTask: typeof Social.reactToTask;
   friendsActivity: typeof Social.friendsActivity;
+  answerInvite: typeof Social.answerInvite;
 }
 
 /** What to reverse when the user taps Undo. Stored in session.lastAction.payload.undos. */

@@ -98,7 +98,10 @@ export const TOOLS: FunctionDecl[] = [
   },
   {
     name: 'nudge_friend',
-    description: 'Send a friend an encouraging nudge.',
+    description:
+      'Send a friend a nudge. The friend sees the message as written BY THE USER, so set `message` only to words the user ' +
+      'explicitly asked to send (e.g. "tell ali: you got this"). Never invent, rephrase or add a message; comments about ' +
+      'the friend ("he is slacking") are not a message: omit it.',
     parameters: { type: 'OBJECT', properties: { name: S, message: S }, required: ['name'] },
   },
   {

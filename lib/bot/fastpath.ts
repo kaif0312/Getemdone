@@ -10,7 +10,8 @@ export type Fast =
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
   | { t: 'setTime'; time: string }
-  | { t: 'confirm' | 'cancel'; id: string };
+  | { t: 'confirm' | 'cancel'; id: string }
+  | { t: 'invite'; id: string; accept: boolean };
 
 /** "1,3", "1 and 3", "1-3", "#2" -> [1,3]. null if the text holds anything else. */
 export function parseNumbers(s: string): number[] | null {
@@ -49,6 +50,10 @@ function fromReply(id: string): Fast | null {
       const j = rest.indexOf(':');
       if (j < 1 || j === rest.length - 1) return null;
       return { t: 'react', taskId: rest.slice(0, j), emoji: rest.slice(j + 1) };
+    }
+    case 'invite': { // invite:accept:<id> / invite:decline:<id> (lib/server/social.ts inviteFriend)
+      const m = /^(accept|decline):(.+)$/.exec(rest);
+      return m ? { t: 'invite', id: m[2], accept: m[1] === 'accept' } : null;
     }
     case 'checkin':
       return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : null;

@@ -1,0 +1,27 @@
+name: nudge-cron
+# Calls the Nudge scheduler (check-ins, recaps) every 15 minutes. Secrets: NUDGE_CRON_URL (full URL of
+# /api/cron/nudge) and CRON_SECRET (same value as the Vercel env).
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nudge-cron
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call scheduler
+        env:
+          NUDGE_CRON_URL: ${{ secrets.NUDGE_CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o resp.json -w '%{http_code}' --max-time 90 -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" "${NUDGE_CRON_URL}")
+          cat resp.json; echo
+          case "$code" in 2??) ;; *) echo "scheduler returned HTTP $code"; exit 1;; esac

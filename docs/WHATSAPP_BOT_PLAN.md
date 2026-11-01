@@ -187,7 +187,79 @@ The new number comes later. The first version also uses manual fitness logs only
 - Weekly Sunday recap: you vs your friends on tasks completed and workouts. It is opt-in, friends only.
 - Friend adds from WhatsApp need **consent**: the invite goes to the friend, who has to accept. Today's
   `addFriend` adds instantly with no consent, and the rules allow it.
-- No WhatsApp group chats in v1. Everything is 1:1 with the bot, and the social graph stays in Nudge.
+- No WhatsApp group chats. Everything is 1:1 with the bot, and the social graph stays in Nudge. Group-like
+  accountability comes from **circles + a daily digest** (§4a).
+
+## 4a. Circles and the daily digest (fitness accountability without WhatsApp groups)
+
+**Why not real WhatsApp groups (tested 2026-11-01).** The Groups API is only for Official Business Accounts (OBA).
+`POST /1367053206492407/groups` returned `(#131215) This phone number is not eligible to access Groups APIs`. No number
+in the Iskaria portfolio is an OBA (Iskaria, Nudge, Namshi, Jefna, Arab Cargo all `is_official_business_account:
+false`), and the Iskaria number is on coexistence, which Groups excludes anyway. Note: `GET /<phone>/groups` returns 200
+for an ineligible number, so only a create proves eligibility. Meta docs saved in the console repo:
+`docs/meta/whatsapp/groups/`. Revisit if Nudge gets OBA (needs the display name approved first, then a request in
+WhatsApp Manager).
+
+**The idea.** A *circle* is a small named set of friends ("Gym crew", "5K by Dec"). Each member talks to the bot 1:1,
+logs fitness as in §4, and the bot fans the circle's progress out to every member. It feels like a group; under the
+hood it is N 1:1 chats plus Firestore.
+
+**Data**
+| Where | Fields |
+|---|---|
+| `circles/{id}` | `name, emoji?, ownerUid, memberUids[] (≤12), goal? {kind:"workoutsPerWeek"\|"stepsPerDay"\|"custom", target, text?}, digestHour (local, default 21), checkinHour? (default 8), timezone (owner's), createdAt, archived` |
+| `circles/{id}/days/{YYYY-MM-DD}` | `entries: {uid: {logged: bool, summary, workoutRefs[]}}`, `digestSentAt?`, `reactions[]` |
+| `circleInvites/{code}` | `circleId, fromUid, expiresAt` (7 days, multi-use) |
+| `users/{uid}.circleIds[]` | denormalised for the PWA and the scheduler |
+
+- A user can be in several circles; a workout log counts for every circle they are in. The digest per user merges
+  their circles into one message, so being in 3 circles never means 3 messages.
+- Circle members are not necessarily `friends`. Being in a circle grants read of `fitness/{uid}/days/*` to the other
+  members only (rules: member of a shared circle). Task data is never shown in a circle, only fitness.
+
+**Flows**
+- **Create:** PWA "New circle", or on WhatsApp `new circle Gym crew`. The bot replies with an invite `wa.me` link
+  (`?text=JOIN K3P9`) and a PWA link. Joining needs the person to tap it (consent built in). Unknown numbers get the
+  §4 sign-up reply and keep the code pending.
+- **Daily loop (per member, in their timezone):**
+  1. Morning check-in (the §5 template, already sent) gains one line: "Gym crew yesterday: 4/5 trained 💪".
+  2. During the day, logs as in §4. After each log the bot says where the circle stands ("3/5 of Gym crew have trained
+     today").
+  3. Evening digest at `digestHour`, sent only inside the 24h window (free). Example:
+     ```
+     Gym crew, Sat 1 Nov
+     ✅ Ali: ran 5K, 28 min
+     ✅ Sara: legs, 45 min
+     ✅ You: chest, 40 min
+     ⏳ Omar: not yet
+     Streak: 6 days with everyone logging
+     [👏 React] [⚡ Nudge Omar] [📊 Week]
+     ```
+     React writes to `circles/{id}/days/{d}.reactions[]` and notifies the person. Nudge Omar uses the §4 nudge path
+     (one per pair per day).
+  4. Members with a closed window do not get a template for the digest; it is folded into their next morning check-in.
+- **Weekly (Sunday):** a leaderboard per circle (workouts, minutes, longest streak) in the same message as the §4
+  weekly recap. Opt-in.
+- **Circle chat (later, optional):** `@gym good job all` relays a short text to the other members who have an open
+  window. Cap 3 relays per member per day; never a template. Leave it out until the digest has worked for two weeks.
+- **Commands:** `circles`, `circle Gym crew` (today's board), `leave Gym crew`, `mute Gym crew`, `invite Gym crew`.
+  Owner: `remove Omar from Gym crew`, `rename`, `set goal 4 workouts a week`.
+
+**Cost and limits**
+- Free in practice: the digest goes only to open windows, and the one paid message per day is the morning check-in that
+  exists anyway. No per-circle template.
+- Do not make a `nudge_circle_digest` template: friends' activity is not a user transaction, so Meta would likely
+  class it as marketing. If one is ever needed, submit it and check the category Meta assigns before using it.
+- The scheduler (§5, every 15 min) also picks circles whose members' `digestHour` falls in the slot. Build the digest
+  from Firestore only, with no Gemini call. Gemini is used only for the optional one-line "coach" comment, capped at
+  one per circle per day.
+- Size cap 12 per circle, 5 circles per user, to keep fan-out and abuse small.
+
+**Privacy and safety**
+- Joining and leaving are always the member's own action; the owner can remove but never add.
+- `mute` stops digests without leaving; `STOP` (§7 phase 5) stops everything.
+- Weight, sleep and other metrics are never shown in a circle unless the member turns on `shareMetrics` for that
+  circle; workouts are shared by default because sharing them is the point of joining.
 
 ## 5. Proactive messaging, cost and the 24h window
 - WhatsApp allows free-form replies only within 24h of the user's last message. After that, every proactive message
@@ -233,6 +305,8 @@ New collections in the same rules file: `fitness/{uid}/days/*` (owner write, own
 `fitnessGoals/{uid}` (owner write, friends read when `visibility == 'friends'`), `waLinks`, `waLinkCodes`,
 `waSessions`, `waSeen`, `nudgeLimits` (server only, all client access denied), `friendInvites` (client read only if
 `fromUid` or `toUid` is you, writes server only; the social layer must use those two field names).
+Circles (§4a): `circles/{id}` and `circles/{id}/days/*` read by members only, writes server only; `circleInvites`
+server only; `fitness/{uid}/days/*` read also allowed to members of a circle shared with `uid`.
 
 ## 7. Phases
 | Phase | Scope | Done when |
@@ -242,6 +316,7 @@ New collections in the same rules file: `fitness/{uid}/days/*` (owner write, own
 | 2 | Morning check-in + evening recap (templates, scheduler, 24h logic), reminders | 7 days of check-ins with no missed or duplicate sends |
 | 3 | Fitness: logs, goals, photo extraction, fitness streak, PWA fitness card | Workouts logged on WA show in the PWA, and friends see them |
 | 4 | Social: friend digest, react/comment/nudge from WA, consented friend invite, weekly recap | Two linked friends nudge and react to each other without opening the app |
+| 4a | Circles (§4a): create/join by code, per-circle evening digest, check-in line, react/nudge buttons, weekly leaderboard, PWA circle card | A 4-person circle logs for 7 days and everyone gets one merged digest a day, with no extra template cost |
 | 5 | Hardening: rate limits, cost caps, eval set of ~50 messy messages, opt-out (`STOP`), data export/delete | Ready to open beyond friends and family |
 
 ## 8. Open questions for Ibrahim

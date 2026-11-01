@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { FaBell, FaQuestionCircle, FaTrash, FaShieldAlt, FaWhatsapp, FaDatabase, FaLightbulb, FaLock } from 'react-icons/fa';
 import { LuCalendar } from 'react-icons/lu';
 import StorageUsage from './StorageUsage';
+import ConnectWhatsApp from './ConnectWhatsApp';
 import GoogleCalendarSettings from './GoogleCalendarSettings';
 import { useEncryption } from '@/hooks/useEncryption';
 import { E2EE_ENABLED } from '@/lib/config';
@@ -169,6 +170,8 @@ export default function SettingsMenu({
                 )}
               </span>
             </div>
+
+            <ConnectWhatsApp />
 
             {/* Storage Usage - Non-clickable display */}
             <div className="px-4 py-3 border-b border-border-subtle">

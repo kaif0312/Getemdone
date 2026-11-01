@@ -88,7 +88,7 @@ assert.equal((await getSession('555')).lastAction, undefined);
 assert.equal(await claimMessage('wamid.ONE'), true);
 assert.equal(await claimMessage('wamid.ONE'), false);
 const seen = (await db.doc('waSeen/wamid.ONE').get()).data()!;
-assert.ok(seen.expireAt > Date.now() + 47 * 3600_000);
+assert.ok(seen.expireAt.toMillis() > Date.now() + 47 * 3600_000); // Firestore Timestamp (TTL field)
 const race = await Promise.all([claimMessage('wamid.R'), claimMessage('wamid.R'), claimMessage('wamid.R')]);
 assert.equal(race.filter(Boolean).length, 1);
 

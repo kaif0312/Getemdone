@@ -25,7 +25,7 @@ export async function saveSession(waId: string, s: WaSession): Promise<void> {
 /** Returns false if this message id was already processed (Meta retries). `expireAt` is for a Firestore TTL policy. */
 export async function claimMessage(messageId: string): Promise<boolean> {
   try {
-    await adminDb().doc(`waSeen/${messageId}`).create({ at: Date.now(), expireAt: Date.now() + TWO_DAYS });
+    await adminDb().doc(`waSeen/${messageId}`).create({ at: Date.now(), expireAt: new Date(Date.now() + TWO_DAYS) }); // Date: Firestore TTL needs a Timestamp field
     return true;
   } catch (e) {
     const code = (e as { code?: number | string }).code;

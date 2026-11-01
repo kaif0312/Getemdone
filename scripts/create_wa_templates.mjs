@@ -37,7 +37,8 @@ const templates = [
     components: [
       {
         type: 'BODY',
-        text: '{{1}} nudged you on Nudge: "{{2}}"',
+        // Meta: no variable at the start/end, and enough words per variable (errors 2388299 / 2388293).
+        text: 'Your friend {{1}} sent you a nudge on Nudge: "{{2}}". Reply here to see your tasks for today, or tap the button to nudge them back.',
         example: { body_text: [['Ali', 'Finish your tasks for today']] },
       },
       { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Nudge back' }] },
@@ -50,7 +51,7 @@ const templates = [
     components: [
       {
         type: 'BODY',
-        text: 'Reminder from Nudge: "{{1}}" is scheduled for {{2}}.',
+        text: 'Reminder from Nudge: "{{1}}" is scheduled for {{2}} today. Reply done when it is finished, or reply later to move it.',
         example: { body_text: [['Call the bank', '5:30 PM']] },
       },
     ],

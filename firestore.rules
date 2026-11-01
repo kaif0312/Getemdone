@@ -87,6 +87,10 @@ service cloud.firestore {
         (!request.resource.data.keys().hasAny(['streakData']) || request.resource.data.streakData is map);
       
       // Users can update their own profile OR update another user's friends array (for friend requests)
+      // TODO(security, plan 6.1): the second branch lets ANY user add themselves to anyone's friends array and then
+      // read all their tasks. Cannot be locked down yet: the PWA's addFriend (hooks/useFriends.ts) writes the OTHER
+      // user's friends array from the client. Move friend adds to a callable function (consent via friendInvites),
+      // switch the PWA to it, then delete this branch.
       allow update: if isAuthenticated() && (
         isOwner(userId) || 
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
@@ -103,6 +107,12 @@ service cloud.firestore {
       // 1. Their own tasks (both private and public)
       // 2. Public tasks from their friends
       // 3. Private tasks from friends (for counting only - text will be hidden in app)
+      // TODO(security, plan 6.2): private tasks are readable by friends (hidden only in the UI). The rule cannot be
+      // tightened on its own: hooks/useTasks.ts queries `userId in friends` with no visibility filter, and Firestore
+      // rejects the WHOLE query if any matching doc is not readable, so the friend feed would break. Fix together:
+      // add `where('visibility','!=','private')` (+ backfill legacy docs) or split private text out, then require
+      // `resource.data.get('visibility','everyone') != 'private' && resource.data.get('isPrivate', false) != true`
+      // in the areFriends branch.
       allow read: if isAuthenticated() && (
         isOwner(resource.data.userId) ||
         areFriends(resource.data.userId)
@@ -210,7 +220,8 @@ service cloud.firestore {
     
     // Notifications collection
     match /notifications/{notificationId} {
-      // Users can create notifications (for admin notifications)
+      // Create: the sender must be the signed-in user (no spoofed `fromUserId`), OR an admin (bug-report replies carry
+      // no fromUserId), OR the recipient re-creating their own notification (undo of a delete in NotificationsPanel).
       allow create: if isAuthenticated() &&
         request.resource.data.keys().hasAll(['userId', 'type', 'title', 'message', 'createdAt', 'read']) &&
         request.resource.data.userId is string &&
@@ -218,7 +229,10 @@ service cloud.firestore {
         request.resource.data.title is string &&
         request.resource.data.message is string &&
         request.resource.data.createdAt is number &&
-        request.resource.data.read is bool;
+        request.resource.data.read is bool &&
+        (request.resource.data.get('fromUserId', null) == request.auth.uid ||
+         request.resource.data.userId == request.auth.uid ||
+         isAdmin());
       
       // Users can read and update their own notifications
       allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
@@ -228,9 +242,25 @@ service cloud.firestore {
     }
     
     // User Keys collection (stores encryption keys for E2EE)
-    // Users need to read/write a friend's doc when creating a shared key (merge friendKeys[myUid]).
+    // Creating a shared key writes the friend's doc too (merge friendKeys[myUid]), so a friend may touch ONLY
+    // friendKeys.<their own uid> on it. Strangers can no longer read or write anyone's keys.
+    // TODO(security): masterKey still sits in the same doc and is readable by friends; moving it to a doc that only the
+    // owner can read needs a PWA change (hooks/useEncryption.ts).
     match /userKeys/{userId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated() && (isOwner(userId) || areFriends(userId));
+      allow create: if isAuthenticated() && (
+        isOwner(userId) ||
+        (areFriends(userId) &&
+         request.resource.data.get('masterKey', null) == null &&
+         request.resource.data.get('friendKeys', {}).keys().hasOnly([request.auth.uid]))
+      );
+      allow update: if isAuthenticated() && (
+        isOwner(userId) ||
+        (areFriends(userId) &&
+         request.resource.data.get('masterKey', null) == resource.data.get('masterKey', null) &&
+         request.resource.data.get('friendKeys', {}).diff(resource.data.get('friendKeys', {})).affectedKeys().hasOnly([request.auth.uid]))
+      );
+      allow delete: if isAuthenticated() && isOwner(userId);
     }
     
     // Migration status collection (tracks encryption migration)
@@ -263,6 +293,33 @@ service cloud.firestore {
       allow write: if isAuthenticated() && userId == request.auth.uid;
       // Any authenticated user can read (needed for friends to subscribe)
       allow read: if isAuthenticated();
+    }
+
+    // ---- WhatsApp bot + fitness (2026-11) ----
+
+    // Fitness logs: owner read/write; friends may read (goal visibility is enforced by the bot; keep rules simple).
+    match /fitness/{userId}/days/{day} {
+      allow read: if isAuthenticated() && (isOwner(userId) || areFriends(userId));
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+    match /fitnessGoals/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) ||
+        (areFriends(userId) && resource.data.get('visibility', 'friends') == 'friends'));
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Server-only collections (Admin SDK bypasses rules): deny every client access.
+    match /waLinks/{id} { allow read, write: if false; }
+    match /waLinkCodes/{id} { allow read, write: if false; }
+    match /waSessions/{id} { allow read, write: if false; }
+    match /waSeen/{id} { allow read, write: if false; }
+    match /nudgeLimits/{id} { allow read, write: if false; }
+
+    // Friend invites: created/answered server-side only; the two people involved may read.
+    match /friendInvites/{id} {
+      allow read: if isAuthenticated() &&
+        (resource.data.get('fromUid', '') == request.auth.uid || resource.data.get('toUid', '') == request.auth.uid);
+      allow write: if false;
     }
   }
 }

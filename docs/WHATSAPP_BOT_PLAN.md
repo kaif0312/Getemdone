@@ -211,13 +211,28 @@ The new number comes later. The first version also uses manual fitness logs only
 - Budget guard: daily caps for templates sent and Gemini calls, with an admin alert when they are exceeded.
 
 ## 6. Security fixes to do first (the bot widens exposure)
-1. `firestore.rules:92`: any user can add themselves to anyone's `friends` and then read all their tasks. Move friend
-   adds to a callable function with consent.
-2. `firestore.rules:106`: friends can read *private* tasks; they are only hidden in the UI. Tighten the rule, or
-   split private text out of the shared doc.
-3. `userKeys` is readable and writable by everyone (rules:232). Lock it to the owner.
-4. `notifications` create does not check the sender. Require `fromUserId == auth.uid`, or create them server-side only.
-5. `app/api/google/*` routes have no auth check.
+Status 2026-11-01 (branch `wa-domain`, `firestore.rules`, NOT deployed):
+1. **Friends self-add: needs a callable function (open).** The rule still lets any user add themselves to anyone's
+   `friends` array, because the PWA's `addFriend` (`hooks/useFriends.ts`) writes the other user's array from the
+   client. Order: build the callable + `friendInvites` consent flow, switch the PWA to it, then delete the rule branch
+   (a TODO sits in the rules).
+2. **Private tasks readable by friends: needs a PWA query change (open).** `hooks/useTasks.ts` queries
+   `userId in friends` with no visibility filter, and Firestore rejects the whole query if one matching doc is not
+   readable, so tightening the rule alone breaks the friend feed. Fix together: add `where('visibility','!=','private')`
+   (plus backfill legacy docs without `visibility`), then require non-private in the `areFriends` branch (snippet in
+   the rules TODO).
+3. **`userKeys`: done, partly.** Read is now owner or friend (was everyone); write is owner, or a friend touching only
+   `friendKeys.<own uid>` (the shared-key exchange in `hooks/useEncryption.ts`). `masterKey` still lives in the same
+   doc and is readable by friends: move it to an owner-only doc in a later PWA change. Test E2EE key exchange with two
+   accounts on a preview before deploying.
+4. **`notifications` create: done.** Needs `fromUserId == auth.uid`, or admin (bug-report replies), or the recipient
+   re-creating their own (undo delete).
+5. `app/api/google/*` routes have no auth check (open, not a rules item).
+
+New collections in the same rules file: `fitness/{uid}/days/*` (owner write, owner + friends read),
+`fitnessGoals/{uid}` (owner write, friends read when `visibility == 'friends'`), `waLinks`, `waLinkCodes`,
+`waSessions`, `waSeen`, `nudgeLimits` (server only, all client access denied), `friendInvites` (client read only if
+`fromUid` or `toUid` is you, writes server only; the social layer must use those two field names).
 
 ## 7. Phases
 | Phase | Scope | Done when |

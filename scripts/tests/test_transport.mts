@@ -4,7 +4,7 @@ import { adminDb } from '../../lib/server/firebaseAdmin';
 import { createLinkCode, redeemLinkCode, getLink, getLinkByUid, updateLink, unlink, listLinks } from '../../lib/wa/links';
 import { getSession, saveSession, claimMessage } from '../../lib/wa/sessions';
 import { parseForwarded, verifySignature } from '../../lib/wa/inbound';
-import { sendText, sendButtons, sendList, sendTemplate, sendReaction, markRead, fetchMedia, windowOpen, dryRunOutbox } from '../../lib/wa/send';
+import { sendText, sendButtons, sendList, sendTemplate, sendReaction, sendSticker, markRead, fetchMedia, windowOpen, dryRunOutbox } from '../../lib/wa/send';
 import type { ForwardedEvent } from '../../lib/wa/types';
 
 process.env.NUDGE_WA_NUMBER = '96560091617';
@@ -170,6 +170,8 @@ await markRead('wamid.X', true);
 assert.deepEqual((out[5].payload as { typing_indicator: unknown }).typing_indicator, { type: 'text' });
 assert.equal((await fetchMedia('m1')).data.length > 0, true);
 assert.equal(out.map((o) => o.kind).join(','), 'text,buttons,list,template,reaction,read,fetchMedia');
+await sendSticker('1', 'cheer');
+assert.deepEqual(out.at(-1)!.payload, { to: '1', type: 'sticker', sticker: { link: 'https://getemdone.vercel.app/stickers/cheer.webp' } });
 
 // ---- windowOpen
 const now = Date.now();

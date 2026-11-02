@@ -42,6 +42,8 @@ export interface BotDeps {
   sendText: typeof Send.sendText;
   sendButtons: typeof Send.sendButtons;
   sendList: typeof Send.sendList;
+  /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
+  sendSticker?: typeof Send.sendSticker;
   markRead: typeof Send.markRead;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server

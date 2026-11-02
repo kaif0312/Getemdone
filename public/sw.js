@@ -1,4 +1,4 @@
-const CACHE_NAME = 'task-accountability-v1';
+const CACHE_NAME = 'task-accountability-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',

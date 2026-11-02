@@ -32,8 +32,22 @@ await test('unlinked: LINK code -> welcome + 3 time buttons', async () => {
   await handleWith(f.deps, text('link abc234'));
   assert.deepEqual(f.calls, ['redeem ABC234']);
   assert.match(f.sent[0].body, /connected/);
+  assert.deepEqual(f.stickers, ['blowing']);
   assert.equal(f.sent[1].kind, 'buttons');
   assert.deepEqual(f.sent[1].buttons!.map((b) => b.id), ['settime:07:00', 'settime:08:00', 'settime:09:00']);
+});
+
+await test('stickers: stop sends the facepalm; a failing sticker never breaks the reply', async () => {
+  const f = makeFake();
+  await handleWith(f.deps, text('stop'));
+  assert.match(f.sent.at(-1)!.body, /Paused/);
+  assert.deepEqual(f.stickers, ['disappointed']);
+  const g = makeFake({ tasks: [mkTask('t1', 'gym')] });
+  g.deps.sendSticker = async () => { throw new Error('meta down'); };
+  await handleWith(g.deps, text('today'));
+  await handleWith(g.deps, text('done 1'));
+  assert.match(g.sent.at(-1)!.body, /All done for today/);
+  assert.ok(!g.sent.some((s) => /Sorry, something went wrong/.test(s.body)));
 });
 
 await test('unlinked: bad LINK code', async () => {
@@ -77,11 +91,13 @@ await test('number resolution: done 2, done 1,3, out of range, undo', async () =
   assert.equal(last.kind, 'buttons');
   assert.match(last.body, /✅ call mom/);
   assert.match(last.body, /2 left today/);
+  assert.deepEqual(f.stickers, [], 'no sticker while tasks are left');
   assert.match(last.buttons![0].id, /^undo:/);
   await handleWith(f.deps, text('done 1,3'));
   assert.ok(f.calls.includes('complete t1') && f.calls.includes('complete t3'));
   assert.match(f.sent.at(-1)!.body, /All done for today/);
   assert.match(f.sent.at(-1)!.body, /4-day streak/);
+  assert.deepEqual(f.stickers, ['cheer']);
   await handleWith(f.deps, text('done 9'));
   assert.match(f.sent.at(-1)!.body, /#9/);
   // undo restores 1,3 (the last action), by text
@@ -225,6 +241,7 @@ await test('gemini: log_workout + log_metric', async () => {
   assert.match(last.body, /💪 Logged: run · 5 km · 28 min/);
   assert.match(last.body, /1\/4 workouts this week/);
   assert.match(last.body, /weight: 82.4 kg/);
+  assert.deepEqual(f.stickers, ['flex']);
   await handleWith(f.deps, tap(last.buttons![0].id));
   assert.ok(f.calls.includes('undoLastWorkout'));
 });

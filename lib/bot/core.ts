@@ -1,5 +1,6 @@
 // handleWith(deps, msg): the whole inbound flow, with injectable dependencies (tests pass fakes).
 import type { InboundMessage } from '@/lib/wa/types';
+import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
   Ctx, HELP, completeByIds, deferById, deleteById, flush, friendsLines,
@@ -55,6 +56,7 @@ async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   const fast = parseFast(msg);
   if (fast) await runFast(ctx, fast);
   else await runGemini(ctx, msg);
+  if (ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
 
   const t = d.now();
   session.turns.push({ role: 'user', text: transcriptOf(msg).slice(0, 500), at: msg.timestamp || t });
@@ -62,6 +64,12 @@ async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   if (session.turns.length > MAX_TURNS) session.turns = session.turns.slice(-MAX_TURNS);
   session.updatedAt = t;
   await d.saveSession(msg.from, session);
+}
+
+/** Stickers are decoration: a failed or unavailable send never breaks the reply. */
+async function sendSticker(d: BotDeps, to: string, name: StickerName): Promise<void> {
+  if (!d.sendSticker) return;
+  try { await d.sendSticker(to, name); } catch (e) { console.error('[bot] sticker failed', name, e); }
 }
 
 async function unlinked(d: BotDeps, msg: InboundMessage): Promise<void> {
@@ -78,6 +86,7 @@ async function unlinked(d: BotDeps, msg: InboundMessage): Promise<void> {
     );
     return;
   }
+  await sendSticker(d, msg.from, 'blowing');
   await d.sendText(msg.from, WELCOME);
   await d.sendButtons(msg.from, 'When should I check in with you each morning?', [
     { id: 'settime:07:00', title: '7:00 AM' },
@@ -132,6 +141,7 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'mute':
       await d.updateLink(ctx.waId, { muted: true });
       await ctx.text("Paused. I won't message you first. Send *start* to resume.");
+      ctx.sticker = 'disappointed';
       return;
     case 'unmute':
       await d.updateLink(ctx.waId, { muted: false });

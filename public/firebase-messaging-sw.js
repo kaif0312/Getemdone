@@ -66,7 +66,7 @@ messaging.onBackgroundMessage(async (payload) => {
   
   const notificationOptions = {
     body: notificationBody,
-    icon: '/icon.svg',
+    icon: '/icon-192.png',
     badge: '/icon.svg',
     tag: tag, // Same tag = replaces previous notification instead of showing duplicate
     data: payload.data,
@@ -125,7 +125,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // Cache static assets (merged from your original sw.js)
-const CACHE_NAME = 'task-accountability-v1';
+const CACHE_NAME = 'task-accountability-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',

@@ -20,6 +20,7 @@ export const defaultDeps: BotDeps = {
   sendText: send.sendText,
   sendButtons: send.sendButtons,
   sendList: send.sendList,
+  sendSticker: send.sendSticker,
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,

@@ -5,6 +5,7 @@ import type { WaButton, WaListRow, WaLink, WaSession } from '@/lib/wa/types';
 import { BUTTON_IDS } from '@/lib/wa/types';
 import type { UserLite } from '@/lib/server/users';
 import type { Metric } from '@/lib/server/fitness';
+import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps, Undo } from './types';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
 
@@ -28,6 +29,8 @@ export class Ctx {
   readonly undos: Undo[] = [];
   /** Everything sent to the user this turn (for the session transcript). */
   readonly out: string[] = [];
+  /** A coach sticker to send after this turn's replies (the last one set wins). */
+  sticker?: StickerName;
   private loaded = false;
 
   constructor(
@@ -145,6 +148,7 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
           if (s.streak > 0) extra = ` 🔥 ${s.streak}-day streak`;
         } catch { /* streak is a nicety */ }
         lines.push(`🎉 All done for today!${extra}`);
+        ctx.sticker = 'cheer';
       } else {
         lines.push(`${left.length} left today`);
       }
@@ -342,6 +346,7 @@ export async function logWorkoutAction(ctx: Ctx, w: WorkoutArgs): Promise<string
   await ctx.d.logWorkout(ctx.uid, w);
   ctx.undos.push({ k: 'workout', label: `workout ${clip(w.type, 20)}` });
   const lines = [`💪 Logged: ${describeWorkout(w)}`];
+  ctx.sticker = 'flex';
   try {
     const wk = await ctx.d.weekSummary(ctx.uid);
     lines.push(wk.goal ? `${wk.workouts}/${wk.goal} workouts this week` : `${wk.workouts} workout${wk.workouts === 1 ? '' : 's'} this week`);

@@ -19,6 +19,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
   };
   let session: WaSession = { turns: [], lastList: [], updatedAt: 0 };
   const log = (s: string) => calls.push(s);
+  const stickers: string[] = [];
   const geminiReqs: Parameters<BotDeps['gemini']>[0][] = [];
   const workouts: unknown[] = [];
 
@@ -42,6 +43,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
     sendText: async (to, body) => { sent.push({ kind: 'text', to, body }); return 'w1'; },
     sendButtons: async (to, body, buttons) => { sent.push({ kind: 'buttons', to, body, buttons }); return 'w1'; },
     sendList: async (to, body, _l, rows) => { sent.push({ kind: 'list', to, body, rows }); return 'w1'; },
+    sendSticker: async (_to, name) => { stickers.push(name); return 'w1'; },
     markRead: async () => undefined,
     fetchMedia: async (id) => { log(`fetchMedia ${id}`); return { data: Buffer.from('abc'), mimeType: 'audio/ogg; codecs=opus' }; },
     getUserLite: async () => ({ uid: 'u1', displayName: 'Kaif', friends: [], timezone: 'Asia/Kolkata' }),
@@ -75,5 +77,5 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
     reactToTask: async (_u, id, e) => { log(`react ${id} ${e}`); },
     friendsActivity: async () => [{ uid: 'f1', displayName: 'Ali', doneToday: [{ taskId: 'ft1', text: 'Study' }], workoutsToday: ['ran 5k'], streak: 12 }],
   };
-  return { deps, calls, sent, tasks, geminiReqs, getSession: () => session, getLink: () => link };
+  return { deps, calls, sent, stickers, tasks, geminiReqs, getSession: () => session, getLink: () => link };
 }

@@ -13,6 +13,13 @@ first.
 - `app/api/wa/inbound`: receives events forwarded by the Iskaria console. The body is HMAC-signed with
   `NUDGE_FORWARD_SECRET`.
 - `app/api/cron/nudge`: the scheduler for check-ins, recaps and digests. GitHub Actions calls it every 15 min.
+- **Coach mascot + stickers (2026-11-02):** the brand is a strict purple coach (orange headband, whistle). App icons
+  and the WhatsApp profile picture use it. Eight sticker poses live in `public/stickers/<name>.webp` (512px WebP,
+  transparent, < 100 KB, the WhatsApp sticker rules); `sendSticker(to, name)` in `lib/wa/send.ts` sends one by link.
+  The bot sets `ctx.sticker` and core sends it after the reply: `blowing` on link, `cheer` when today's list is
+  cleared, `flex` on a logged workout, `disappointed` on *stop*. A failed sticker never breaks the reply. Unused poses:
+  `proud`, `clipboard`, `sleepy`, `waiting`. Source art + rejected logo rounds: `docs/brand/` in the main checkout
+  (untracked).
 
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.

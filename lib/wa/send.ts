@@ -121,6 +121,18 @@ export async function sendTemplate(to: string, name: string, variables: string[]
   });
 }
 
+/** The coach mascot's sticker poses, served from public/stickers/<name>.webp (512x512 WebP, transparent, < 100 KB). */
+export const STICKERS = ['blowing', 'cheer', 'clipboard', 'disappointed', 'flex', 'proud', 'sleepy', 'waiting'] as const;
+export type StickerName = (typeof STICKERS)[number];
+
+/** Public origin the sticker files are fetched from by Meta. */
+const publicOrigin = () => (process.env.NUDGE_PUBLIC_URL || 'https://getemdone.vercel.app').replace(/\/$/, '');
+
+/** Send one of the coach stickers (by link: Meta fetches the WebP from our public folder). */
+export async function sendSticker(to: string, name: StickerName): Promise<string | null> {
+  return post('sticker', to, { to, type: 'sticker', sticker: { link: `${publicOrigin()}/stickers/${name}.webp` } });
+}
+
 export async function sendReaction(to: string, messageId: string, emoji: string): Promise<void> {
   await post('reaction', to, { to, type: 'reaction', reaction: { message_id: messageId, emoji } });
 }

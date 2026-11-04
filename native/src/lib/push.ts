@@ -7,7 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { doc, setDoc } from 'firebase/firestore';
+import { deleteField, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { Platform } from 'react-native';
 import { db } from './firebase';
 import type { ExpoPushTokenEntry } from './types-extra';
@@ -107,4 +107,16 @@ export function routeForNotificationData(data: Record<string, unknown> | undefin
   }
   if (type === 'inbox') return '/inbox';
   return null;
+}
+
+/** Sign-out: stop pushes for this user reaching this phone (the next person to sign in here must not get them). Best effort. */
+export async function unregisterPushToken(uid: string): Promise<void> {
+  const pid = projectId();
+  if (!isNative || !pid) return;
+  try {
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: pid });
+    await updateDoc(doc(db, 'users', uid), { [`expoPushTokens.${pushTokenKey(token)}`]: deleteField() });
+  } catch (e) {
+    console.warn('[push] unregister failed', e);
+  }
 }

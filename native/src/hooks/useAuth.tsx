@@ -12,6 +12,8 @@ import {
 import { doc, getDoc, getDocFromServer, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/defaults';
+import { setActiveZone } from '@/lib/dates';
+import { unregisterPushToken } from '@/lib/push';
 import type { UserDoc } from '@/lib/types-extra';
 
 const FRIEND_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alikes, same as the PWA
@@ -87,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
     setAuthReady(true);
     if (!u) {
+      whitelistChecked.current = '';
       setProfile(null);
       setIsWhitelisted(null);
       setProfileReady(true);
@@ -96,6 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }), []);
 
   const uid = user?.uid ?? null;
+  // "Today" everywhere follows users.timezone (else the device zone). Idempotent global write, set before children render.
+  setActiveZone(profile?.timezone);
+
+  // One whitelist lookup per email per session, not one per profile snapshot (every streak write re-fires the listener).
+  const whitelistChecked = React.useRef<string>('');
   useEffect(() => {
     if (!user) return;
     const ref = doc(db, 'users', user.uid);
@@ -105,12 +113,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (snap) => {
         const email = user.email || (snap.exists() ? (snap.data() as UserDoc).email : '');
         if (email) {
-          let ok = await checkBetaWhitelist(email);
-          if (!ok) {
-            await addToWhitelistIfNew(email, snap.exists());
-            ok = await checkBetaWhitelist(email);
+          if (whitelistChecked.current !== email.toLowerCase()) {
+            whitelistChecked.current = email.toLowerCase();
+            let ok = await checkBetaWhitelist(email);
+            if (!ok) {
+              await addToWhitelistIfNew(email, snap.exists());
+              ok = await checkBetaWhitelist(email);
+            }
+            if (!cancelled) setIsWhitelisted(ok);
           }
-          if (!cancelled) setIsWhitelisted(ok);
         } else if (!cancelled) {
           setIsWhitelisted(null); // WhatsApp-only account: no email to whitelist
         }
@@ -178,8 +189,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Drop this phone's push token first (needs the session), but never let it block signing out.
+    if (uid) await Promise.race([unregisterPushToken(uid), new Promise((r) => setTimeout(r, 3000))]);
     await fbSignOut(auth);
-  }, []);
+  }, [uid]);
 
   const updateProfile = useCallback(
     async (patch: Partial<UserDoc>) => {

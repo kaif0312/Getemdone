@@ -15,7 +15,10 @@ export function AppLock({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth();
   const { colors } = useTheme();
   const enabled = !!profile?.biometricEnabled && Platform.OS !== 'web';
-  const [locked, setLocked] = useState(enabled);
+  // `unlocked` starts false, so the lock is up from the first frame the profile says Face ID is on (no flash of the list).
+  const [unlocked, setUnlocked] = useState(false);
+  const locked = enabled && !unlocked;
+  const setLocked = useCallback((v: boolean) => setUnlocked(!v), []);
   const [failed, setFailed] = useState(false);
   const leftAt = useRef<number | null>(null);
   const prompting = useRef(false);
@@ -28,11 +31,11 @@ export function AppLock({ children }: { children: React.ReactNode }) {
       const has = await LocalAuthentication.hasHardwareAsync();
       const enrolled = has && (await LocalAuthentication.isEnrolledAsync());
       if (!enrolled) {
-        setLocked(false); // no biometrics/passcode on this phone: do not trap the user
+        setUnlocked(true); // no biometrics/passcode on this phone: do not trap the user
         return;
       }
       const res = await LocalAuthentication.authenticateAsync({ promptMessage: 'Unlock Nudge', fallbackLabel: 'Use passcode' });
-      if (res.success) setLocked(false);
+      if (res.success) setUnlocked(true);
       else setFailed(true);
     } finally {
       prompting.current = false;
@@ -41,10 +44,9 @@ export function AppLock({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!enabled) {
-      setLocked(false);
+      setUnlocked(false); // next sign-in / re-enable starts locked
       return;
     }
-    setLocked(true);
     void unlock();
   }, [enabled, unlock]);
 
@@ -65,7 +67,7 @@ export function AppLock({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [enabled, unlock]);
 
-  if (!enabled || !locked) return <>{children}</>;
+  if (!locked) return <>{children}</>;
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 }}>
       <CoachSticker pose="waiting" size={180} animated />

@@ -31,6 +31,10 @@ function Navigator() {
     if (!loading) void SplashScreen.hideAsync().catch(() => {});
   }, [loading]);
 
+  // Render the stack only once we know who is signed in: a cold-start deep link (nudge://friends/add?code=...) hitting a
+  // Stack.Protected guard that is still `false` would be redirected away and lost. The splash screen covers this wait.
+  if (loading) return null;
+
   const sheet = sheetOptions({}, colors);
   return (
     <>

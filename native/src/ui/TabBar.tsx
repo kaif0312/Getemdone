@@ -67,7 +67,10 @@ function TabItem({ name, focused, onPress, onLongPress }: { name: string; focuse
     >
       <Animated.View style={[{ width: 52, height: 32, alignItems: 'center', justifyContent: 'center' }, lift]}>
         <Animated.View style={[{ position: 'absolute', width: 52, height: 32, borderRadius: 16, backgroundColor: colors.primarySoft }, pill]} />
-        <Icon name={meta.icon} size={24} color={color} strokeWidth={focused ? 2.8 : 2.4} />
+        {/* zIndex: the positioned pill would otherwise paint over the (unpositioned) svg on web */}
+        <View style={{ zIndex: 2 }}>
+          <Icon name={meta.icon} size={24} color={color} strokeWidth={focused ? 2.8 : 2.4} />
+        </View>
       </Animated.View>
       <Text variant="caption" style={{ color, fontFamily: focused ? 'Nunito_900Black' : 'Nunito_700Bold', fontSize: 11, lineHeight: 14 }}>
         {meta.label}

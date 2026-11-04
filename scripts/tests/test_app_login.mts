@@ -1,7 +1,7 @@
 // Emulator test: app "Continue with WhatsApp" login. Run: FIRESTORE_PORT=8187 bash scripts/test-emulator.sh scripts/tests/test_app_login.mts
 import assert from 'node:assert/strict';
 import { adminDb } from '../../lib/server/firebaseAdmin';
-import { deps, pollAppLogin, startAppLogin, tryAppLogin, RATE_MAX, LOGIN_TTL_MS } from '../../lib/wa/appLogin';
+import { deps, pollAppLogin, startAppLogin, tryAppLogin, RATE_MAX, LOGIN_TTL_MS, SIGNED_IN, NEW_ACCOUNT_HINT } from '../../lib/wa/appLogin';
 import type { InboundMessage } from '../../lib/wa/types';
 
 process.env.NUDGE_WA_NUMBER = '96560091617';
@@ -39,6 +39,10 @@ assert.deepEqual(await pollAppLogin('x'.repeat(40)), { status: 'expired' }, 'unk
 // ---- wrong code / not a login message
 assert.equal(await tryAppLogin(msg('971500000001', 'hello there')), false);
 assert.equal(await tryAppLogin({ ...msg('971500000001', ''), type: 'image' }), false);
+assert.equal(await tryAppLogin(msg('971500000001', 'login please')), false, 'a word is not a code');
+assert.equal(await tryAppLogin(msg('971500000001', 'Login tomorrow at 9')), false);
+assert.equal(await tryAppLogin(msg('971500000001', 'login to the bank portal')), false);
+assert.equal(await tryAppLogin(msg('971500000001', 'LOGIN ABC')), false, 'wrong length');
 assert.equal(await tryAppLogin(msg('971500000001', 'LOGIN ZZZZZZ')), true);
 assert.equal(sent.at(-1), 'That code expired. Tap Continue with WhatsApp in the app again.');
 assert.deepEqual(await pollAppLogin(s1.pollToken), { status: 'pending' }, 'wrong code leaves the real login pending');
@@ -46,12 +50,13 @@ assert.deepEqual(await pollAppLogin(s1.pollToken), { status: 'pending' }, 'wrong
 // ---- new user: account created, linked, token issued once
 sent.length = 0;
 assert.equal(await tryAppLogin(msg('971500000001', `  login ${s1.code.toLowerCase()} `, 'Sara')), true);
-assert.equal(sent.at(-1), "You're signed in on the Nudge app ✅");
+assert.equal(sent.at(-1), SIGNED_IN + NEW_ACCOUNT_HINT);
 assert.deepEqual(stickers, ['blowing']);
 assert.equal((await db.doc(`appLoginCodes/${s1.code}`).get()).exists, false, 'code doc deleted');
 const link = (await db.doc('waLinks/971500000001').get()).data()!;
 assert.equal(link.uid, 'newuid_1');
 assert.equal(link.timezone, 'Asia/Dubai');
+assert.deepEqual(link.onboarding, { step: 'welcome' }, 'new account: WhatsApp setup starts on the next message');
 const u = (await db.doc('users/newuid_1').get()).data()!;
 assert.equal(u.displayName, 'Sara');
 assert.equal(u.id, 'newuid_1');
@@ -87,6 +92,25 @@ await tryAppLogin(msg('971500000009', `LOGIN ${s3.code}`, 'Whoever'));
 assert.equal(n, before, 'no account created');
 assert.deepEqual(await pollAppLogin(s3.pollToken), { status: 'done', customToken: 'token_for_olduid' });
 assert.equal((await db.doc('users/olduid').get()).data()?.displayName, 'Old', 'existing profile untouched');
+assert.equal(sent.at(-1), SIGNED_IN, 'existing account: no setup hint');
+assert.equal((await db.doc('waLinks/971500000009').get()).data()?.onboarding, undefined, 'existing link: no onboarding forced');
+
+// ---- race: two LOGINs from one new number at once -> one account, both logins get it
+const r1 = await startAppLogin('5.5.5.5' + sfx);
+const r2 = await startAppLogin('6.6.6.6' + sfx);
+if (!r1.ok || !r2.ok) throw new Error();
+const delBefore = deleted.length;
+await Promise.all([tryAppLogin(msg('971500000077', `LOGIN ${r1.code}`)), tryAppLogin(msg('971500000077', `LOGIN ${r2.code}`))]);
+const p1 = await pollAppLogin(r1.pollToken);
+const p2 = await pollAppLogin(r2.pollToken);
+assert.equal(p1.status, 'done');
+assert.equal(p2.status, 'done');
+if (p1.status !== 'done' || p2.status !== 'done') throw new Error();
+assert.equal(p1.customToken, p2.customToken, 'same account for both');
+const raceUid = (await db.doc('waLinks/971500000077').get()).data()?.uid;
+assert.equal(p1.customToken, `token_for_${raceUid}`);
+assert.ok((await db.doc(`users/${raceUid}`).get()).exists);
+assert.ok(deleted.length - delBefore <= 1, 'loser auth user (if any) deleted');
 
 // ---- expired code (pending login too)
 const s4 = await startAppLogin('4.4.4.4' + sfx);

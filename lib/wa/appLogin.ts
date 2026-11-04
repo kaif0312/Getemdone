@@ -16,6 +16,7 @@ export const RATE_WINDOW_MS = 10 * 60_000;
 export const RATE_MAX = 10;
 
 export const SIGNED_IN = "You're signed in on the Nudge app ✅";
+export const NEW_ACCOUNT_HINT = '\n\nSay *hi* here any time to set up WhatsApp check-ins too.';
 export const CODE_EXPIRED = 'That code expired. Tap Continue with WhatsApp in the app again.';
 
 /** Same defaults as hooks/useNotifications DEFAULT_NOTIFICATION_SETTINGS (that file is a client hook, not importable here). */
@@ -124,21 +125,46 @@ function friendCode(): string {
   return c;
 }
 
-/** The linked account for a number, or a brand-new one (Auth user + users + userKeys docs + waLink). */
+/**
+ * The linked account for a number, or a brand-new one (Auth user + users + userKeys docs + waLink).
+ * Race-safe: two LOGIN messages from one new number at once both create an Auth user, but only one wins the waLink
+ * (`create()`); the loser deletes its Auth user and signs in to the winner's account.
+ * A new account starts the WhatsApp onboarding (lib/bot/onboarding.ts) on the person's next message, like
+ * scripts/add_friend.mjs; the scheduler stays quiet for it until then.
+ */
 export async function findOrCreateAccount(waId: string, profileName?: string): Promise<{ uid: string; created: boolean }> {
   const db = adminDb();
-  const linkSnap = await db.doc(`waLinks/${waId}`).get();
+  const linkDoc = db.doc(`waLinks/${waId}`);
+  const linkSnap = await linkDoc.get();
   if (linkSnap.exists) {
     const uid = (linkSnap.data() as WaLink).uid;
     if (uid && (await db.doc(`users/${uid}`).get()).exists) {
-      await db.doc(`waLinks/${waId}`).update({ lastInboundAt: deps.now() }).catch(() => undefined);
+      await linkDoc.update({ lastInboundAt: deps.now() }).catch(() => undefined);
       return { uid, created: false };
     }
   }
+  const stale = linkSnap.exists; // a link whose user doc is gone: replaced below
   const now = deps.now();
   const tz = timezoneForWaId(waId);
   const name = (profileName ?? '').trim().slice(0, 60) || 'Nudge friend';
   const uid = await deps.createUser(name);
+  const link: WaLink = {
+    waId, uid, linkedAt: now, lastInboundAt: now, timezone: tz,
+    checkinTime: '08:00', recapTime: '21:00', friendAlerts: true, muted: false,
+    onboarding: { step: 'welcome' },
+  };
+  try {
+    if (stale) await linkDoc.set(link);
+    else await linkDoc.create(link);
+  } catch (e) {
+    await deps.deleteUser(uid).catch(() => undefined);
+    const c = (e as { code?: number | string }).code;
+    if (c === 6 || c === 'already-exists') {
+      const winner = (await linkDoc.get()).data() as WaLink | undefined;
+      if (winner?.uid) return { uid: winner.uid, created: false };
+    }
+    throw e;
+  }
   try {
     await db.doc(`users/${uid}`).set({
       id: uid,
@@ -154,12 +180,8 @@ export async function findOrCreateAccount(waId: string, profileName?: string): P
     });
     // Same shape the PWA writes on first use (hooks/useEncryption.ts): a 256-bit AES master key, base64 raw.
     await db.doc(`userKeys/${uid}`).set({ masterKey: randomBytes(32).toString('base64'), friendKeys: {}, lastUpdated: now });
-    const link: WaLink = {
-      waId, uid, linkedAt: now, lastInboundAt: now, timezone: tz,
-      checkinTime: '08:00', recapTime: '21:00', friendAlerts: true, muted: false,
-    };
-    await db.doc(`waLinks/${waId}`).set(link);
   } catch (e) {
+    await linkDoc.delete().catch(() => undefined);
     await deps.deleteUser(uid).catch(() => undefined);
     throw e;
   }
@@ -190,7 +212,8 @@ export async function redeemAppLogin(waId: string, rawCode: string, profileName?
   return { ok: true, uid: acct.uid, created: acct.created };
 }
 
-const LOGIN_RE = /^login\s+([a-z0-9]{4,12})$/i;
+// Exactly "LOGIN" + one 6-character code from CODE_ALPHABET (any case). Ordinary chat must never land here.
+const LOGIN_RE = /^login\s+([A-HJ-NP-Z2-9]{6})$/i;
 
 /** Inbound hook: true when the message was a LOGIN command (handled, nothing else should run). Runs before everything else. */
 export async function tryAppLogin(msg: InboundMessage): Promise<boolean> {
@@ -200,10 +223,12 @@ export async function tryAppLogin(msg: InboundMessage): Promise<boolean> {
   try {
     const r = await redeemAppLogin(msg.from, m[1], msg.profileName);
     if (!r.ok) {
+      // "login please" / "login stuff" fit the pattern but are words, not codes: hand them to the bot.
+      if (r.reason === 'invalid' && /^[a-z]+$/.test(m[1])) return false;
       await deps.sendText(msg.from, CODE_EXPIRED);
       return true;
     }
-    await deps.sendText(msg.from, SIGNED_IN);
+    await deps.sendText(msg.from, r.created ? SIGNED_IN + NEW_ACCOUNT_HINT : SIGNED_IN);
     await deps.sendSticker(msg.from, 'blowing').catch(() => undefined); // decoration only
   } catch (e) {
     console.error('[appLogin] failed', e);

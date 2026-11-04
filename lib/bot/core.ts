@@ -40,7 +40,7 @@ async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   const link = await d.getLink(msg.from);
   if (!link) { await unlinked(d, msg); return; }
   if (msg.type === 'reaction') return;
-  if (msg.type === 'other') {
+  if (msg.type === 'other' || msg.type === 'document' || msg.type === 'video') {
     await d.sendText(msg.from, 'I can read text, voice notes and photos. Send *help* to see what I can do.');
     return;
   }

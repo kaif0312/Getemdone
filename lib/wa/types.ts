@@ -11,13 +11,14 @@ export interface InboundMessage {
   profileName?: string;
   /** Unix ms. */
   timestamp: number;
-  type: 'text' | 'audio' | 'image' | 'interactive' | 'button' | 'reaction' | 'other';
+  type: 'text' | 'audio' | 'image' | 'document' | 'video' | 'interactive' | 'button' | 'reaction' | 'other';
   /** Text body, or the caption of an image. */
   text?: string;
   /** Button / list tap: the id we set when sending, and its visible title. */
   reply?: { id: string; title: string };
-  /** Media id for audio (voice note) or image; fetch with lib/wa/send.ts fetchMedia(). */
-  media?: { id: string; mimeType: string };
+  /** Media id for audio (voice note), image, document or video; fetch with lib/wa/send.ts fetchMedia(). `filename` is the
+   *  original name of a document (WhatsApp only sends it for documents). */
+  media?: { id: string; mimeType: string; filename?: string };
   /** Emoji reaction to one of our messages. */
   reaction?: { emoji: string; messageId: string };
 }

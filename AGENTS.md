@@ -21,6 +21,25 @@ first.
   `proud`, `clipboard`, `sleepy`, `waiting`. Source art + rejected logo rounds: `docs/brand/` in the main checkout
   (untracked).
 
+## File vault (2026-11-04): people send files on WhatsApp, the bot files them in Drive
+- `lib/vault/`: `vault.ts` (allowlist, naming, ack, pure and tested), `drive.ts` (Drive REST), `index.ts` (production wiring).
+  `app/api/wa/inbound` calls `tryVault(msg)` right after dedupe: an allowlisted sender never reaches the todo bot and
+  needs no Nudge account. Everyone else is unchanged (their documents/videos get the "I can read text, voice notes and
+  photos" reply).
+- Allowlist: env `NUDGE_VAULT_USERS` = `971501234567:Fairooz,...` (wa id digits : name). To give someone the capability, add
+  them there and redeploy. `NUDGE_VAULT_ROOT` (default `Nudge Vault`) and `NUDGE_VAULT_TZ` (default `Asia/Dubai`, used in
+  file names) are optional.
+- Drive layout: `<root>/<Name>/<yyyy-mm>/<yyyy-mm-dd>_<HHmm>_<caption or original name>.<ext>`. The caption becomes the
+  name part. Acknowledged with a ✅ reaction on the sender's message; failures get a text asking to resend. Audit docs:
+  Firestore `vaultUploads/{wamid}`.
+- **Drive auth is OAuth as the owner, not a service account**: a service account has no storage quota, so uploads into a
+  personal Drive fail with `storageQuotaExceeded`. Env `GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET`, `GDRIVE_REFRESH_TOKEN`
+  (scope `drive.file`: the app only sees what it created). The token comes from the published "Iskaria" OAuth app in project
+  `dr-jefna-gbp`, so it does not expire after 7 days like a Testing-mode app. Local copy: `~/.secrets/nudge/gdrive.env`.
+  If uploads start failing with `invalid_grant`, the owner revoked it or the app was unpublished: mint a new one.
+- WhatsApp limits: documents up to 100 MB; photos sent as photos are compressed (tell people to send ID/visa scans as
+  *Document*); videos sent as videos are squeezed to about 16 MB. Test: `npx tsx scripts/tests/test_vault.mts` (no emulator).
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

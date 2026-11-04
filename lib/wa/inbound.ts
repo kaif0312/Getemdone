@@ -53,6 +53,28 @@ export function parseForwarded(body: ForwardedEvent): { messages: InboundMessage
         if (cap) msg.text = cap;
         break;
       }
+      case 'document': {
+        const dc = obj(r.document);
+        const mid = str(dc.id);
+        msg.type = 'document';
+        if (mid) {
+          msg.media = { id: mid, mimeType: str(dc.mime_type) ?? 'application/octet-stream' };
+          const fn = str(dc.filename);
+          if (fn) msg.media.filename = fn;
+        }
+        const cap = str(dc.caption);
+        if (cap) msg.text = cap;
+        break;
+      }
+      case 'video': {
+        const vd = obj(r.video);
+        const mid = str(vd.id);
+        msg.type = 'video';
+        if (mid) msg.media = { id: mid, mimeType: str(vd.mime_type) ?? 'video/mp4' };
+        const cap = str(vd.caption);
+        if (cap) msg.text = cap;
+        break;
+      }
       case 'interactive': {
         const it = obj(r.interactive);
         const rep = obj(it.type === 'list_reply' ? it.list_reply : it.button_reply);

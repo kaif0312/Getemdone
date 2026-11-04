@@ -112,3 +112,17 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - **Local test with real rules**: `firebase emulators:start --only auth,firestore --project getemdone-87679` (ports 9099/8080) and
   `EXPO_PUBLIC_EMULATOR=1 EXPO_PUBLIC_API_BASE=<harness> npx expo start --web` (`src/lib/firebase.web.ts` connects to the emulators). Web only.
 - Metro shares a cache across worktrees through the `node_modules` junction: run `expo start --clear` if another worktree's screens show up.
+## Progress tab (`app/(tabs)/progress.tsx` -> `src/features/progress/`, `src/features/fitness/`)
+- `ProgressScreen`: `StreakHero` (coach pose by state: done=proud/flex, at risk=sleepy, broken=disappointed, none=sleepy), `HeatmapCalendar` (month grid, swipe via PanResponder or arrows, intensity from `completionHistory`, purple dot = focus day, red dot = missed commitment, tap day = tasks done + workouts), `WeekCompare` (this vs last week bars), `FitnessSection` (week ring vs goal, recent workouts, 4 metric cards with 30-day sparklines, WhatsApp nudge).
+- Charts are hand-drawn (`fitness/charts.tsx`: `Sparkline`, `GroupedBars`; react-native-svg + Reanimated). No chart dependency.
+- Sheets (registered in `app/_layout.tsx`): `/progress/log-workout`, `/progress/log-metric?metric=`, `/progress/goals`. All write through `useFitness()` (`source:'app'`).
+- **Firestore rules gap (2026-11-05):** the LIVE project rejects `fitness/*` and `fitnessGoals/*` writes (403 over REST) although `firestore.rules` on main allows them: deploy the rules before the Log workout / metric / goals sheets can work.
+- Dev check on web: Metro shares its cache across worktrees (junctioned node_modules) and can serve another worktree's `app/`; run with a private `TEMP`/`TMP` dir and `--clear`. Deep-linking straight to a sheet URL redirects to Today; navigate by clicking.
+
+## Me / settings (`app/(tabs)/me.tsx` -> `src/features/settings/`, sub-pages in `app/me/`)
+- `MeScreen`: profile card (photo via `/me/photo` -> Storage `profilePictures/{uid}`, name sheet `/me/name`, friend code copy), WhatsApp card, Settings group (Reminders, Notifications, Privacy and security), More (Recycle bin, Help, Report a bug, Version), Sign out (confirm sheet).
+- WhatsApp: linked = `users.whatsapp.waId`; linking calls the PWA's `POST {API_BASE}/api/wa/link-code` (Bearer ID token; `waLinkCodes` is server-only) then opens `wa.me/...?text=LINK <code>`; the live profile flips the card. Disconnect = `DELETE` on the same route (`useWhatsAppLink`).
+- Reminders: `users.reminderChannel` (auto/app/whatsapp/both) + `notificationSettings.deadlineMinutesBefore`. Notifications: all `notificationSettings` toggles + push state from `usePush`.
+- Privacy: Face ID toggle verifies with expo-local-authentication before writing `biometricEnabled`; default visibility (everyone/private); password reset email; "Delete my data" only sends "Delete my data" to the coach on WhatsApp (the in-bot command is on the unmerged `privacy` branch). Coach personality (`coaches` branch) is not shown: it lives on `waLinks.coach`, server-only.
+- Recycle bin link: `BIN_ROUTE` in `features/settings/links.ts` (`/today/bin`; change there if Today names it differently). Bug report = PWA `bugReports` doc shape (+ optional screenshot, admin notifications).
+- List kit: `features/settings/ui.tsx` (`Group`, `Row`, `SwitchRow`, `OptionRow`, animated `Switch`, `SettingsPage`, local icons `SIcon`).

@@ -43,6 +43,15 @@ function Navigator() {
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
+          {/* Progress + Me (nudge-progress): sheets, then Me sub-pages as plain cards. */}
+          <Stack.Screen name="progress/log-workout" options={sheetOptions({ detents: [0.85, 1] }, colors)} />
+          <Stack.Screen name="progress/log-metric" options={sheetOptions({ detents: [0.62, 1] }, colors)} />
+          <Stack.Screen name="progress/goals" options={sheetOptions({ detents: [0.8, 1] }, colors)} />
+          <Stack.Screen name="me/name" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="me/photo" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="me/bug" options={sheetOptions({ detents: [0.8, 1] }, colors)} />
+          <Stack.Screen name="me/sign-out" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="me/delete-data" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />

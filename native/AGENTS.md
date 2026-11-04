@@ -92,3 +92,23 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - Extra icons live in `features/tasks/XIcon.tsx` (fold into `ui/Icon.tsx` at merge). Pickers (calendar, time, tags, visibility, recurrence) are inline panels, not nested modals.
 - `/task/<id>` opens your task (editable) or a friend's (`useFriends().friendTasks`, read-only + react/comment). Attachments: expo-image-picker -> `attachments/<taskId>/<id>` in Storage (no thumbnail, no compression beyond picker quality 0.7).
 - Not done: drag-reorder (up/down arrows on subtasks instead), document attachments, Google Calendar events strip.
+## Friends (`app/(tabs)/friends.tsx`, `app/friend/[uid].tsx`, `app/friends/*`, `src/features/friends/`)
+- **Tab**: requests banner, avatar strip (orange pulsing ring = `presence` active < 4 h, green ring = cleared today, flame = streak), ranked "Today" board (you
+  included; done/total from `dayStats` in `logic.ts`: only tasks you may read, tasks scheduled for a later day excluded), per-friend "Wins" cards (visible
+  completions in the last 36 h + workouts, newest first; react / comment / Nudge), "Quiet so far" rows (the Nudge slot). Data: `useBoard()` (one presence + one
+  fitness listener per friend). Empty state: coach `blowing` + "Bring a friend. Accountability needs witnesses."
+- **Nudge** = `useTaskSocial().sendNudge` (one per friend per day, per device, AsyncStorage `nudge_sent_<id>`); `useNudges` reads that key so the button shows
+  "22 h" (time to local midnight) when used. The server's `nudgeLimits` is not reachable from the client.
+- **Routes** (all registered in `app/_layout.tsx`): sheets `friends/add` (my code + QR + Copy/Share/WhatsApp + add by code with preview; `?code=` prefills),
+  `friends/requests`, `friends/group?id=<id|new>`, `friends/comments?taskId=`, `friends/encourage?uid=`, `friends/remove?uid=`; card `friends/groups`.
+- **Consent**: `src/features/friends/api.ts` calls the server's `POST /api/app/friends/invite {code|uid}` and `/answer {inviteId, accept}` (Bearer = Firebase ID
+  token; shapes in the server repo AGENTS.md). Requests screen is optimistic (card leaves at once, returns on error). `useFriends().addFriend/acceptInvite`
+  (direct mutual write, no consent) are NOT used by the UI. Needs those endpoints deployed at `EXPO_PUBLIC_API_BASE`.
+- **Groups**: `users.friendGroups` via `updateFriendGroups`, ids `g_<ms>` like the PWA.
+- **QR**: `src/features/friends/qr.ts`, pure TS encoder (byte mode, level L, versions 1-5, <= 106 bytes), verified by decoding with OpenCV. Encodes
+  `nudge://friends/add?code=<CODE>` (the app opens the add screen with the code filled via the `nudge` scheme). In-app scanning is not built (no expo-camera).
+- **Firestore rules**: the rules DEPLOYED in project getemdone-87679 are from 2026-02-18 and lack `presence`, `fitness`, `fitnessGoals` and `friendInvites`, so
+  the focus ring, workouts and the requests banner stay empty against production until `firestore.rules` is deployed (checked with the Rules API).
+- **Local test with real rules**: `firebase emulators:start --only auth,firestore --project getemdone-87679` (ports 9099/8080) and
+  `EXPO_PUBLIC_EMULATOR=1 EXPO_PUBLIC_API_BASE=<harness> npx expo start --web` (`src/lib/firebase.web.ts` connects to the emulators). Web only.
+- Metro shares a cache across worktrees through the `node_modules` junction: run `expo start --clear` if another worktree's screens show up.

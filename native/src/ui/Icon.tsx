@@ -33,6 +33,10 @@ const paths = {
   settings: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'],
   link: ['M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71', 'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
   mail: ['M22 6l-10 7L2 6'],
+  smile: ['M8 14s1.5 2 4 2 4-2 4-2', 'M9 9h.01M15 9h.01'],
+  share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
+  copy: ['M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
+  userPlus: ['M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M20 8v6M23 11h-6'],
 } as const;
 
 export type IconName = keyof typeof paths;
@@ -49,6 +53,9 @@ function extras(name: IconName, color: string, sw: number) {
     case 'search': return <Circle cx={11} cy={11} r={8} stroke={color} strokeWidth={sw} fill="none" />;
     case 'camera': return <Circle cx={12} cy={13} r={4} stroke={color} strokeWidth={sw} fill="none" />;
     case 'eye': return <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'smile': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'copy': return <Rect x={9} y={9} width={13} height={13} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'userPlus': return <Circle cx={8.5} cy={7} r={4} stroke={color} strokeWidth={sw} fill="none" />;
     case 'mail': return <Rect x={2} y={4} width={20} height={16} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
     default: return null;
   }

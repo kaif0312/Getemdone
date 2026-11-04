@@ -2,6 +2,7 @@
 import type * as Tasks from '@/lib/server/tasks';
 import type * as Fitness from '@/lib/server/fitness';
 import type * as Social from '@/lib/server/social';
+import type * as Reminders from '@/lib/server/reminders';
 import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
@@ -60,6 +61,9 @@ export interface BotDeps {
   restoreTask: typeof Tasks.restoreTask;
   findTask: typeof Tasks.findTask;
   setFocus: typeof Tasks.setFocus;
+  /** Optional so older test fakes keep compiling; when absent, reminders are simply not set. */
+  setReminder?: typeof Tasks.setReminder;
+  setReminderChannel?: typeof Reminders.setReminderChannel;
   daySummary: typeof Tasks.daySummary;
   logWorkout: typeof Fitness.logWorkout;
   logMetric: typeof Fitness.logMetric;

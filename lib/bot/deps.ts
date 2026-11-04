@@ -6,6 +6,7 @@ import * as users from '@/lib/server/users';
 import * as links from '@/lib/wa/links';
 import * as sessions from '@/lib/wa/sessions';
 import * as send from '@/lib/wa/send';
+import * as reminders from '@/lib/server/reminders';
 import { callGemini } from './gemini';
 import type { BotDeps } from './types';
 
@@ -36,6 +37,8 @@ export const defaultDeps: BotDeps = {
   restoreTask: tasks.restoreTask,
   findTask: tasks.findTask,
   setFocus: tasks.setFocus,
+  setReminder: tasks.setReminder,
+  setReminderChannel: reminders.setReminderChannel,
   daySummary: tasks.daySummary,
   logWorkout: fitness.logWorkout,
   logMetric: fitness.logMetric,

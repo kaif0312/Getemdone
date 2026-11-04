@@ -3,6 +3,7 @@
 import type { Task, Recurrence, FocusSession } from '@/lib/types';
 import { parseRecurrenceFromText } from '@/utils/recurrence';
 import { shouldShowInTodayView } from '@/utils/taskFilter';
+import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin';
 import { recomputeStreak } from './streaks';
 import { addDays, getTimezone, getUserRaw, localDate, shiftToServerWallClock } from './users';
@@ -16,6 +17,9 @@ export interface NewTaskInput {
   tags?: string[];
   /** Default: the user's defaultVisibility, else 'everyone'. */
   visibility?: Task['visibility'];
+  /** Reminder fire time, unix ms (task.remindAt). `remindFor` = the event time the reminder is about. See lib/server/reminders.ts. */
+  remindAt?: number;
+  remindFor?: number;
   recurrenceText?: string; // e.g. "every monday" -> utils/recurrence.parseRecurrenceFromText
 }
 
@@ -78,6 +82,7 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
       order,
       deleted: false,
       ...(item.dueDate ? { dueDate: item.dueDate } : {}),
+      ...(item.remindAt ? { remindAt: item.remindAt, ...(item.remindFor ? { remindFor: item.remindFor } : {}) } : {}),
       ...(item.when ? { deferredTo: item.when } : {}),
       ...(recurrence ? { recurrence } : {}),
       ...(tags.length ? { tags } : {}),
@@ -179,7 +184,8 @@ export async function deferTask(uid: string, taskId: string, toDate?: string): P
       return { ...task, recurrence };
     }
     const patch = { deferredTo: target, completed: false, completedAt: null };
-    tx.update(ref, patch);
+    // A reminder for the old day would fire at the wrong time.
+    tx.update(ref, { ...patch, remindAt: FieldValue.delete(), remindFor: FieldValue.delete() });
     return { ...task, ...patch };
   });
 }
@@ -256,4 +262,16 @@ export async function daySummary(uid: string): Promise<{ done: Task[]; open: Tas
   }
   const streak = await recomputeStreak(uid);
   return { done, open, streak: streak.currentStreak, fitnessStreak: streak.fitnessStreak ?? 0 };
+}
+
+/** Set (or clear with null) the reminder of a task. `remindFor` = what the reminder is about (event time), for the message. */
+export async function setReminder(uid: string, taskId: string, remindAt: number | null, remindFor?: number): Promise<Task> {
+  const ref = await ownedRef(uid, taskId);
+  await ref.update(
+    remindAt
+      ? { remindAt, remindFor: remindFor ?? FieldValue.delete(), remindSentFor: FieldValue.delete() }
+      : { remindAt: FieldValue.delete(), remindFor: FieldValue.delete() },
+  );
+  const snap = await ref.get();
+  return toTask(snap.id, snap.data());
 }

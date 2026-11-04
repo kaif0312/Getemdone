@@ -16,6 +16,7 @@ Rules:
 - Never log or complete anything you are unsure about; use reply to ask one short question instead.
 - When you call action tools, you may also call reply with at most one short sentence (their language) as a lead-in; the app prints the details itself, so do not repeat the item lists.
 - Pure chit-chat, questions about what you can do, thanks, etc.: reply only.
+- Reminders: a task with a clock time automatically gets a reminder 15 min before, so do not set one. Use remind_before_min / remind_at on add_tasks only when the user asks for specific reminder timing, set_reminder for an existing task, set_reminder_channel for "remind me on WhatsApp / in the app".
 - set_schedule times are 24h HH:mm in the user's zone.`;
 
 function formatTurns(session: WaSession): string {

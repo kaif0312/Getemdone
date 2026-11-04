@@ -4,7 +4,7 @@ import type { Task } from '@/lib/types';
 import type { GeminiPart } from './types';
 import {
   Ctx, addItems, completeByRefs, deferByRef, deleteByRef, describeWorkout, flush, friendsLines, logMetricAction,
-  logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setScheduleAction,
+  logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setReminderAction, setReminderChannelAction, setScheduleAction,
   showToday, weekLines, type WorkoutArgs,
 } from './actions';
 import { buildContext, SYSTEM } from './prompt';
@@ -97,6 +97,8 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'nudge_friend': lines.push(...await nudgeAction(ctx, str(a.name) ?? '', str(a.message))); break;
         case 'react_to_friend': lines.push(...await reactAction(ctx, str(a.name) ?? '', str(a.emoji) ?? '👏')); break;
         case 'friends_today': lines.push(...await friendsLines(ctx)); break;
+        case 'set_reminder': lines.push(...await setReminderAction(ctx, a)); break;
+        case 'set_reminder_channel': lines.push(...await setReminderChannelAction(ctx, str(a.channel))); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
         default: break;
       }

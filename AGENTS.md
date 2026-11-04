@@ -31,6 +31,7 @@ first.
   mark). Asking for a real person (e.g. "be like David Goggins") maps to the closest archetype. Every coach drops the act on
   injury/pain/illness/crisis (`coachPrompt`). The drill coach attacks excuses, never the person's body, food or worth.
 - Hear them live: `GEMINI_API_KEY=... npx tsx scripts/try_coaches.mts [drill hype ...]` (fake deps, no sends).
+- **Memes, GIFs, stickers** per coach (Imgflip + GIPHY, daily caps, *memes off*, kill switch `NUDGE_MEMES=off`): `docs/MEMES.md`.
 
 ## File vault (2026-11-04): people send files on WhatsApp, the bot files them in Drive
 - `lib/vault/`: `vault.ts` (allowlist, naming, ack, pure and tested), `drive.ts` (Drive REST), `index.ts` (production wiring).

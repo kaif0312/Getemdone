@@ -1,16 +1,17 @@
 /**
  * COPY of utils/taskFilter.ts (PWA). Keep in step: when the source changes, port the change here.
- * getTodayString()/getDateString() use the DEVICE time zone, exactly like the PWA. For the user's profile zone use dates.ts.
+ * getTodayString()/getDateString() use the user's active zone (`users.timezone`, else the device zone: lib/dates.ts), which is
+ * the device zone for everyone the PWA serves. The only deliberate difference from the PWA copy.
  */
 import { Task } from '@/lib/types';
+import { getActiveZone, localDate } from './dates';
 import { dateMatchesRecurrence } from './recurrence';
 
 /**
  * Get today's date string in YYYY-MM-DD format
  */
 export function getTodayString(): string {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return localDate(getActiveZone());
 }
 
 /**
@@ -29,12 +30,7 @@ function extractDateFromDeferredTo(deferredTo: string): string {
  * Uses local timezone to ensure consistency
  */
 export function getDateString(timestamp: number): string {
-  const date = new Date(timestamp);
-  // Use local date components to avoid timezone issues
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return localDate(getActiveZone(), timestamp);
 }
 
 /**

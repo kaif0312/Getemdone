@@ -32,12 +32,19 @@ export function userZone(profileZone?: string | null): string {
   return isValidZone(profileZone) ? profileZone : deviceZone();
 }
 
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
 function parts(timezone: string, at: number): Record<string, string> {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: isValidZone(timezone) ? timezone : DEFAULT_TIMEZONE,
-    hourCycle: 'h23',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
+  const tz = isValidZone(timezone) ? timezone : DEFAULT_TIMEZONE;
+  let fmt = formatters.get(tz); // building an Intl formatter is slow; day filters call this per task
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      hourCycle: 'h23',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    formatters.set(tz, fmt);
+  }
   const out: Record<string, string> = {};
   for (const p of fmt.formatToParts(new Date(at))) out[p.type] = p.value;
   if (out.hour === '24') out.hour = '00';
@@ -84,4 +91,17 @@ export function weekStart(dateStr: string): string {
 /** Last n dates ending at `end` (inclusive), oldest first. */
 export function lastNDates(end: string, n: number): string[] {
   return Array.from({ length: n }, (_, i) => addDays(end, i - (n - 1)));
+}
+
+// ---- the user's active zone -----------------------------------------------------------------------------------------
+// AuthProvider sets this from `users.timezone` (device zone when unset). taskFilter's getTodayString/getDateString read it,
+// so "today" agrees with the bot and the server for everyone who has a zone on their profile.
+let activeZone: string = deviceZone();
+
+export function setActiveZone(zone: string | null | undefined): void {
+  activeZone = userZone(zone);
+}
+
+export function getActiveZone(): string {
+  return activeZone;
 }

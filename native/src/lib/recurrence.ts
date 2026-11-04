@@ -1,6 +1,7 @@
 /**
  * COPY of utils/recurrence.ts (PWA). Keep in step: when the source changes, port the change here.
  */
+import { getActiveZone, localDate } from './dates';
 import { Recurrence } from '@/lib/types';
 
 /** Day names for parsing (0=Sun) */
@@ -48,8 +49,7 @@ export function parseRecurrenceFromText(text: string): { recurrence: Recurrence;
 
   if (!match || !matchedPattern) return null;
 
-  const today = new Date();
-  const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const startDate = localDate(getActiveZone());
 
   let days: number[] | undefined;
   if (matchedPattern.frequency === 'custom') {
@@ -58,7 +58,7 @@ export function parseRecurrenceFromText(text: string): { recurrence: Recurrence;
     if (dayNum !== undefined) {
       days = [dayNum];
     } else {
-      days = [today.getDay()];
+      days = [new Date(startDate + "T00:00:00Z").getUTCDay()];
     }
   }
 

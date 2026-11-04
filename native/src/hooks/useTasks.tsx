@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { deleteObject, ref as storageRef } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
-import { getTodayString } from '@/lib/taskFilter';
+import { getDateString, getTodayString } from '@/lib/taskFilter';
 import type { Attachment, FocusSession, Recurrence, Subtask, Task, TaskVisibility } from '@/lib/types';
 import { useAuth } from './useAuth';
 import { useEncryption } from './useEncryption';
@@ -356,8 +356,7 @@ function useTasksState() {
     let completedDates = existing?.recurrence?.completedDates ?? [];
     const patch: Record<string, unknown> = {};
     if (existing?.completed && existing.completedAt) {
-      const d = new Date(existing.completedAt);
-      const done = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const done = getDateString(existing.completedAt);
       if (!completedDates.includes(done)) completedDates = [...completedDates, done];
       patch.completed = false;
       patch.completedAt = null;

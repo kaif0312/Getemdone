@@ -117,7 +117,8 @@ export async function sendUrlButton(to: string, body: string, label: string, url
       action: { name: 'cta_url', parameters: { display_text: clip(label, 20), url } },
     },
   });
-  return id ?? sendText(to, `${body}\n${url}`);
+  // The body may say "tap <label>", so the fallback names the link with the same label.
+  return id ?? sendText(to, `${body}\n\n${clip(label, 20)}: ${url}`);
 }
 
 /** Template with body variables (and optional quick-reply button payloads). */

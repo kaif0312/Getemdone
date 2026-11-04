@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Nudge",
+    "slug": "nudge",
+    "scheme": "nudge",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "owner": "kaifuten",
+    "runtimeVersion": { "policy": "appVersion" },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.iskaria.nudge",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Nudge uses Face ID to keep your tasks private on this phone.",
+        "NSPhotoLibraryUsageDescription": "Nudge needs your photos so you can set a profile picture and attach images to tasks.",
+        "NSCameraUsageDescription": "Nudge uses the camera to scan a friend's code and take photos for tasks."
+      }
+    },
+    "android": {
+      "package": "com.iskaria.nudge",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#FAC555",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.POST_NOTIFICATIONS", "android.permission.USE_BIOMETRIC", "android.permission.VIBRATE"]
+    },
+    "web": { "favicon": "./assets/favicon.png", "bundler": "metro" },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-coach.png",
+          "imageWidth": 200,
+          "backgroundColor": "#F7C04A",
+          "dark": { "image": "./assets/splash-coach.png", "backgroundColor": "#F7C04A" }
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      ["expo-local-authentication", { "faceIDPermission": "Nudge uses Face ID to keep your tasks private on this phone." }],
+      ["expo-notifications", { "mode": "production" }],
+      ["expo-image-picker", { "photosPermission": "Nudge needs your photos so you can set a profile picture and attach images to tasks.", "cameraPermission": "Nudge uses the camera to take photos for tasks." }]
+    ],
+    "extra": {
+      "apiBase": "https://getemdone.vercel.app",
+      "router": {}
+    }
+  }
+}

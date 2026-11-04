@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotificationsInbox } from '@/hooks/useNotificationsInbox';
 import { usePush } from '@/hooks/usePush';
 import { useStreak } from '@/hooks/useStreak';
-import { Avatar, Button, Card, haptic, Header, Icon, Screen, Skeleton, StreakFlame, Text, useTheme, useToast } from '@/ui';
+import { Avatar, Button, Card, haptic, Header, Icon, Screen, Skeleton, Text, useTheme, useToast } from '@/ui';
 import { BIN_ROUTE, COACH_NUMBER_DISPLAY, openCoachChat } from './links';
 import { Group, Row, SIcon } from './ui';
 import { useWhatsAppLink } from './useWhatsAppLink';
@@ -154,10 +154,6 @@ export function MeScreen() {
       <Group>
         <Row icon="logout" destructive title="Sign out" onPress={() => router.push('/me/sign-out')} />
       </Group>
-      <View style={{ alignItems: 'center', gap: 4, paddingVertical: 4 }}>
-        <StreakFlame size={22} lit={false} />
-        <Text variant="caption" tone="faint">Nudge {version}</Text>
-      </View>
     </Screen>
   );
 }

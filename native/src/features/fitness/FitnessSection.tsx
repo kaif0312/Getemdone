@@ -120,7 +120,7 @@ function RecentWorkouts() {
     <Card padding={4}>
       {rows.map((r, i) => (
         <View
-          key={r.date + r.workout.at}
+          key={`${r.date}-${r.workout.at}-${i}`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i ? 2 : 0, borderTopColor: colors.surfaceAlt }}
         >
           <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' }}>

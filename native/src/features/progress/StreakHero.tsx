@@ -74,9 +74,9 @@ export function StreakHero({ current, longest, focusCurrent, focusLongest, fitne
         </View>
       </Card>
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Stat label="Focus streak" value={focusCurrent} sub={focusLongest > 0 ? `Best ${focusLongest}` : 'Pick your 3 each morning'} tint="primary" />
-        <Stat label="Best ever" value={longest} sub={current >= longest && current > 0 ? 'You are on it' : `${Math.max(0, longest - current)} to beat`} tint="accent" />
-        <Stat label="Workouts" value={fitnessStreak} sub={fitnessStreak > 0 ? 'days in a row' : 'Log one today'} tint="success" />
+        <Stat label="Focus" value={focusCurrent} sub={focusLongest > 0 ? `Best ${focusLongest}` : 'Pick 3 daily'} tint="primary" />
+        <Stat label="Best ever" value={longest} sub={current >= longest && current > 0 ? 'On it' : `${Math.max(0, longest - current)} to beat`} tint="accent" />
+        <Stat label="Workouts" value={fitnessStreak} sub={fitnessStreak > 0 ? 'in a row' : 'Log one'} tint="success" />
       </View>
       {state === 'broken' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>

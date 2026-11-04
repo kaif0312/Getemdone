@@ -8,7 +8,9 @@ import * as sessions from '@/lib/wa/sessions';
 import * as send from '@/lib/wa/send';
 import * as media from '@/lib/wa/media';
 import { makeProviders } from '@/lib/memes/providers';
+import * as reminders from '@/lib/server/reminders';
 import { callGemini } from './gemini';
+import { listVaultFiles } from '@/lib/vault/audit';
 import type { BotDeps } from './types';
 
 export const defaultDeps: BotDeps = {
@@ -33,6 +35,7 @@ export const defaultDeps: BotDeps = {
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,
+  setProfile: users.setProfile,
   localDate: users.localDate,
   localTime: users.localTime,
   addTasks: tasks.addTasks,
@@ -45,6 +48,9 @@ export const defaultDeps: BotDeps = {
   restoreTask: tasks.restoreTask,
   findTask: tasks.findTask,
   setFocus: tasks.setFocus,
+  listVaultFiles,
+  setReminder: tasks.setReminder,
+  setReminderChannel: reminders.setReminderChannel,
   daySummary: tasks.daySummary,
   logWorkout: fitness.logWorkout,
   logMetric: fitness.logMetric,

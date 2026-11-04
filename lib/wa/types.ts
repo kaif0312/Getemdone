@@ -19,6 +19,10 @@ export interface InboundMessage {
   /** Media id for audio (voice note), image, document or video; fetch with lib/wa/send.ts fetchMedia(). `filename` is the
    *  original name of a document (WhatsApp only sends it for documents). */
   media?: { id: string; mimeType: string; filename?: string };
+  /** True when WhatsApp marks the message as forwarded (`context.forwarded` or `frequently_forwarded`). */
+  forwarded?: boolean;
+  /** Error code Meta attached to the message (e.g. 131052 = the user's media file is over the 100 MB Cloud API limit). */
+  errorCode?: number;
   /** Emoji reaction to one of our messages. */
   reaction?: { emoji: string; messageId: string };
 }
@@ -59,6 +63,9 @@ export const BUTTON_IDS = {
   checkinSkip: 'checkin:skip',
 } as const;
 
+/** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */
+export type OnboardStep = 'welcome' | 'name' | 'tz' | 'tzconfirm' | 'morning' | 'recap' | 'goal';
+
 /** A linked WhatsApp user: doc `waLinks/{waId}`. */
 export interface WaLink {
   waId: string;
@@ -84,6 +91,10 @@ export interface WaLink {
   memeDay?: string;
   memeCount?: number;
   memeAskedCount?: number;
+  /** Set while the WhatsApp setup chat runs (null/absent = finished). The scheduler sends nothing proactive meanwhile. */
+  onboarding?: { step: OnboardStep; tz?: string; nm?: string } | null;
+  /** What they said they mainly want the bot for (onboarding answer). */
+  interest?: 'tasks' | 'fitness' | 'both';
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

@@ -9,6 +9,7 @@ import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps, Undo } from './types';
 import { COACH_IDS, COACHES, isCoachId } from './coaches';
 import { raise, type MemeRequest } from './memes';
+import { REMIND_LEAD_MIN } from '@/lib/server/reminders';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
 
 export const MAX_LIST = 10;
@@ -25,8 +26,31 @@ export const HELP = [
   '• *coach* - pick your coach (friendly, hardcore, hype...)',
   '• *meme* - a meme from your coach, *memes off* to stop them',
   '• Voice notes and screenshots work too',
+  '• Send a document or video and I file it in Drive (a photo: forward it, or caption it "save passport" or "/ref name")',
   '• *stop* pauses my messages, *start* resumes',
+  '',
+  '*Slash commands* (a leading / works on the commands above)',
+  '/task <text> add a task, /today, /done 2, /undo, /week',
+  '/files your last 5 Drive files, /help',
 ].join('\n');
+
+export const UNKNOWN_CMD = (cmd: string) => `Unknown command /${cmd.slice(0, 20)}. Send /help to see what I can do.`;
+export const TASK_USAGE = 'Add a task like this: /task call the bank';
+export const FILES_NONE = 'Nothing in your Drive vault yet. Send me a document or video, or a photo captioned "/ref name".';
+
+const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+/** "/files": the user's last vault items, newest first. */
+export async function filesLines(ctx: Ctx): Promise<string[]> {
+  const items = (await ctx.d.listVaultFiles?.(ctx.waId, 5)) ?? [];
+  if (!items.length) return [FILES_NONE];
+  const lines = ['*Your last files in Drive* 📁'];
+  for (const it of items) {
+    const date = new Date(it.at).toLocaleDateString('en-GB', { timeZone: ctx.tz, day: 'numeric', month: 'short' });
+    lines.push(`• ${it.name}${it.bytes ? ` (${fmtSize(it.bytes)})` : ''} · ${date}`);
+  }
+  return lines;
+}
 
 export class Ctx {
   readonly known = new Map<string, Task>();
@@ -216,6 +240,66 @@ export async function deleteByRef(ctx: Ctx, ref: string): Promise<string[]> {
   return 'err' in r ? [r.err] : deleteById(ctx, r.id);
 }
 
+/** The event time of a task in ms: a clock time in `deferredTo`, else its deadline. */
+function eventMsOf(t: Pick<Task, 'deferredTo' | 'dueDate'> | undefined, tz: string): number | null {
+  if (t?.deferredTo?.includes('T')) return zonedToMs(t.deferredTo, tz);
+  return t?.dueDate ?? null;
+}
+
+/** Reminder fields for a new task. Default: a task with a clock time ("gym 6pm") reminds 15 min before. */
+function reminderFor(ctx: Ctx, o: Record<string, unknown>, when?: string, due?: string): { remindAt?: number; remindFor?: number } {
+  if (o.no_reminder === true) return {};
+  const now = ctx.d.now();
+  const whenMs = when?.includes('T') ? zonedToMs(when, ctx.tz) : null;
+  const dueMs = due?.includes('T') ? zonedToMs(due, ctx.tz) : null;
+  const eventMs = whenMs ?? dueMs;
+  const abs = validWhen(o.remind_at);
+  const absMs = abs?.includes('T') ? zonedToMs(abs, ctx.tz) : null;
+  const before = num(o.remind_before_min);
+  let at: number | null = null;
+  if (absMs) at = absMs;
+  else if (eventMs && before != null && before >= 0) at = eventMs - before * 60_000;
+  else if (whenMs && ctx.user?.notificationSettings?.deadlineReminders !== false) at = whenMs - REMIND_LEAD_MIN * 60_000;
+  if (!at || at <= now) return {};
+  return { remindAt: at, remindFor: eventMs ?? at };
+}
+
+export async function setReminderAction(ctx: Ctx, a: Record<string, unknown>): Promise<string[]> {
+  if (!ctx.d.setReminder) return ['⚠️ Reminders are not available right now.'];
+  const r = await resolveRef(ctx, str(a.ref) ?? String(a.ref ?? ''));
+  if ('err' in r) return [r.err];
+  const t = ctx.known.get(r.id);
+  const title = clip(t?.text ?? r.text ?? 'task', 30);
+  if (a.off === true) {
+    await ctx.d.setReminder(ctx.uid, r.id, null);
+    return [`🔕 No reminder for ${title}`];
+  }
+  const ev = eventMsOf(t, ctx.tz);
+  const abs = validWhen(a.remind_at);
+  const before = num(a.minutes_before);
+  const at = abs?.includes('T') ? zonedToMs(abs, ctx.tz) : ev && before != null && before >= 0 ? ev - before * 60_000 : null;
+  if (!at) return ['⚠️ When should I remind you? e.g. "remind me at 5pm".'];
+  if (at <= ctx.d.now()) return ['⚠️ That time has already passed.'];
+  await ctx.d.setReminder(ctx.uid, r.id, at, ev ?? at);
+  const date = ctx.d.localDate(ctx.tz, at);
+  const label = whenLabel(`${date}T${ctx.d.localTime(ctx.tz, at)}`, ctx.today);
+  return [`⏰ I'll remind you about ${title}: ${label}`];
+}
+
+const CHANNEL_LABEL: Record<string, string> = {
+  auto: 'in the app if you have it, otherwise here on WhatsApp',
+  app: 'in the app only',
+  whatsapp: 'here on WhatsApp only',
+  both: 'in the app and on WhatsApp',
+};
+
+export async function setReminderChannelAction(ctx: Ctx, channel?: string): Promise<string[]> {
+  const c = (channel ?? '').toLowerCase();
+  if (!ctx.d.setReminderChannel || !(c in CHANNEL_LABEL)) return ['⚠️ Reminders go to: app, whatsapp, both or auto. Which one?'];
+  await ctx.d.setReminderChannel(ctx.uid, c as 'auto' | 'app' | 'whatsapp' | 'both');
+  return [`🔔 Reminders will come ${CHANNEL_LABEL[c]}.`];
+}
+
 export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
   const arr = Array.isArray(raw) ? raw : [];
   const items = arr
@@ -224,11 +308,13 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
       const text = str(o.text);
       if (!text) return null;
       const due = validWhen(o.due);
+      const when = validWhen(o.when);
       return {
         text: text.slice(0, 2000),
-        when: validWhen(o.when),
+        when,
         dueDate: due ? zonedToMs(due, ctx.tz) ?? undefined : undefined,
         recurrenceText: str(o.recurrence),
+        ...reminderFor(ctx, o, when, due),
       };
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
@@ -243,7 +329,8 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const n = ctx.session.lastList.indexOf(t.id) + 1;
     const w = whenLabel(t.deferredTo, ctx.today);
     const due = t.dueDate ? ` · due ${whenLabel(new Date(t.dueDate).toLocaleDateString('en-CA', { timeZone: ctx.tz }), ctx.today) || 'today'}` : '';
-    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}`);
+    const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
+    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
   }
   ctx.undos.push({ k: 'add', ids: created.map((t) => t.id), label: `added ${created.length === 1 ? clip(created[0].text, 30) : created.length + ' tasks'}` });
   return lines;

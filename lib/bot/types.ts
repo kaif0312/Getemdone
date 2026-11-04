@@ -2,6 +2,7 @@
 import type * as Tasks from '@/lib/server/tasks';
 import type * as Fitness from '@/lib/server/fitness';
 import type * as Social from '@/lib/server/social';
+import type * as Reminders from '@/lib/server/reminders';
 import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
@@ -30,6 +31,9 @@ export interface GeminiResult {
   text: string;
   model?: string;
 }
+
+/** One file in the user's Drive vault (from the `vaultUploads` audit collection). */
+export interface VaultItem { name: string; bytes: number; at: number }
 
 export interface BotDeps {
   now(): number;
@@ -63,6 +67,13 @@ export interface BotDeps {
   restoreTask: typeof Tasks.restoreTask;
   findTask: typeof Tasks.findTask;
   setFocus: typeof Tasks.setFocus;
+  /** Optional so older test fakes keep compiling; onboarding saves the chosen name / timezone through it. */
+  setProfile?(uid: string, patch: { displayName?: string; timezone?: string }): Promise<void>;
+  /** Optional so older test fakes keep compiling. Newest first. */
+  listVaultFiles?(wa: string, limit: number): Promise<VaultItem[]>;
+  /** Optional so older test fakes keep compiling; when absent, reminders are simply not set. */
+  setReminder?: typeof Tasks.setReminder;
+  setReminderChannel?: typeof Reminders.setReminderChannel;
   daySummary: typeof Tasks.daySummary;
   logWorkout: typeof Fitness.logWorkout;
   logMetric: typeof Fitness.logMetric;

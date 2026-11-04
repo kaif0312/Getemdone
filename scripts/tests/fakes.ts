@@ -1,5 +1,5 @@
 // In-memory fake BotDeps shared by test_brain.mts and try_brain.mts.
-import type { BotDeps, GeminiResult } from '../../lib/bot/types';
+import type { BotDeps, GeminiResult, VaultItem } from '../../lib/bot/types';
 import type { Task } from '../../lib/types';
 import type { WaLink, WaSession } from '../../lib/wa/types';
 
@@ -9,7 +9,7 @@ export function mkTask(id: string, text: string, extra: Partial<Task> = {}): Tas
   return { id, userId: 'u1', text, isPrivate: false, completed: false, createdAt: 1, completedAt: null, ...extra } as Task;
 }
 
-export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req: Parameters<BotDeps['gemini']>[0]) => Promise<GeminiResult> } = {}) {
+export function makeFake(opts: { linked?: boolean; tasks?: Task[]; vault?: VaultItem[]; gemini?: (req: Parameters<BotDeps['gemini']>[0]) => Promise<GeminiResult> } = {}) {
   const calls: string[] = [];
   const sent: Sent[] = [];
   const tasks = new Map<string, Task>((opts.tasks ?? []).map((t) => [t.id, t]));
@@ -47,6 +47,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
     markRead: async () => undefined,
     fetchMedia: async (id) => { log(`fetchMedia ${id}`); return { data: Buffer.from('abc'), mimeType: 'audio/ogg; codecs=opus' }; },
     getUserLite: async () => ({ uid: 'u1', displayName: 'Kaif', friends: [], timezone: 'Asia/Kolkata' }),
+    setProfile: async (_u, patch) => { log('setProfile ' + JSON.stringify(patch)); },
     localDate: () => '2026-11-01',
     localTime: () => '14:00',
     addTasks: async (_u, items) => items.map((it) => {
@@ -63,6 +64,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req
     deleteTask: async (_u, id) => { log(`delete ${id}`); tasks.get(id)!.deleted = true; },
     restoreTask: async (_u, id) => { log(`restore ${id}`); tasks.get(id)!.deleted = false; },
     findTask: async (_u, q) => [...tasks.values()].find((t) => !t.completed && !t.deleted && t.text.toLowerCase().includes(q.toLowerCase())) ?? null,
+    listVaultFiles: async (wa, n) => { log(`vaultFiles ${wa} ${n}`); return (opts.vault ?? []).slice(0, n); },
     setFocus: async (_u, ids) => { log(`focus ${ids.join(',')}`); },
     daySummary: async () => ({ done: [], open: [], streak: 4, fitnessStreak: 0 }),
     logWorkout: async (_u, w) => { log(`logWorkout ${JSON.stringify(w)}`); workouts.push(w); return { date: '2026-11-01', workouts: [], updatedAt: 1 }; },

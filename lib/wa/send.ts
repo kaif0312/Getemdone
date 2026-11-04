@@ -105,6 +105,22 @@ export async function sendList(to: string, body: string, buttonLabel: string, ro
   });
 }
 
+/** One URL button under a message (Cloud API `cta_url`: no template, only inside the 24h window). Falls back to a plain
+ *  text with the link when Meta refuses the interactive message, so the person always gets a link. */
+export async function sendUrlButton(to: string, body: string, label: string, url: string): Promise<string | null> {
+  const id = await post('url_button', to, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'cta_url',
+      body: { text: String(body).slice(0, 1024) },
+      action: { name: 'cta_url', parameters: { display_text: clip(label, 20), url } },
+    },
+  });
+  // The body may say "tap <label>", so the fallback names the link with the same label.
+  return id ?? sendText(to, `${body}\n\n${clip(label, 20)}: ${url}`);
+}
+
 /** Template with body variables (and optional quick-reply button payloads). */
 export async function sendTemplate(to: string, name: string, variables: string[], opts?: { language?: string; buttonPayloads?: string[] }): Promise<string | null> {
   const components: Record<string, unknown>[] = [];

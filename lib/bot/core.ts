@@ -3,13 +3,14 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
-  Ctx, HELP, completeByIds, deferById, deleteById, flush, friendsLines,
+  Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
   coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
 } from './actions';
-import { runGemini, transcriptOf } from './ai';
+import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
 import { allowMeme, chooseRecipe, sendRecipe } from './memes';
+import { maybeOnboard } from './onboarding';
 
 export const APOLOGY = 'Sorry, something went wrong on my side. Please try again in a moment 🙏';
 export const NOT_LINKED =
@@ -41,6 +42,7 @@ export async function handleWith(d: BotDeps, msg: InboundMessage): Promise<void>
 async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   const link = await d.getLink(msg.from);
   if (!link) { await unlinked(d, msg); return; }
+  if (await maybeOnboard(d, link, msg)) return; // mid-setup chat, or the user typed *setup*
   if (msg.type === 'reaction') return;
   if (msg.type === 'other' || msg.type === 'document' || msg.type === 'video') {
     await d.sendText(msg.from, 'I can read text, voice notes and photos. Send *help* to see what I can do.');
@@ -191,6 +193,11 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       ctx.wantMeme({ moment: 'random', asked: true });
       return;
     case 'setCoach': await flush(ctx, await setCoachAction(ctx, f.id)); return;
+    case 'addTask':
+      if (!f.text) await ctx.text(TASK_USAGE); else await addTaskCommand(ctx, f.text);
+      return;
+    case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
+    case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;
     case 'nudge': await ctx.text((await nudgeUid(ctx, f.uid)).join('\n')); return;

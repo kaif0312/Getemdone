@@ -20,6 +20,9 @@ export const TOOLS: FunctionDecl[] = [
               when: { ...S, description: 'Day (and time) to do it: YYYY-MM-DD or YYYY-MM-DDTHH:mm in the user\'s local zone. Omit for today.' },
               due: { ...S, description: 'Hard deadline, YYYY-MM-DD or YYYY-MM-DDTHH:mm (only when the user says "by"/"due")' },
               recurrence: { ...S, description: 'Repeat rule in plain English, e.g. "every monday", "daily"' },
+              remind_before_min: { ...N, description: 'Only if the user asks to be reminded N minutes before the time ("remind me 30 min before"). A task with a clock time already gets a 15 min reminder by default.' },
+              remind_at: { ...S, description: 'Only if the user names the reminder moment itself ("remind me at 5pm"): YYYY-MM-DDTHH:mm in the user local zone' },
+              no_reminder: { type: 'BOOLEAN', description: 'true if the user says they do not want a reminder for this task' },
             },
             required: ['text'],
           },
@@ -110,6 +113,25 @@ export const TOOLS: FunctionDecl[] = [
     parameters: { type: 'OBJECT', properties: { name: S, emoji: S }, required: ['name', 'emoji'] },
   },
   { name: 'friends_today', description: 'Show what friends did today.', parameters: { type: 'OBJECT', properties: {} } },
+  {
+    name: 'set_reminder',
+    description: 'Set or change the reminder of an EXISTING task (ref = list number or task text), or turn it off. Give remind_at (absolute) or minutes_before (relative to the task time or deadline).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        ref: S,
+        remind_at: { ...S, description: 'YYYY-MM-DDTHH:mm in the user local zone' },
+        minutes_before: N,
+        off: { type: 'BOOLEAN', description: 'true to remove the reminder' },
+      },
+      required: ['ref'],
+    },
+  },
+  {
+    name: 'set_reminder_channel',
+    description: 'Where reminders are delivered: "app" (phone notification), "whatsapp", "both", or "auto" (app if installed, else WhatsApp).',
+    parameters: { type: 'OBJECT', properties: { channel: { ...S, enum: ['auto', 'app', 'whatsapp', 'both'] } }, required: ['channel'] },
+  },
   {
     name: 'set_schedule',
     description: 'Set the daily check-in and/or evening recap time (local HH:mm, 24h). Use "off" to disable.',

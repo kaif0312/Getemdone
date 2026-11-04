@@ -247,6 +247,10 @@ export interface Task {
   comments?: Comment[];
   deferredTo?: string; // YYYY-MM-DD format - date this task is deferred to
   dueDate?: number | null; // Timestamp for deadline
+  /** Server reminders (lib/server/reminders.ts): fire time, the event time it is about, and the fire time already sent. */
+  remindAt?: number | null;
+  remindFor?: number | null;
+  remindSentFor?: number | null;
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted

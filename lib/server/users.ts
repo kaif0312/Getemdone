@@ -1,6 +1,6 @@
 // OWNER: agent "domain". User lookups + timezone helpers (server only).
 import type { User } from '@/lib/types';
-import { adminDb } from './firebaseAdmin';
+import { adminAuth, adminDb } from './firebaseAdmin';
 
 export interface UserLite { uid: string; displayName: string; friends: string[]; timezone: string; notificationSettings?: User['notificationSettings']; }
 
@@ -114,4 +114,16 @@ export function timezoneForWaId(waId: string): string {
     if (digits.startsWith(entry[0]) && (!best || entry[0].length > best[0].length)) best = entry;
   }
   return best ? best[1] : DEFAULT_TIMEZONE;
+}
+
+/** Save a profile change made in the WhatsApp onboarding: Firestore user doc, and the Auth display name (best effort). */
+export async function setProfile(uid: string, patch: { displayName?: string; timezone?: string }): Promise<void> {
+  const data: Record<string, string> = {};
+  if (patch.displayName) data.displayName = patch.displayName;
+  if (patch.timezone && validZone(patch.timezone)) data.timezone = patch.timezone;
+  if (!Object.keys(data).length) return;
+  await adminDb().doc(`users/${uid}`).set(data, { merge: true });
+  if (data.displayName) {
+    try { await adminAuth().updateUser(uid, { displayName: data.displayName }); } catch { /* the Firestore name is what the bot uses */ }
+  }
 }

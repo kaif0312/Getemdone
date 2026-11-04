@@ -43,6 +43,14 @@ function Navigator() {
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
+          {/* Friends (native/app/friends/*): sheets + the groups page */}
+          <Stack.Screen name="friends/add" options={sheetOptions({ detents: [0.94] }, colors)} />
+          <Stack.Screen name="friends/requests" options={sheetOptions({ detents: [0.6, 0.94] }, colors)} />
+          <Stack.Screen name="friends/groups" options={{ presentation: 'card' }} />
+          <Stack.Screen name="friends/group" options={sheetOptions({ detents: [0.8, 0.94] }, colors)} />
+          <Stack.Screen name="friends/comments" options={sheetOptions({ detents: [0.7, 0.94] }, colors)} />
+          <Stack.Screen name="friends/encourage" options={sheetOptions({ detents: [0.7] }, colors)} />
+          <Stack.Screen name="friends/remove" options={sheetOptions({ detents: [0.42] }, colors)} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />

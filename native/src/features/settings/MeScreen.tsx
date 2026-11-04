@@ -9,7 +9,7 @@ import { usePush } from '@/hooks/usePush';
 import { useStreak } from '@/hooks/useStreak';
 import { Avatar, Button, Card, haptic, Header, Icon, Screen, Skeleton, Text, useTheme, useToast } from '@/ui';
 import { BIN_ROUTE, COACH_NUMBER_DISPLAY, openCoachChat } from './links';
-import { Group, Row, SIcon } from './ui';
+import { Group, Row } from './ui';
 import { useWhatsAppLink } from './useWhatsAppLink';
 
 const REMINDER_LABEL = { auto: 'Auto', app: 'App only', whatsapp: 'WhatsApp', both: 'Both' } as const;
@@ -62,7 +62,7 @@ function ProfileCard() {
         >
           <Text variant="label" tone="muted">Friend code</Text>
           <Text variant="subheading" tone="primary" style={{ letterSpacing: 2 }}>{profile.friendCode}</Text>
-          <SIcon name="copy" size={15} color={colors.primary} />
+          <Icon name="copy" size={15} color={colors.primary} />
         </Pressable>
       </View>
     </Card>
@@ -88,7 +88,7 @@ function WhatsAppCard() {
       <Card tone="success" padding={16}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
-            <SIcon name="whatsapp" size={26} color={colors.onFill} />
+            <Icon name="whatsapp" size={26} color={colors.onFill} />
           </View>
           <View style={{ flex: 1 }}>
             <Text variant="subheading">WhatsApp is linked</Text>
@@ -106,7 +106,7 @@ function WhatsAppCard() {
     <Card tone="accent" padding={16}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 46, height: 46, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <SIcon name="whatsapp" size={26} color={colors.onFill} />
+          <Icon name="whatsapp" size={26} color={colors.onFill} />
         </View>
         <View style={{ flex: 1 }}>
           <Text variant="subheading">Link WhatsApp</Text>
@@ -137,7 +137,7 @@ export function MeScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
-    <Screen header={<Header title="Me" unread={unread} onBellPress={() => router.push('/inbox')} />} gap={20}>
+    <Screen header={<Header title="Me" subtitle="Account and settings" unread={unread} onBellPress={() => router.push('/inbox')} />} gap={20}>
       <ProfileCard />
       <WhatsAppCard />
       <Group title="Settings">

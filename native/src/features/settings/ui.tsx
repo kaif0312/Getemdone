@@ -1,52 +1,12 @@
 /**
  * Settings building blocks: grouped inset list (Group + Row), animated Switch, icon tiles, sub-page chrome (SettingsPage).
- * Local icons here so the shared kit icon set stays untouched; all use the same 24px stroke style.
  */
 import React, { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { haptic, Icon, springs, Text, useReduceMotion, useTheme, type IconName } from '@/ui';
-
-const extra = {
-  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
-  help: ['M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
-  bug: ['M8 2l1.88 1.88M14.12 3.88L16 2', 'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1', 'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z', 'M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4M17.2 17c2.1.1 3.8 1.9 3.8 4'],
-  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
-  info: ['M12 16v-4M12 8h.01'],
-  phone: ['M12 18h.01'],
-  image: ['M21 15l-5-5L5 21'],
-  face: ['M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2', 'M9 9v1.5M15 9v1.5M12 9v4.5h-1M9 16c1.5 1.3 4.5 1.3 6 0'],
-  copy: ['M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
-  whatsapp: ['M3 21l1.65-4.9A9 9 0 1 1 8 19.6L3 21z', 'M9 10c.5 2.5 2.5 4.5 5 5l1.2-1.2a.8.8 0 0 1 .9-.15l1.6.8c.3.15.4.5.25.8-.5 1.1-1.7 1.75-2.95 1.55C11.5 16.4 8 12.9 7.5 9.7c-.2-1.25.45-2.45 1.55-2.95.3-.15.65-.05.8.25l.8 1.6a.8.8 0 0 1-.15.9L9 10z'],
-} as const;
-export type SettingsIconName = keyof typeof extra | IconName;
-
-function extraPrims(name: keyof typeof extra, color: string, sw: number) {
-  switch (name) {
-    case 'help': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
-    case 'info': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
-    case 'phone': return <Rect x={6} y={2} width={12} height={20} rx={3} stroke={color} strokeWidth={sw} fill="none" />;
-    case 'image': return <Rect x={3} y={3} width={18} height={18} rx={3} stroke={color} strokeWidth={sw} fill="none" />;
-    case 'copy': return <Rect x={9} y={9} width={13} height={13} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
-    default: return null;
-  }
-}
-
-export function SIcon({ name, size = 18, color, strokeWidth = 2.3 }: { name: SettingsIconName; size?: number; color: string; strokeWidth?: number }) {
-  if (!(name in extra)) return <Icon name={name as IconName} size={size} color={color} strokeWidth={strokeWidth} />;
-  const key = name as keyof typeof extra;
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {extraPrims(key, color, strokeWidth)}
-      {extra[key].map((d, i) => (
-        <Path key={i} d={d} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      ))}
-    </Svg>
-  );
-}
 
 export type Tone = 'primary' | 'accent' | 'success' | 'sun' | 'danger' | 'neutral';
 
@@ -55,11 +15,11 @@ export function toneFill(tone: Tone, c: ReturnType<typeof useTheme>['colors']): 
 }
 
 /** Rounded colour tile with a white icon, like iOS Settings. */
-export function IconTile({ icon, tone = 'primary', size = 34 }: { icon: SettingsIconName; tone?: Tone; size?: number }) {
+export function IconTile({ icon, tone = 'primary', size = 34 }: { icon: IconName; tone?: Tone; size?: number }) {
   const { colors } = useTheme();
   return (
     <View style={{ width: size, height: size, borderRadius: size * 0.3, backgroundColor: toneFill(tone, colors), alignItems: 'center', justifyContent: 'center' }}>
-      <SIcon name={icon} size={size * 0.56} color={colors.onFill} />
+      <Icon name={icon} size={size * 0.56} color={colors.onFill} strokeWidth={2.3} />
     </View>
   );
 }
@@ -103,7 +63,7 @@ export function Switch({ value, onValueChange, disabled, accessibilityLabel }: {
 }
 
 export interface RowProps {
-  icon?: SettingsIconName;
+  icon?: IconName;
   tone?: Tone;
   title: string;
   subtitle?: string;
@@ -156,7 +116,7 @@ export function Row({ icon, tone = 'primary', title, subtitle, value, onPress, r
   );
 }
 
-export function SwitchRow({ icon, tone, title, subtitle, value, onValueChange, disabled }: { icon?: SettingsIconName; tone?: Tone; title: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void; disabled?: boolean }) {
+export function SwitchRow({ icon, tone, title, subtitle, value, onValueChange, disabled }: { icon?: IconName; tone?: Tone; title: string; subtitle?: string; value: boolean; onValueChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <Row
       icon={icon}
@@ -171,7 +131,7 @@ export function SwitchRow({ icon, tone, title, subtitle, value, onValueChange, d
 }
 
 /** Radio-style row (selected shows a check). */
-export function OptionRow({ title, subtitle, selected, onPress, icon, tone }: { title: string; subtitle?: string; selected: boolean; onPress: () => void; icon?: SettingsIconName; tone?: Tone }) {
+export function OptionRow({ title, subtitle, selected, onPress, icon, tone }: { title: string; subtitle?: string; selected: boolean; onPress: () => void; icon?: IconName; tone?: Tone }) {
   const { colors } = useTheme();
   return (
     <Row

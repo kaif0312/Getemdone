@@ -6,7 +6,6 @@ import { useTaskSocial } from '@/hooks/useTaskSocial';
 import type { Comment, Reaction } from '@/lib/types';
 import { Avatar, haptic, Icon, radius, Text, useTheme, useToast, fonts } from '@/ui';
 import { fmtAgo } from './helpers';
-import { XIcon } from './XIcon';
 
 export const QUICK_EMOJI = ['👍', '❤️', '🔥', '💪', '😂', '👏'];
 
@@ -115,7 +114,7 @@ export function CommentsThread({ taskId, comments, onReply }: { taskId: string; 
               ) : null}
               <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
                 <Pressable hitSlop={10} onPress={() => onReply({ id: c.id, userName: c.userName, text: c.text })} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 28 }}>
-                  <XIcon name="reply" size={14} color={colors.textMuted} />
+                  <Icon name="reply" size={14} color={colors.textMuted} />
                   <Text variant="caption" tone="muted">Reply</Text>
                 </Pressable>
                 <Pressable hitSlop={10} onPress={() => setPickerFor(pickerFor === c.id ? null : c.id)} style={{ minHeight: 28, justifyContent: 'center' }}>

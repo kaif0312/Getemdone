@@ -37,6 +37,27 @@ const paths = {
   share: ['M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8', 'M16 6l-4-4-4 4', 'M12 2v13'],
   copy: ['M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
   userPlus: ['M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M20 8v6M23 11h-6'],
+  // task + settings icons (merged from the old features/tasks/XIcon and features/settings/ui SIcon)
+  paperclip: ['M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'],
+  reply: ['M9 14L4 9l5-5', 'M20 20v-7a4 4 0 0 0-4-4H4'],
+  moon: ['M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'],
+  undo: ['M3 7v6h6', 'M21 17a9 9 0 0 0-15-6.7L3 13'],
+  note: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6M8 13h8M8 17h5'],
+  list: ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'],
+  image: ['M21 15l-5-5L5 21'],
+  globe: ['M2 12h20', 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'],
+  userCheck: ['M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M17 11l2 2 4-4'],
+  whatsapp: ['M3 21l1.65-4.9A9 9 0 1 1 8 19.6L3 21z', 'M9 10c.5 2.5 2.5 4.5 5 5l1.2-1.2a.8.8 0 0 1 .9-.15l1.6.8c.3.15.4.5.25.8-.5 1.1-1.7 1.75-2.95 1.55C11.5 16.4 8 12.9 7.5 9.7c-.2-1.25.45-2.45 1.55-2.95.3-.15.65-.05.8.25l.8 1.6a.8.8 0 0 1-.15.9L9 10z'],
+  sparkle: ['M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z'],
+  flag: ['M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z', 'M4 22v-7'],
+  minus: ['M5 12h14'],
+  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  help: ['M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
+  bug: ['M8 2l1.88 1.88M14.12 3.88L16 2', 'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1', 'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z', 'M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4M17.2 17c2.1.1 3.8 1.9 3.8 4'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
+  info: ['M12 16v-4M12 8h.01'],
+  phone: ['M12 18h.01'],
+  face: ['M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2', 'M9 9v1.5M15 9v1.5M12 9v4.5h-1M9 16c1.5 1.3 4.5 1.3 6 0'],
 } as const;
 
 export type IconName = keyof typeof paths;
@@ -57,6 +78,17 @@ function extras(name: IconName, color: string, sw: number) {
     case 'copy': return <Rect x={9} y={9} width={13} height={13} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
     case 'userPlus': return <Circle cx={8.5} cy={7} r={4} stroke={color} strokeWidth={sw} fill="none" />;
     case 'mail': return <Rect x={2} y={4} width={20} height={16} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'image': return (
+      <>
+        <Rect x={3} y={3} width={18} height={18} rx={2} stroke={color} strokeWidth={sw} fill="none" />
+        <Circle cx={8.5} cy={8.5} r={1.5} stroke={color} strokeWidth={sw} fill="none" />
+      </>
+    );
+    case 'globe': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'userCheck': return <Circle cx={8.5} cy={7} r={4} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'help': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'info': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'phone': return <Rect x={6} y={2} width={12} height={20} rx={3} stroke={color} strokeWidth={sw} fill="none" />;
     default: return null;
   }
 }

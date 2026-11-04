@@ -9,7 +9,6 @@ import { useTasks } from '@/hooks/useTasks';
 import { storage } from '@/lib/firebase';
 import type { Attachment } from '@/lib/types';
 import { haptic, Icon, radius, Text, useTheme, useToast } from '@/ui';
-import { XIcon } from './XIcon';
 
 const MAX = 3;
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -65,7 +64,7 @@ export function Attachments({ taskId, items }: { taskId: string; items: Attachme
             <Image source={{ uri: a.thumbnailUrl ?? a.url }} style={{ width: 92, height: 92 }} contentFit="cover" accessibilityLabel={a.name} />
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 6 }}>
-              <XIcon name="note" size={24} color={colors.textMuted} />
+              <Icon name="note" size={24} color={colors.textMuted} />
               <Text variant="caption" tone="muted" numberOfLines={2} align="center">{a.name}</Text>
             </View>
           )}
@@ -88,7 +87,7 @@ export function Attachments({ taskId, items }: { taskId: string; items: Attachme
           onPress={pick}
           style={{ width: 92, height: 92, borderRadius: radius.md, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 4, opacity: busy ? 0.5 : 1 }}
         >
-          <XIcon name="image" size={24} color={colors.textMuted} />
+          <Icon name="image" size={24} color={colors.textMuted} />
           <Text variant="caption" tone="muted">{busy ? 'Uploading' : 'Add photo'}</Text>
         </Pressable>
       ) : null}

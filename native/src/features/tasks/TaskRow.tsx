@@ -6,7 +6,6 @@ import type { Task } from '@/lib/types';
 import { AnimatedCheckbox, Icon, StrikeText, SwipeRow, Text, useReduceMotion, useTheme, radius } from '@/ui';
 import { daysRolled, fmtDayTime, fmtDay, fmtTime, parseScheduled, tagDisplay } from './helpers';
 import { VisIcon } from './VisibilityPicker';
-import { XIcon } from './XIcon';
 
 export interface TaskRowProps {
   task: Task;
@@ -68,7 +67,7 @@ function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDel
   if (task.dueDate) {
     pills.push(
       <MetaPill key="d" tone={overdue ? 'danger' : 'neutral'}>
-        <XIcon name="flag" size={12} color={overdue ? colors.danger : colors.textMuted} />
+        <Icon name="flag" size={12} color={overdue ? colors.danger : colors.textMuted} />
         <Text variant="caption" tone={overdue ? 'danger' : 'muted'} style={metaStyle}>{fmtDayTime(task.dueDate, today)}</Text>
       </MetaPill>,
     );
@@ -85,7 +84,7 @@ function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDel
   if (subs.length > 0) {
     pills.push(
       <MetaPill key="sub">
-        <XIcon name="list" size={12} color={colors.textMuted} />
+        <Icon name="list" size={12} color={colors.textMuted} />
         <Text variant="caption" tone="muted" style={metaStyle}>{subsDone}/{subs.length}</Text>
       </MetaPill>,
     );
@@ -101,12 +100,12 @@ function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDel
   if ((task.attachments?.length ?? 0) > 0) {
     pills.push(
       <MetaPill key="a">
-        <XIcon name="paperclip" size={12} color={colors.textMuted} />
+        <Icon name="paperclip" size={12} color={colors.textMuted} />
         <Text variant="caption" tone="muted" style={metaStyle}>{task.attachments!.length}</Text>
       </MetaPill>,
     );
   }
-  if (task.notes) pills.push(<MetaPill key="n"><XIcon name="note" size={12} color={colors.textMuted} /></MetaPill>);
+  if (task.notes) pills.push(<MetaPill key="n"><Icon name="note" size={12} color={colors.textMuted} /></MetaPill>);
   for (const t of tags) {
     pills.push(
       <MetaPill key={`g${t}`}>
@@ -146,7 +145,7 @@ function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDel
             {pills.length > 0 ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{pills}</View> : null}
           </View>
           <View style={{ alignItems: 'center', gap: 6, paddingTop: 2 }}>
-            {task.committed && !done ? <XIcon name="sparkle" size={16} color={colors.sunEdge} /> : null}
+            {task.committed && !done ? <Icon name="sparkle" size={16} color={colors.sunEdge} /> : null}
             {vis !== 'everyone' ? <VisIcon v={vis} size={15} color={colors.textFaint} /> : null}
           </View>
         </Pressable>

@@ -5,10 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import type { TaskVisibility } from '@/lib/types';
 import { Avatar, Chip, haptic, Icon, radius, Text, useTheme, type IconName } from '@/ui';
-import { XIcon, type XIconName } from './XIcon';
 
-export const VIS_META: Record<TaskVisibility, { label: string; short: string; hint: string; icon: IconName | XIconName; x?: boolean }> = {
-  everyone: { label: 'All friends', short: 'Friends', hint: 'Every friend can see it.', icon: 'globe', x: true },
+export const VIS_META: Record<TaskVisibility, { label: string; short: string; hint: string; icon: IconName}> = {
+  everyone: { label: 'All friends', short: 'Friends', hint: 'Every friend can see it.', icon: 'globe' },
   only: { label: 'Only some friends', short: 'Some', hint: 'Pick who sees it.', icon: 'users' },
   except: { label: 'All except some', short: 'Most', hint: 'Hide it from a few.', icon: 'eye' },
   private: { label: 'Just me', short: 'Private', hint: 'Nobody else sees it.', icon: 'lock' },
@@ -16,7 +15,7 @@ export const VIS_META: Record<TaskVisibility, { label: string; short: string; hi
 
 export function VisIcon({ v, size = 16, color }: { v: TaskVisibility; size?: number; color: string }) {
   const m = VIS_META[v];
-  return m.x ? <XIcon name={m.icon as XIconName} size={size} color={color} /> : <Icon name={m.icon as IconName} size={size} color={color} />;
+  return <Icon name={m.icon} size={size} color={color} />;
 }
 
 export interface VisValue {

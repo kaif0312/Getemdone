@@ -234,7 +234,7 @@ export default function OwnTaskDetail({ task }: { task: Task }) {
               </FieldRow>
             ) : null}
             <FieldRow
-              icon="flag" x label="Deadline" open={field === 'deadline'} onToggle={() => toggle('deadline')}
+              icon="flag" label="Deadline" open={field === 'deadline'} onToggle={() => toggle('deadline')}
               value={task.dueDate ? fmtDayTime(task.dueDate, today) : 'None'}
               valueTone={task.dueDate ? (task.dueDate < Date.now() && !task.completed ? 'danger' : 'primary') : 'muted'}
             >
@@ -278,7 +278,7 @@ export default function OwnTaskDetail({ task }: { task: Task }) {
               <TagPickerPanel value={tags} onChange={(next) => void t.setTags(task.id, next).catch((e) => fail(e instanceof Error ? e.message : undefined))} />
             </FieldRow>
             <FieldRow
-              icon={VIS_META[vis.visibility].icon} x={!!VIS_META[vis.visibility].x} label="Who sees it" open={field === 'vis'} last
+              icon={VIS_META[vis.visibility].icon} label="Who sees it" open={field === 'vis'} last
               onToggle={() => { setVisDraft(vis); toggle('vis'); }}
               value={VIS_META[vis.visibility].label + (vis.list.length && vis.visibility !== 'everyone' && vis.visibility !== 'private' ? ` (${vis.list.length})` : '')}
             >

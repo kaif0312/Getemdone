@@ -4,9 +4,8 @@ import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { haptic, Icon, radius, SheetScaffold, Text, useTheme, type IconName } from '@/ui';
 import { openCoachWhatsApp } from './copy';
-import { XIcon, type XIconName } from './XIcon';
 
-function Row({ icon, x, label, hint, onPress }: { icon: IconName | XIconName; x?: boolean; label: string; hint: string; onPress: () => void }) {
+function Row({ icon, label, hint, onPress }: { icon: IconName; label: string; hint: string; onPress: () => void }) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -18,7 +17,7 @@ function Row({ icon, x, label, hint, onPress }: { icon: IconName | XIconName; x?
       style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 64, padding: 12, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border }}
     >
       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-        {x ? <XIcon name={icon as XIconName} size={20} color={colors.primary} /> : <Icon name={icon as IconName} size={20} color={colors.primary} />}
+        <Icon name={icon} size={20} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
         <Text variant="bodyStrong">{label}</Text>
@@ -34,9 +33,9 @@ export default function MoreSheet() {
   return (
     <SheetScaffold title="More">
       <View style={{ gap: 10 }}>
-        <Row icon="moon" x label="Evening recap" hint="What got done. Roll the rest." onPress={() => router.replace('/today/recap')} />
+        <Row icon="moon" label="Evening recap" hint="What got done. Roll the rest." onPress={() => router.replace('/today/recap')} />
         <Row icon="trash" label="Recycle bin" hint="Restore deleted tasks. Kept 30 days." onPress={() => router.replace('/today/bin')} />
-        <Row icon="whatsapp" x label="Tell the coach on WhatsApp" hint="Fastest way to add tasks." onPress={openCoachWhatsApp} />
+        <Row icon="whatsapp" label="Tell the coach on WhatsApp" hint="Fastest way to add tasks." onPress={openCoachWhatsApp} />
       </View>
     </SheetScaffold>
   );

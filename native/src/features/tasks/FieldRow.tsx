@@ -3,11 +3,10 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { haptic, Icon, radius, Text, useReduceMotion, useTheme, type IconName } from '@/ui';
-import { XIcon, type XIconName } from './XIcon';
 
-export function FieldRow({ icon, x, label, value, valueTone, open, onToggle, children, last }: {
-  icon: IconName | XIconName;
-  x?: boolean;
+export function FieldRow({ icon, label, value, valueTone, open, onToggle, children, last }: {
+  icon: IconName;
+  
   label: string;
   value: string;
   valueTone?: 'muted' | 'primary' | 'danger';
@@ -31,7 +30,7 @@ export function FieldRow({ icon, x, label, value, valueTone, open, onToggle, chi
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14 }}
       >
         <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-          {x ? <XIcon name={icon as XIconName} size={17} color={colors.textMuted} /> : <Icon name={icon as IconName} size={17} color={colors.textMuted} />}
+          <Icon name={icon} size={17} color={colors.textMuted} />
         </View>
         <Text variant="bodyStrong" style={{ flex: 1 }}>{label}</Text>
         <Text variant="body" tone={valueTone ?? 'muted'} numberOfLines={1} style={{ maxWidth: '55%', textAlign: 'right' }}>{value}</Text>

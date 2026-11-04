@@ -87,7 +87,12 @@ admin dashboard (stays web).
   endpoints, Expo push in reminders + the `sendPushNotification` function). Neither branch is pushed.
 - EAS project `@kaifuten/nudge` (`1e20a99c-af53-4651-bc2c-4bc8701e1ac9`). Firebase Android app `com.iskaria.nudge`
   created via the Management API (service account), `native/google-services.json` committed (public client config).
-- First Android production build started 2026-11-05 (EAS, AAB).
+- 2026-11-05 done: `firestore.rules` from main deployed via the Rules API (previous ruleset `1058771b…` kept for
+  rollback); PR #7 (`app-api`) merged + live; Play app "Nudge" created (app 4973616446906867575), internal testing
+  release `2 (1.0.0)` published to tester list "Nudge friends"; join link
+  `https://play.google.com/apps/internaltest/4700437539470821663`.
+- Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
+  FCM V1 key on EAS, the iOS build + submit, friends' emails on the tester list. The list below is the original.
 - **Blocking a working beta (owner):** deploy `firestore.rules` (live rules are from 2026-02: no presence/fitness/
   focusSessions/friendInvites) and `functions` (`firebase deploy --only firestore:rules,functions:sendPushNotification`);
   merge `app-api` (Vercel deploy) so WhatsApp sign-in and friend invites work; upload the FCM V1 key to EAS

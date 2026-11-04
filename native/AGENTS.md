@@ -82,3 +82,13 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - Whitelist: auto-add for new email users is mirrored; `isWhitelisted` is exposed but the app does NOT gate on it (WhatsApp-only accounts have no email).
 - `users.timezone` is not auto-written; `useToday()` falls back to the device zone.
 - Web (`expo start --web`) is for screenshots only; Firebase persistence and push differ there.
+
+## Today / tasks (wave 2, `src/features/tasks/`, `src/features/inbox/`)
+- Routes (thin): `(tabs)/today`, `add`, `task/[id]`, `inbox`, `today/{more,focus,recap,bin}` (sheets, registered in `_layout.tsx`). Me tab can link the bin with `router.push('/today/bin')`.
+- `useTodayTasks()` = tasks through `shouldShowInTodayView` + `buildSections` (helpers.ts). A task is in ONE section: Focus > Committed > Overdue (deadline passed) > Rolled over (created earlier) > Today > Coming up (scheduled later) > Done. "Left" ignores Coming up.
+- Time on a task = `deferredTo` `YYYY-MM-DDTHH:mm` (PWA format) + `remindAt` (cron/bot fires it). Add with a time sets both; detail "Scheduled" save does the same via `deferTask` + `setRemindAt`. `deferTask` clears reminders (server rule), so set the reminder after.
+- Tags: PWA stores icon ids (`briefcase`, `home`, ... or `id:tint`, legacy raw emoji). Native shows them as emoji (`tagDisplay`) and writes icon ids (`TAG_CHOICES`).
+- Focus ritual: card before 14:00 when `profile.lastFocusSessionDate !== today`; `commitFocus` (max 3 in the UI). If the session write is denied (rules not deployed for `focusSessions`) it falls back to `setFocusDate` and remembers the skip in AsyncStorage (`nudge.focusSkipped`). Evening recap: banner after 18:00, always in the header menu (`/today/more`).
+- Extra icons live in `features/tasks/XIcon.tsx` (fold into `ui/Icon.tsx` at merge). Pickers (calendar, time, tags, visibility, recurrence) are inline panels, not nested modals.
+- `/task/<id>` opens your task (editable) or a friend's (`useFriends().friendTasks`, read-only + react/comment). Attachments: expo-image-picker -> `attachments/<taskId>/<id>` in Storage (no thumbnail, no compression beyond picker quality 0.7).
+- Not done: drag-reorder (up/down arrows on subtasks instead), document attachments, Google Calendar events strip.

@@ -43,6 +43,10 @@ function Navigator() {
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
+          <Stack.Screen name="today/more" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="today/focus" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
+          <Stack.Screen name="today/recap" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
+          <Stack.Screen name="today/bin" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />

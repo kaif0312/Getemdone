@@ -22,6 +22,7 @@ export const HELP = [
   '• *week* - fitness this week, *friends* - what friends did',
   '• "nudge Ali" - cheer a friend on',
   '• Voice notes and screenshots work too',
+  '• Send a document or video and I file it in Drive (photo? caption it "save passport")',
   '• *stop* pauses my messages, *start* resumes',
 ].join('\n');
 

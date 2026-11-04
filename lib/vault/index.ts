@@ -5,7 +5,8 @@ import type { InboundMessage } from '@/lib/wa/types';
 import { uploadLink } from './link';
 import { claimMessage } from '@/lib/wa/sessions';
 import { driveConfigured, ensurePath, uploadFile } from './drive';
-import { LINK_LABEL, handleVault, vaultUsers, type VaultDeps } from './vault';
+import { getLink } from '@/lib/wa/links';
+import { LINK_LABEL, handleVault, registeredFolder, registeredVaultMsg, vaultUsers, type VaultDeps } from './vault';
 
 export const defaultVaultDeps: VaultDeps = {
   fetchMedia: send.fetchMedia,
@@ -24,10 +25,21 @@ export const defaultVaultDeps: VaultDeps = {
   sendLink: (to, body, url) => send.sendUrlButton(to, body, LINK_LABEL, url),
 };
 
-/** Route hook: true when the sender is on the vault allowlist and the message was handled. */
+/**
+ * Route hook: true when the vault handled the message (the caller must then not run the to-do bot).
+ * 1. Allowlisted number (NUDGE_VAULT_USERS): the whole chat goes to the vault, no Nudge account needed.
+ * 2. Registered (linked) user: only their files (see registeredVaultMsg). NUDGE_VAULT_REGISTERED=0 switches this off.
+ */
 export async function tryVault(msg: InboundMessage): Promise<boolean> {
-  if (!vaultUsers()[msg.from]) return false;
-  return handleVault(defaultVaultDeps, msg);
+  if (vaultUsers()[msg.from]) return handleVault(defaultVaultDeps, msg);
+  if (process.env.NUDGE_VAULT_REGISTERED === '0') return false;
+  const m = registeredVaultMsg(msg); // no IO: texts and voice notes cost nothing here
+  if (!m) return false;
+  const link = await getLink(msg.from);
+  if (!link) return false;
+  const snap = await adminDb().doc(`users/${link.uid}`).get();
+  const folder = registeredFolder((snap.data() as { displayName?: string } | undefined)?.displayName, msg.from);
+  return handleVault(defaultVaultDeps, m, { [msg.from]: folder });
 }
 
 /** Meta refused a file over 100 MB from this sender (status error 131052): answer with the upload link, once per event. */

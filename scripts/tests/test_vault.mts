@@ -2,7 +2,7 @@
 //   npx tsx scripts/tests/test_vault.mts
 import assert from 'node:assert/strict';
 import { parseForwarded, tooBigSenders } from '../../lib/wa/inbound';
-import { cleanName, fileNameFor, handleVault, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
+import { cleanName, fileNameFor, handleVault, registeredFolder, registeredVaultMsg, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
 import { signUploadToken, verifyUploadToken } from '../../lib/vault/link';
 import type { InboundMessage } from '../../lib/wa/types';
 
@@ -156,6 +156,35 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
     { id: 'wamid.S4', status: 'failed', errors: [{ code: 131052 }] },
   ] } });
   assert.deepEqual(tooBigSenders(statuses), [{ wa: '916238952660', key: '916238952660:wamid.S1' }]);
+}
+
+// ---- registered users (linked Nudge accounts): the vault takes only files, the to-do bot keeps everything else
+{
+  const doc: InboundMessage = { id: 'r1', from: '919800000001', timestamp: ts, type: 'document', media: { id: 'm', mimeType: 'application/pdf', filename: 'visa.pdf' } };
+  const vid: InboundMessage = { ...doc, id: 'r2', type: 'video', media: { id: 'm', mimeType: 'video/mp4' } };
+  const img: InboundMessage = { ...doc, id: 'r3', type: 'image', media: { id: 'm', mimeType: 'image/jpeg' } };
+  assert.equal(registeredVaultMsg(doc), doc); // documents always
+  assert.equal(registeredVaultMsg(vid), vid); // videos always
+  assert.equal(registeredVaultMsg(img), null); // a plain photo is a screenshot for the to-do bot
+  assert.equal(registeredVaultMsg({ ...img, text: 'what is on my list?' }), null);
+  assert.equal(registeredVaultMsg({ ...img, text: 'saved from the web' }), null); // "save" must be a whole word
+  assert.equal(registeredVaultMsg({ ...img, text: 'save passport' })?.text, 'passport'); // captioned photo: prefix stripped
+  assert.equal(registeredVaultMsg({ ...img, text: 'Save: Ahmed visa' })?.text, 'Ahmed visa');
+  assert.equal(registeredVaultMsg({ ...img, text: 'SAVE' })?.text, undefined); // bare "save": no caption left
+  assert.equal(registeredVaultMsg({ id: 't', from: '919800000001', timestamp: ts, type: 'text', text: 'save the world' }), null); // text never
+  assert.equal(registeredVaultMsg({ id: 'a', from: '919800000001', timestamp: ts, type: 'audio' }), null); // voice notes never
+  const big: InboundMessage = { id: 'e', from: '919800000001', timestamp: ts, type: 'other', errorCode: 131052 };
+  assert.equal(registeredVaultMsg(big), big); // over 100 MB: the upload-link reply
+  assert.equal(registeredFolder('Sam Lee', '919800001617'), 'Sam Lee 1617');
+  assert.equal(registeredFolder('  ../Sam/ ', '919800001617'), 'Sam 1617');
+  assert.equal(registeredFolder(undefined, '919800001617'), 'User 1617');
+  // end to end through handleVault: lands in <root>/<name> <last4>/<yyyy-mm>/
+  const { d, log } = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg-bytes'), mimeType: 'image/jpeg' }) });
+  const m = registeredVaultMsg({ ...img, text: 'save passport' })!;
+  assert.equal(await handleVault(d, m, { '919800000001': registeredFolder('Sam', '919800000001') }), true);
+  assert.deepEqual(log.saved[0].path, ['Nudge Vault', 'Sam 0001', '2026-11']);
+  assert.equal(log.saved[0].name, '2026-11-05_0105_passport.jpg');
+  assert.deepEqual(log.reactions, ['✅']);
 }
 
 console.log('test_vault: ok');

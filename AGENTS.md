@@ -26,6 +26,12 @@ first.
   `app/api/wa/inbound` calls `tryVault(msg)` right after dedupe: an allowlisted sender never reaches the todo bot and
   needs no Nudge account. Everyone else is unchanged (their documents/videos get the "I can read text, voice notes and
   photos" reply).
+- **Registered users (2026-11-04):** anyone with a linked Nudge account also gets the vault, but only for FILES: documents and videos
+  always; a photo only when its caption starts with `save` (`save passport`), because plain photos are screenshots for the to-do bot.
+  Text and voice notes never reach the vault. Folder `<root>/<display name> <last 4 digits>/<yyyy-mm>/`. Logic: `registeredVaultMsg` /
+  `registeredFolder` in `vault.ts` (pure, tested), wiring in `index.ts` `tryVault` (allowlist first, then linked users; one Firestore
+  read only for a file message). Kill switch: env `NUDGE_VAULT_REGISTERED=0`. Everyone's files share the owner's Drive quota and the
+  owner can open all of them (privacy and storage are the owner's call).
 - Allowlist: env `NUDGE_VAULT_USERS` = `971501234567:Fairooz,...` (wa id digits : name). To give someone the capability, add
   them there and redeploy. `NUDGE_VAULT_ROOT` (default `Nudge Vault`) and `NUDGE_VAULT_TZ` (default `Asia/Dubai`, used in
   file names) are optional.

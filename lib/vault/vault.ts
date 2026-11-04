@@ -55,6 +55,28 @@ export function vaultUsers(env: string | undefined = process.env.NUDGE_VAULT_USE
   return out;
 }
 
+// ---- Registered users (anyone with a linked Nudge account), 2026-11-04.
+// The allowlist above hands a person's WHOLE chat to the vault. A registered user also uses the to-do bot, so the vault
+// only takes their files: documents and videos always, a photo only when its caption starts with "save" (plain photos
+// stay screenshots for the bot). Text and voice notes never reach the vault.
+export const SAVE_PREFIX = /^\s*save\b[\s:,-]*/i;
+
+/** The message the vault should handle for a registered user, or null to leave it to the to-do bot. Pure, no IO. */
+export function registeredVaultMsg(msg: InboundMessage): InboundMessage | null {
+  if (msg.errorCode === 131052) return msg; // media over WhatsApp's 100 MB limit: reply with the upload link
+  if (!msg.media) return null;
+  if (msg.type === 'document' || msg.type === 'video') return msg;
+  if (msg.type === 'image' && msg.text && SAVE_PREFIX.test(msg.text)) {
+    return { ...msg, text: msg.text.replace(SAVE_PREFIX, '').trim() || undefined };
+  }
+  return null;
+}
+
+/** Drive folder for a registered user: "<display name> <last 4 digits>" so two Sams never share a folder. */
+export function registeredFolder(displayName: string | undefined, waId: string): string {
+  return `${cleanName(displayName ?? '', 40) || 'User'} ${waId.slice(-4)}`;
+}
+
 const MIME_EXT: Record<string, string> = {
   'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic',
   'video/mp4': 'mp4', 'video/3gpp': '3gp', 'video/quicktime': 'mov', 'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',

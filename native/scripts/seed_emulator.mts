@@ -36,7 +36,7 @@ if (!(await up('http://127.0.0.1:8080')) || !(await up('http://127.0.0.1:9099'))
 }
 // Start from a clean slate.
 await fetch(`http://127.0.0.1:8080/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' });
-await fetch(`http://127.0.0.1:9099/emulator.googleapis.com/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
+await fetch(`http://127.0.0.1:9099/emulator/v1/projects/${PROJECT}/accounts`, { method: 'DELETE' });
 
 interface Person { key: string; name: string; email: string; code: string; uid: string; db: ReturnType<typeof getFirestore> }
 
@@ -92,6 +92,13 @@ await updateDoc(doc(me.db, 'users', me.uid), {
   friendGroups: [{ id: 'g_1', name: 'Gym crew', memberIds: [aisha.uid, dev.uid] }],
   lastFocusSessionDate: addDays(today, -1),
 });
+for (const [p, streak] of [[aisha, 6], [dev, 3], [rahul, 0]] as const) {
+  const hist: Record<string, number> = {};
+  for (let i = 0; i < streak; i++) hist[addDays(today, -i)] = 1 + (i % 3);
+  await updateDoc(doc(p.db, 'users', p.uid), {
+    streakData: { currentStreak: streak, longestStreak: Math.max(streak, 8), lastCompletionDate: streak ? today : '', completionHistory: hist, missedCommitments: {} },
+  });
+}
 await fetch(`http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents/friendInvites`, {
   method: 'POST',
   headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
@@ -114,8 +121,8 @@ async function task(p: Person, t: T): Promise<string> {
 }
 
 // ---- me: today ----
-const focusA = await task(me, { text: 'Send the invoice to Rahul', focusDate: today, committed: true, tags: ['briefcase'] });
-const focusB = await task(me, { text: 'Book dentist for Friday', focusDate: today });
+const focusA = await task(me, { text: 'Send the invoice to Rahul', committed: true, tags: ['briefcase'] });
+const focusB = await task(me, { text: 'Book dentist for Friday' });
 await task(me, { text: 'Call mum', deferredTo: `${today}T18:45`, remindAt: at(0, 18, 15), remindFor: at(0, 18, 45), tags: ['phone'] });
 await task(me, { text: 'Renew the car insurance', dueDate: at(0, 1, 0), tags: ['car'] }); // deadline already passed: overdue
 await task(me, { text: 'Reply to the landlord', createdAt: now - 2 * DAY });

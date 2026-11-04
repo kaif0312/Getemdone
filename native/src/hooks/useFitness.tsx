@@ -61,6 +61,12 @@ function useFitnessState() {
   const [days, setDays] = useState<FitnessDay[]>([]);
   const [goals, setGoalsState] = useState<FitnessGoals | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+  const retry = useCallback(() => {
+    setLoading(true);
+    setReloadTick((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!uid) {
@@ -73,14 +79,16 @@ function useFitnessState() {
       query(collection(db, 'fitness', uid, 'days'), where(documentId(), '>=', since), orderBy(documentId())),
       (snap) => {
         setDays(snap.docs.map((d) => ({ ...(d.data() as FitnessDay), date: d.id })));
+        setError(null);
         setLoading(false);
       },
       (e) => {
         console.warn('[useFitness] days listener', e);
+        setError(e);
         setLoading(false);
       },
     );
-  }, [uid, zone]);
+  }, [uid, zone, reloadTick]);
 
   useEffect(() => {
     if (!uid) {
@@ -194,8 +202,8 @@ function useFitnessState() {
   const workoutDates = useMemo(() => days.filter((d) => d.workouts?.length).map((d) => d.date), [days]);
 
   return useMemo(
-    () => ({ days, dayMap, goals, week, workoutDates, loading, logWorkout, logMetric, undoLastWorkout, setGoals }),
-    [days, dayMap, goals, week, workoutDates, loading, logWorkout, logMetric, undoLastWorkout, setGoals],
+    () => ({ days, dayMap, goals, week, workoutDates, loading, error, retry, logWorkout, logMetric, undoLastWorkout, setGoals }),
+    [days, dayMap, goals, week, workoutDates, loading, error, retry, logWorkout, logMetric, undoLastWorkout, setGoals],
   );
 }
 

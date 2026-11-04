@@ -7,7 +7,7 @@
  *   const { streakData, current, longest, focusCurrent, fitnessStreak, doneToday, atRisk, loading } = useStreak();
  * One owner (context) mounted in app/_layout.tsx, so there is exactly one writer.
  */
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { computeStreak, type StreakResult, type StreakSession, type StreakTask } from '@/lib/streak';
@@ -33,11 +33,13 @@ function sameStreak(a: StreakResult | undefined, b: StreakResult): boolean {
 
 function useStreakState() {
   const { uid, profile } = useAuth();
-  const { tasks, loading: tasksLoading } = useTasks();
-  const { workoutDates, loading: fitLoading } = useFitness();
+  const { tasks, loading: tasksLoading, error: tasksError, retry: retryTasks } = useTasks();
+  const { workoutDates, loading: fitLoading, error: fitError, retry: retryFit } = useFitness();
   const { today } = useToday();
   const [sessions, setSessions] = useState<StreakSession[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [sessionsError, setSessionsError] = useState<Error | null>(null);
+  const [sessionsTick, setSessionsTick] = useState(0);
   const stored = profile?.streakData as StreakResult | undefined;
   const storedRef = useRef(stored);
   storedRef.current = stored;
@@ -53,11 +55,22 @@ function useStreakState() {
       collection(db, 'focusSessions', uid, 'sessions'),
       (snap) => {
         setSessions(snap.docs.map((d) => d.data() as FocusSession));
+        setSessionsError(null);
         setSessionsLoaded(true);
       },
-      () => setSessionsLoaded(true),
+      (e) => {
+        setSessionsError(e);
+        setSessionsLoaded(true);
+      },
     );
-  }, [uid]);
+  }, [uid, sessionsTick]);
+  // Any source failing means the numbers are incomplete: show the error, and never persist a partial streak.
+  const error = tasksError ?? fitError ?? sessionsError;
+  const retry = useCallback(() => {
+    retryTasks();
+    retryFit();
+    setSessionsTick((n) => n + 1);
+  }, [retryTasks, retryFit]);
 
   const ready = !!uid && !tasksLoading && !fitLoading && sessionsLoaded;
 
@@ -72,14 +85,14 @@ function useStreakState() {
 
   // Persist (debounced). Empty-fetch guard like the PWA: no tasks and no workouts = leave stored data alone.
   useEffect(() => {
-    if (!uid || !computed) return;
+    if (!uid || !computed || error) return;
     if (tasks.length === 0 && workoutDates.length === 0) return;
     if (sameStreak(storedRef.current, computed)) return;
     const t = setTimeout(() => {
       setDoc(doc(db, 'users', uid), { streakData: computed }, { merge: true }).catch((e) => console.warn('[useStreak] persist failed', e));
     }, 1500);
     return () => clearTimeout(t);
-  }, [uid, computed, tasks.length, workoutDates.length]);
+  }, [uid, computed, error, tasks.length, workoutDates.length]);
 
   const streakData = computed ?? stored ?? EMPTY;
   const doneToday = (streakData.completionHistory?.[today] ?? 0) > 0;
@@ -95,9 +108,12 @@ function useStreakState() {
       doneToday,
       /** Streak is alive but nothing is done yet today: the coach should nag. */
       atRisk: streakData.currentStreak > 0 && !doneToday,
-      loading: !ready && !stored,
+      loading: !ready && !stored && !error,
+      error,
+      retry,
+      hasStored: !!stored,
     }),
-    [streakData, doneToday, ready, stored],
+    [streakData, doneToday, ready, stored, error, retry],
   );
 }
 

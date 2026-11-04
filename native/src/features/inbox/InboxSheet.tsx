@@ -18,6 +18,14 @@ const TYPE_META: Record<InAppNotification['type'], { icon: IconName; tone: 'prim
   announcement: { icon: 'bell', tone: 'primary' },
 };
 
+/** Server/PWA notifications often repeat the title as the message ("X nudged you..." twice): show it once. */
+function sameLine(title: string, message: string): boolean {
+  const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const a = norm(title);
+  const b = norm(message);
+  return !b || a === b || a.endsWith(b) || b.endsWith(a);
+}
+
 function Row({ n, onOpen, onRemove }: { n: InAppNotification; onOpen: () => void; onRemove: () => void }) {
   const { colors } = useTheme();
   const meta = TYPE_META[n.type] ?? TYPE_META.announcement;
@@ -51,7 +59,7 @@ function Row({ n, onOpen, onRemove }: { n: InAppNotification; onOpen: () => void
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="bodyStrong" numberOfLines={2}>{n.title}</Text>
-          <Text variant="caption" tone="muted" numberOfLines={2}>{n.message}</Text>
+          {sameLine(n.title, n.message) ? null : <Text variant="caption" tone="muted" numberOfLines={2}>{n.message}</Text>}
           {detail ? <Text variant="caption" tone="faint" numberOfLines={1}>{detail}</Text> : null}
         </View>
         <Text variant="caption" tone="faint">{fmtAgo(n.createdAt)}</Text>

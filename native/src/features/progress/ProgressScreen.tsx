@@ -7,7 +7,7 @@ import { useStreak } from '@/hooks/useStreak';
 import { useTasks } from '@/hooks/useTasks';
 import { useToday } from '@/hooks/useToday';
 import { localDate } from '@/lib/dates';
-import { Header, Screen, Skeleton, Text } from '@/ui';
+import { ErrorState, Header, Screen, Skeleton, Text } from '@/ui';
 import { FitnessSection } from '@/features/fitness/FitnessSection';
 import { HeatmapCalendar } from './HeatmapCalendar';
 import { StreakHero } from './StreakHero';
@@ -49,6 +49,8 @@ export function ProgressScreen() {
     <Screen header={<Header title="Progress" subtitle="Numbers do not lie." unread={unread} onBellPress={() => router.push('/inbox')} />} gap={18}>
       {streak.loading ? (
         <Loading />
+      ) : streak.error && !streak.hasStored ? (
+        <ErrorState title="Progress did not load." onRetry={streak.retry} />
       ) : (
         <>
           <StreakHero

@@ -185,7 +185,8 @@ export default function TodayScreen() {
   }
 
   // ---- ritual / recap prompts ---------------------------------------------------------------------------------------
-  const ritualDone = profile?.lastFocusSessionDate === today || skippedLocal;
+  // Done = a session was written, or skipped on this phone, or Focus tasks already exist for today (set by the fallback write or the bot).
+  const ritualDone = profile?.lastFocusSessionDate === today || skippedLocal || m.visible.some((t) => t.focusDate === today);
   const showRitual = !ritualDone && m.hour < 14 && m.openToday.length > 0;
   const showRecap = m.hour >= 18 && total > 0;
   const focusTasks = m.sections.find((s) => s.key === 'focus')?.tasks ?? [];

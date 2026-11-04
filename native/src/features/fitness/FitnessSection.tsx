@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFitness } from '@/hooks/useFitness';
 import { useToday } from '@/hooks/useToday';
-import { Button, Card, CoachSticker, Icon, ProgressRing, Text, useToast, useTheme } from '@/ui';
+import { Button, Card, CoachSticker, ErrorState, Icon, ProgressRing, Text, useToast, useTheme } from '@/ui';
 import { relativeDay, WEEK_LETTERS } from '@/features/progress/dates';
 import { openCoachChat } from '@/features/settings/links';
 import { Sparkline } from './charts';
@@ -167,7 +167,7 @@ function CoachNudge({ title, body, prompt }: { title: string; body: string; prom
 /** Fitness block of the Progress tab: week ring, recent workouts, 4 metric cards, WhatsApp nudge. */
 export function FitnessSection() {
   const router = useRouter();
-  const { days, workoutDates, loading } = useFitness();
+  const { days, workoutDates, loading, error, retry } = useFitness();
   const anything = days.some((d) => d.workouts?.length || d.steps || d.weightKg || d.sleepH || d.waterL);
 
   return (
@@ -176,7 +176,11 @@ export function FitnessSection() {
         <Text variant="heading">Fitness</Text>
         <Button label="Log workout" icon="plus" size="sm" variant="accent" onPress={() => router.push('/progress/log-workout')} />
       </View>
-      {!loading && !anything ? (
+      {error ? (
+        <Card padding={8}>
+          <ErrorState compact title="Fitness did not load." onRetry={retry} />
+        </Card>
+      ) : !loading && !anything ? (
         <Card padding={8}>
           <View style={{ alignItems: 'center', paddingVertical: 8, gap: 6 }}>
             <CoachSticker pose="flex" size={128} animated />

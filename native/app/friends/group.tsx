@@ -25,7 +25,8 @@ export default function GroupEditor() {
     haptic.select();
     setMembers((m) => {
       const n = new Set(m);
-      n.has(fid) ? n.delete(fid) : n.add(fid);
+      if (n.has(fid)) n.delete(fid);
+      else n.add(fid);
       return n;
     });
   };

@@ -1,13 +1,15 @@
 # Nudge native app (`native/`): agent notes
 
 Expo SDK 57 / React Native 0.86 / expo-router 57 / React 19.2, TypeScript strict. Scope + spec: `../docs/NATIVE_APP_PLAN.md`.
-Foundation (wave 1) is done: theme, UI kit, data hooks, crypto, auth, shell. Wave 2 builds the feature screens on top.
+Waves 1-3 are done: theme, UI kit, data hooks, crypto, auth, shell, the Today / Friends / Progress / Me features, and a polish + review pass (2026-11-05). See "Status / known gaps" at the end.
 
 ## Commands (run in `native/`)
 - `npm install` (`.npmrc` has `legacy-peer-deps=true`) · `npx expo start` · `npx expo start --web` (browser check, 390x844).
 - `npx tsc --noEmit` (must be clean) · `npm run test:crypto` (web/native crypto parity, 138 checks, must pass) ·
   `npx expo export --platform ios|android` (bundle check; `dist/` is git-ignored).
-- UI showcase: **`/dev/kit`** (dev only; `?scheme=light|dark`). Screenshots in `docs/screens/`.
+- UI showcase: **`/dev/kit`** (dev only; `?scheme=light|dark`). Final screenshots: `docs/screens/final-<screen>-<light|dark>.png` (390x844, emulator seed data).
+- `npm run seed:emulator` (`scripts/seed_emulator.mts`): fills the LOCAL emulators with 5 accounts (sign in `kaif@nudge.test` / `nudge-test-1`; friends aisha, rahul, dev; pending request from meera), tasks of every kind, history, workouts, presence, notifications. Writes go through `firestore.rules` as each user, so a rejected seed write is a rejected production write. Refuses to run unless both emulators answer; wipes and reseeds on every run.
+- Web check recipe: `firebase emulators:start --only auth,firestore --project getemdone-87679` (repo root; `npx firebase-tools@13`), seed, then `EXPO_PUBLIC_EMULATOR=1 EXPO_PUBLIC_API_BASE=http://127.0.0.1:9 npx expo start --web --clear` with a private `TEMP`/`TMP`. **Do not set `CI=1`: it turns the Metro file watcher off and the browser keeps serving the first bundle** (cost an hour of looking at stale screens). Playwright: `page.emulateMedia({ colorScheme })` for dark, click tabs by role `tab`.
 - Do NOT run `eas init`/builds here yet (wave 3). EAS owner `kaifuten`, bundle/package `com.iskaria.nudge`, scheme `nudge`.
 - Env: `native/.env` + `eas.json` hold the PUBLIC Firebase config and `EXPO_PUBLIC_API_BASE` (https://getemdone.vercel.app).
   No server secret ever goes in this app.
@@ -15,11 +17,10 @@ Foundation (wave 1) is done: theme, UI kit, data hooks, crypto, auth, shell. Wav
 ## Folder map
 ```
 app/                      expo-router screens (routes only; keep thin, logic in src/features)
-  _layout.tsx             providers + Stack.Protected (signed in -> tabs/sheets, signed out -> (auth))
+  _layout.tsx             providers + Stack.Protected (signed in -> tabs/sheets, signed out -> (auth)); renders nothing while auth loads so cold-start deep links survive the guard
   (auth)/                 welcome, email, whatsapp                      [done]
-  (tabs)/                 today, friends, progress, me + custom TabBar  [PLACEHOLDERS: wave 2 replaces wholesale]
-  add.tsx                 Add sheet (formSheet)                         [placeholder, minimally wired]
-  task/[id].tsx friend/[uid].tsx inbox.tsx                              [placeholders]
+  (tabs)/                 today, friends, progress, me + custom TabBar
+  add.tsx task/[id].tsx friend/[uid].tsx inbox.tsx friends/* progress/* me/* today/*   sheets and pages (all done)
   dev/kit.tsx             UI showcase
 src/ui/                   the kit (import from '@/ui')
 src/hooks/                data hooks (below)
@@ -37,8 +38,8 @@ Components: `Text` (variants display/title/heading/subheading/body/bodyStrong/ca
 sm/md/lg, `icon`, `loading`, 3D press + haptic), `Card` (raised/tone/onPress), `Chip`, `Avatar` (photo or initials, `ring='focus'|'done'`, `streak`),
 `ProgressRing`, `StreakFlame`, `StreakBadge` (count-up), `useCountUp`, `AnimatedCheckbox` + `StrikeText`, `SwipeRow` (right=done, left=`actions`),
 `Skeleton/SkeletonRow/SkeletonList`, `EmptyState`, `ErrorState`, `CoachSticker` (poses: blowing cheer clipboard disappointed flex proud sleepy waiting),
-`ConfettiProvider/useConfetti().fire()`, `ToastProvider/useToast().show(msg,{kind})`, `Header` (title + bell badge), `TextField`, `Icon` (stroke set; add icons in `Icon.tsx`),
-`Screen` (page container with tab-bar/safe-area padding, pull to refresh), `TabBar`, `haptic.*`, `springs`, `useReduceMotion()`.
+`ConfettiProvider/useConfetti().fire()`, `ToastProvider/useToast().show(msg,{kind})`, `Header` (title + bell badge), `TextField`, `Icon` (the ONE stroke set, 24px grid; add icons in `Icon.tsx`, never a feature-local icon file),
+`Screen` (page container with tab-bar/safe-area padding, pull to refresh; every tab Header has a title + subtitle so titles sit at the same height), `TabBar`, `haptic.*`, `springs`, `useReduceMotion()`.
 Rules: 44pt targets; every screen has loading (Skeleton), empty (EmptyState with coach), error (ErrorState + retry), dark mode; respect Reduce Motion;
 check-off = `AnimatedCheckbox` + haptic; list cleared = `confetti.fire()` + coach `cheer`. Tell the coach's story with poses, not stock icons.
 Copy voice: short, direct, a little strict ("3 left. Move."). Never cutesy, never long. Every screen nudges back to WhatsApp for capture where it fits.
@@ -58,9 +59,9 @@ body wrapped in `<SheetScaffold title footer>`, opened with `router.push`, close
 - `useTaskSocial()` -> `{ addReaction, addComment, editComment, deleteComment, addCommentReaction, sendEncouragement, sendNudge(friendId)->false if already nudged today }` (own or friends' tasks)
 - `useNotificationsInbox()` -> `{ notifications, unread, loading, markRead, markAllRead, remove }`
 - `usePresence(friendIds)` -> `{[id]: FocusPresenceData|null}`; `useMyFocus()` -> `{ isActive, startedAt, elapsedSeconds, focusTaskCount, startFocus(n), endFocus }`; `formatElapsed`
-- `useStreak()` -> `{ streakData, current, longest, focusCurrent, focusLongest, fitnessStreak, doneToday, atRisk, loading }` (the single writer of `users.streakData`)
+- `useStreak()` -> `{ streakData, current, longest, focusCurrent, focusLongest, fitnessStreak, doneToday, atRisk, loading, error, retry, hasStored }` (the single writer of `users.streakData`; never writes while any source errored). `useFitness()` also exposes `error` + `retry`; Progress shows `ErrorState` for the page (no stored data) and for the fitness block
 - `useFitness()` -> `{ days, dayMap, goals, week, workoutDates, loading, logWorkout, logMetric, undoLastWorkout, setGoals }`; `useFriendFitness(friendId)`
-- `useToday()` -> `{ today, zone }` (rolls over at midnight / on foreground; zone = `users.timezone` else device)
+- `useToday()` -> `{ today, zone }` (rolls over at midnight / on foreground; zone = `users.timezone` else device). `AuthProvider` also calls `setActiveZone(profile.timezone)` (`lib/dates.ts`), so `getTodayString()` / `getDateString()` (taskFilter) and every write that stamps a date follow the same zone. Wall-clock times typed into a task (`deferredTo` `YYYY-MM-DDTHH:mm`, `remindAt`) are still the DEVICE clock, like the PWA.
 - `usePush()` -> `{ status, askAfterFirstAction(), enable() }`: call `askAfterFirstAction()` right after the user's first meaningful action (Add does), never on launch.
   `usePushSetup()` (root) refreshes the token and routes notification taps: `data.type` task|friend|inbox -> `/task/<taskId>` | `/friend/<uid>` | `/inbox`.
 - `useWhatsAppLogin()` powers `(auth)/whatsapp.tsx` (contract in `src/lib/loginApi.ts`).
@@ -72,7 +73,6 @@ Pure helpers copied from the PWA carry a header naming their source (`types.ts r
 Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPushTokens` is the one agreed addition (plan section 4).
 
 ## Stubbed / decisions for the owner
-- `app/(tabs)/*`, `add`, `task/[id]`, `friend/[uid]`, `inbox` are placeholders for wave 2.
 - WhatsApp login depends on the server agent's `/api/app/login/start|poll`; untested end to end until it ships.
 - Friend invites: `friendInvites` are server-written only (rules). `useFriends` can read them and `acceptInvite` does the mutual add, but the invite doc stays `pending`; needs a server endpoint to answer/send (consent flow).
 - Push: `getExpoPushTokenAsync` needs the EAS projectId (`eas init` adds `extra.eas.projectId`); until then status is `unavailable` and nothing is written. Server senders for `expoPushTokens` are the server agent's.
@@ -89,7 +89,7 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - Time on a task = `deferredTo` `YYYY-MM-DDTHH:mm` (PWA format) + `remindAt` (cron/bot fires it). Add with a time sets both; detail "Scheduled" save does the same via `deferTask` + `setRemindAt`. `deferTask` clears reminders (server rule), so set the reminder after.
 - Tags: PWA stores icon ids (`briefcase`, `home`, ... or `id:tint`, legacy raw emoji). Native shows them as emoji (`tagDisplay`) and writes icon ids (`TAG_CHOICES`).
 - Focus ritual: card before 14:00 when `profile.lastFocusSessionDate !== today`; `commitFocus` (max 3 in the UI). If the session write is denied (rules not deployed for `focusSessions`) it falls back to `setFocusDate` and remembers the skip in AsyncStorage (`nudge.focusSkipped`). Evening recap: banner after 18:00, always in the header menu (`/today/more`).
-- Extra icons live in `features/tasks/XIcon.tsx` (fold into `ui/Icon.tsx` at merge). Pickers (calendar, time, tags, visibility, recurrence) are inline panels, not nested modals.
+- Pickers (calendar, time, tags, visibility, recurrence) are inline panels, not nested modals.
 - `/task/<id>` opens your task (editable) or a friend's (`useFriends().friendTasks`, read-only + react/comment). Attachments: expo-image-picker -> `attachments/<taskId>/<id>` in Storage (no thumbnail, no compression beyond picker quality 0.7).
 - Not done: drag-reorder (up/down arrows on subtasks instead), document attachments, Google Calendar events strip.
 ## Friends (`app/(tabs)/friends.tsx`, `app/friend/[uid].tsx`, `app/friends/*`, `src/features/friends/`)
@@ -125,4 +125,15 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - Reminders: `users.reminderChannel` (auto/app/whatsapp/both) + `notificationSettings.deadlineMinutesBefore`. Notifications: all `notificationSettings` toggles + push state from `usePush`.
 - Privacy: Face ID toggle verifies with expo-local-authentication before writing `biometricEnabled`; default visibility (everyone/private); password reset email; "Delete my data" only sends "Delete my data" to the coach on WhatsApp (the in-bot command is on the unmerged `privacy` branch). Coach personality (`coaches` branch) is not shown: it lives on `waLinks.coach`, server-only.
 - Recycle bin link: `BIN_ROUTE` in `features/settings/links.ts` (`/today/bin`; change there if Today names it differently). Bug report = PWA `bugReports` doc shape (+ optional screenshot, admin notifications).
-- List kit: `features/settings/ui.tsx` (`Group`, `Row`, `SwitchRow`, `OptionRow`, animated `Switch`, `SettingsPage`, local icons `SIcon`).
+- List kit: `features/settings/ui.tsx` (`Group`, `Row`, `SwitchRow`, `OptionRow`, animated `Switch`, `SettingsPage`; icons come from `@/ui` Icon).
+
+## Status / known gaps (2026-11-05, after the polish + review pass)
+Verified: `tsc` clean, `npm run test:crypto` 138/138, `expo export` ios + android, the whole app on web against the emulators with the repo rules (seed script above): sign-in, Today (ritual writes `focusSessions/{date}` + `lastFocusSessionDate` exactly like the PWA, with `completedTaskIds: []`), Friends, Progress, Me, deep link `/friends/add?code=` prefills and looks up.
+- **Needs a device / build** (cannot be seen on web): push (permission, token write, tap routing; needs `eas init` projectId), Face ID lock, haptics, sheet detents and swipe gestures, Reduce Motion, camera/photo pickers, status bar, keyboard avoidance, OTA. Test these on the first TestFlight / Play internal build.
+- **Live Firebase rules are stale** (2026-02): until `firestore.rules` is deployed, `focusSessions` writes fall back to `setFocusDate` (Today still works, no session doc), `fitness`/`fitnessGoals`/`presence`/`friendInvites` are empty or denied (Progress shows the Fitness error card, the friends ring and requests stay empty).
+- Server endpoints the app calls must be deployed at `EXPO_PUBLIC_API_BASE`: `/api/app/login/*`, `/api/app/friends/invite|answer`, `/api/wa/link-code`.
+- No eslint config in `native/`: `eslint-config-expo` is not a dependency here (adding it is a new devDependency, the owner's call). A one-off run with another checkout's config showed no real bugs beyond the React-Compiler style rules (set-state-in-effect, refs, immutability on Reanimated shared values: noise); the real ones were fixed.
+- Turning Face ID on in Privacy locks the app at once (AppLock sees the flag flip). Acceptable, verify on device.
+- Focus presence (`nudge_focus_presence_started_at`) and the Nudge throttle are per device, not per account: signing in as someone else on the same phone inherits them.
+- Friends' wall-clock tasks and the "today" of a friend in another zone are shown in YOUR zone.
+- Not built: drag-reorder, document attachments, Google Calendar strip, in-app QR scanning, circles, widgets, share extension.

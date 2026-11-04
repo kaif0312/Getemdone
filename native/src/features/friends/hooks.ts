@@ -8,8 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, documentId, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { FitnessDay, FitnessGoals, Workout } from '@/lib/types-extra';
-import type { UserDoc } from '@/lib/types-extra';
+import type { FitnessDay, FitnessGoals, UserDoc, Workout } from '@/lib/types-extra';
 import type { FriendInvite } from '@/hooks/useFriends';
 import { useTaskSocial } from '@/hooks/useTaskSocial';
 

@@ -18,7 +18,6 @@ export function AppLock({ children }: { children: React.ReactNode }) {
   // `unlocked` starts false, so the lock is up from the first frame the profile says Face ID is on (no flash of the list).
   const [unlocked, setUnlocked] = useState(false);
   const locked = enabled && !unlocked;
-  const setLocked = useCallback((v: boolean) => setUnlocked(!v), []);
   const [failed, setFailed] = useState(false);
   const leftAt = useRef<number | null>(null);
   const prompting = useRef(false);
@@ -59,7 +58,7 @@ export function AppLock({ children }: { children: React.ReactNode }) {
         const away = leftAt.current ? Date.now() - leftAt.current : 0;
         leftAt.current = null;
         if (away > GRACE_MS) {
-          setLocked(true);
+          setUnlocked(false);
           void unlock();
         }
       }

@@ -20,7 +20,8 @@ export default function Requests() {
     const who = inviters[inv.fromUid]?.displayName ?? 'them';
     setGone((g) => ({ ...g, [inv.id]: true }));
     setBusy((b) => ({ ...b, [inv.id]: true }));
-    accept ? haptic.success() : haptic.light();
+    if (accept) haptic.success();
+    else haptic.light();
     const r = await answerInviteApi(inv.id, accept);
     setBusy((b) => ({ ...b, [inv.id]: false }));
     if (r.ok) {

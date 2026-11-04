@@ -4,7 +4,7 @@ import { Tabs, useRouter } from 'expo-router';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from './Icon';
-import { haptic, springs } from './motion';
+import { haptic, springs, useReduceMotion } from './motion';
 import { Text } from './Text';
 import { useTheme } from './theme';
 
@@ -49,10 +49,11 @@ function AddButton({ onPress }: { onPress: () => void }) {
 function TabItem({ name, focused, onPress, onLongPress }: { name: string; focused: boolean; onPress: () => void; onLongPress: () => void }) {
   const { colors } = useTheme();
   const meta = ICONS[name] ?? { icon: 'today' as IconName, label: name };
+  const reduce = useReduceMotion();
   const pop = useSharedValue(focused ? 1 : 0);
   React.useEffect(() => {
-    pop.value = withSpring(focused ? 1 : 0, springs.bounce);
-  }, [focused, pop]);
+    pop.value = reduce ? (focused ? 1 : 0) : withSpring(focused ? 1 : 0, springs.bounce);
+  }, [focused, pop, reduce]);
   const pill = useAnimatedStyle(() => ({ opacity: pop.value, transform: [{ scale: 0.6 + pop.value * 0.4 }] }));
   const lift = useAnimatedStyle(() => ({ transform: [{ translateY: -pop.value * 1 }] }));
   const color = focused ? colors.primary : colors.textFaint;

@@ -121,6 +121,12 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
   profile name or "Nudge friend"), `users/{uid}` with the PWA's defaults, `userKeys/{uid}` (random 256-bit master key), `waLinks/{wa}`; replies
   "You're signed in on the Nudge app ✅" + `blowing` sticker, or "That code expired..." for a wrong/used/expired code. PWA gating
   (`betaWhitelist`) is by email, so these accounts have none: the PWA is not meant for them. Test: `test_app_login.mts` (Auth stubbed via `deps`).
+- **Friend invites for the app** (consent; `friendInvites` is server-write only): `lib/server/appAuth.ts` `uidFromRequest` verifies
+  `Authorization: Bearer <Firebase ID token>`. `POST /api/app/friends/invite` body `{code}` (friend code, any case) or `{uid}` -> `200 {ok, inviteId}` |
+  `401 unauthorized` | `400 bad_request` | `404 not_found` | `409 self|already_friends|already_invited`; creates the invite doc and an in-app
+  `announcement` notification for the recipient (push via the Cloud Function) unless they turned notifications off; the bot's `inviteFriend`
+  does the same now. `POST /api/app/friends/answer` body `{inviteId, accept}` -> `200 {ok}` | `403 not_your_invite` | `404 invite_not_found` |
+  `409 invite_already_answered` (mutual add via `answerInvite`). Test: `FIRESTORE_PORT=8585 bash scripts/test-emulator.sh scripts/tests/test_app_friends.mts`.
 - **Expo push** (`lib/server/expoPush.ts`): `sendExpoPush(uid | tokens[], {title, body, data:{type:'task'|'friend'|'inbox', taskId?, friendUid?}})`,
   plain `fetch` to `exp.host/--/api/v2/push/send`, batches of 100, removes `DeviceNotRegistered` tokens from `users/{uid}.expoPushTokens`
   (`{<key>: {token, platform, updatedAt}}`, written by the app; rules already let the owner write any field of their doc). Optional env

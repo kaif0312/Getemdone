@@ -5,7 +5,7 @@ import type { InboundMessage } from '@/lib/wa/types';
 import { uploadLink } from './link';
 import { claimMessage } from '@/lib/wa/sessions';
 import { driveConfigured, ensurePath, uploadFile } from './drive';
-import { handleVault, vaultUsers, type VaultDeps } from './vault';
+import { LINK_LABEL, handleVault, vaultUsers, type VaultDeps } from './vault';
 
 export const defaultVaultDeps: VaultDeps = {
   fetchMedia: send.fetchMedia,
@@ -21,6 +21,7 @@ export const defaultVaultDeps: VaultDeps = {
   markRead: send.markRead,
   now: () => Date.now(),
   link: uploadLink,
+  sendLink: (to, body, url) => send.sendUrlButton(to, body, LINK_LABEL, url),
 };
 
 /** Route hook: true when the sender is on the vault allowlist and the message was handled. */

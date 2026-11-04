@@ -44,7 +44,7 @@ assert.equal(fileNameFor({ ...base, media: { id: 'm', mimeType: 'application/x-w
 // ---- handleVault
 const users = { '971501234567': 'Fairooz' };
 function fakes(over: Partial<VaultDeps> = {}) {
-  const log = { saved: [] as { path: string[]; name: string; mime: string; bytes: number }[], texts: [] as string[], reactions: [] as string[], records: [] as Record<string, unknown>[] };
+  const log = { saved: [] as { path: string[]; name: string; mime: string; bytes: number }[], texts: [] as string[], reactions: [] as string[], records: [] as Record<string, unknown>[], links: [] as { body: string; url: string }[] };
   const d: VaultDeps = {
     fetchMedia: async () => ({ data: Buffer.from('pdf-bytes'), mimeType: 'application/pdf' }),
     save: async (path, name, mime, data) => { log.saved.push({ path, name, mime, bytes: data.length }); return { id: 'drive1', link: null }; },
@@ -54,6 +54,7 @@ function fakes(over: Partial<VaultDeps> = {}) {
     markRead: async () => undefined,
     now: () => 123,
     link: (wa, name) => `https://x.test/vault/${wa}-${name}`,
+    sendLink: async (_to, body, url) => { log.links.push({ body, url }); },
     ...over,
   };
   return { d, log };
@@ -80,7 +81,7 @@ function fakes(over: Partial<VaultDeps> = {}) {
   const { d, log } = fakes();
   assert.equal(await handleVault(d, { id: 't', from: '971501234567', timestamp: ts, type: 'text', text: 'hi' }, users), true);
   assert.equal(log.saved.length, 0);
-  assert.match(log.texts[0], /Document/);
+  assert.match(log.links[0].body, /Document/);
 }
 // Drive failure: no tick, a clear message, still handled (never falls through to the todo bot)
 {
@@ -117,18 +118,33 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
   assert.equal(m[0].errorCode, 131052);
   const { d, log } = fakes();
   assert.equal(await handleVault(d, m[0], users), true);
-  assert.match(log.texts[0], /too big/i);
-  assert.match(log.texts[0], /https:\/\/x\.test\/vault\/971501234567-Fairooz/);
+  assert.equal(log.texts.length, 0);
+  assert.match(log.links[0].body, /too big/i);
+  assert.equal(log.links[0].url, 'https://x.test/vault/971501234567-Fairooz');
   assert.equal(log.saved.length, 0);
 }
 // text from Fairooz now carries the link too; "link" alone sends only the link
 {
   const { d, log } = fakes();
   await handleVault(d, { id: 't1', from: '971501234567', timestamp: ts, type: 'text', text: 'hi' }, users);
-  assert.match(log.texts[0], /vault\/971501234567-Fairooz/);
-  assert.match(log.texts[0], /100 MB/);
+  assert.equal(log.links[0].url, 'https://x.test/vault/971501234567-Fairooz');
+  assert.match(log.links[0].body, /100 MB/);
   await handleVault(d, { id: 't2', from: '971501234567', timestamp: ts, type: 'text', text: 'link' }, users);
-  assert.match(log.texts[1], /^Upload link/);
+  assert.match(log.links[1].body, /^Upload big files/);
+}
+
+// ---- the URL button: cta_url payload
+{
+  process.env.NUDGE_WA_DRY_RUN = '1';
+  const send = await import('../../lib/wa/send');
+  const before = send.dryRunOutbox().length;
+  await send.sendUrlButton('971501234567', 'Body', 'Upload to Drive', 'https://app.iskaria.com/vault/t');
+  const out = send.dryRunOutbox().slice(before);
+  assert.equal(out.length, 1);
+  const p = out[0].payload as { type: string; interactive: { type: string; action: { name: string; parameters: { display_text: string; url: string } } } };
+  assert.equal(p.type, 'interactive');
+  assert.equal(p.interactive.type, 'cta_url');
+  assert.deepEqual(p.interactive.action, { name: 'cta_url', parameters: { display_text: 'Upload to Drive', url: 'https://app.iskaria.com/vault/t' } });
 }
 
 // ---- the real shape Meta uses for a >100 MB inbound file: a failed STATUS with 131052 (measured 2026-11-04)

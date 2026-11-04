@@ -43,6 +43,10 @@ first.
   link; "link" alone sends only the link. The page uploads phone -> Google directly (resumable, progress) and the console then
   calls `POST /api/vault/done` here (signed), which writes the audit doc and sends "Saved to Drive". The same console API also
   serves the Iskaria app's Upload screen. Contract + details: the console's `docs/agents/vault.md`.
+- The link goes out as a one-tap **"Upload to Drive" URL button** (2026-11-04: `sendUrlButton` in `lib/wa/send.ts`, Cloud API
+  interactive `cta_url`, no template, so only inside the 24 h window, which an inbound message always opens). If Meta refuses
+  it, the same body + link goes as plain text. Where the Iskaria app is installed (app version 1.0.3+), the link opens the app's
+  upload screen (Android App Links / iOS Universal Links), which keeps uploading in the background; otherwise the browser page.
 - WhatsApp limits: documents up to 100 MB; photos sent as photos are compressed (tell people to send ID/visa scans as
   *Document*); videos sent as videos are squeezed to about 16 MB. Test: `npx tsx scripts/tests/test_vault.mts` (no emulator).
 

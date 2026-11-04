@@ -8,7 +8,8 @@
 //   A task with remindAt never also fires from dueDate. task.remindSentFor = the fire time already sent (claimed in a
 //   transaction first, so a retried tick never double-sends).
 //
-// WHERE it goes (users/{uid}.reminderChannel): 'auto' (default) = app push if the user has the app (fcmToken), else
+// WHERE it goes (users/{uid}.reminderChannel): 'auto' (default) = app push if the user has the app (fcmToken or native
+// expoPushTokens), else
 // WhatsApp; 'app' = push only; 'whatsapp' = WhatsApp only; 'both'. A failed push falls back to WhatsApp when linked.
 //
 // COST (WhatsApp): inside the 24h window it is a plain interactive message (free). Outside it, the approved template
@@ -18,6 +19,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Task } from '@/lib/types';
 import { adminDb, adminMessaging } from './firebaseAdmin';
+import { expoTokensOf, sendExpoPush } from './expoPush';
 import { capDate, releaseTemplateSlot, reserveTemplateSlot } from './waCaps';
 import { localDate, localTime, DEFAULT_TIMEZONE } from './users';
 import * as linksMod from '../wa/links';
@@ -55,6 +57,8 @@ interface UserPrefs {
   tz: string;
   channel: ReminderChannel;
   fcmToken?: string;
+  /** Native app (Expo) push tokens. */
+  expoTokens: string[];
   focus: boolean;
   off: boolean;
   leadMin: number;
@@ -92,6 +96,12 @@ export const deps = {
       console.error('[reminders] push failed', code, (e as Error).message);
       return 'error';
     }
+  },
+  /** Native app push: 'ok' if at least one device accepted it, 'dead' if every token was unregistered. */
+  sendExpo: async (uid: string, title: string, body: string, taskId: string): Promise<'ok' | 'dead' | 'error'> => {
+    const r = await sendExpoPush(uid, { title, body, data: { type: 'task', taskId } });
+    if (r.sent > 0) return 'ok';
+    return r.dead.length > 0 && r.errors === 0 ? 'dead' : 'error';
   },
   getLinkByUid: (uid: string) => linksMod.getLinkByUid(uid),
   windowOpen: (last: number, now?: number) => sendMod.windowOpen(last, now),
@@ -167,6 +177,7 @@ async function loadPrefs(uid: string, cache: Map<string, UserPrefs>): Promise<Us
     tz,
     channel: REMINDER_CHANNELS.includes(ch) ? ch : 'auto',
     fcmToken: typeof d.fcmToken === 'string' && d.fcmToken ? d.fcmToken : undefined,
+    expoTokens: expoTokensOf(d),
     focus: d.focusModeActive === true,
     off: ns.deadlineReminders === false,
     leadMin: typeof ns.deadlineMinutesBefore === 'number' && ns.deadlineMinutesBefore > 0 ? ns.deadlineMinutesBefore : 60,
@@ -237,7 +248,7 @@ async function deliver(c: Candidate, prefs: UserPrefs, now: number): Promise<Out
   if (prefs.off) return 'skipped_off';
   const link = await deps.getLinkByUid(c.uid);
   const waOk = !!link && !link.muted;
-  const hasApp = !!prefs.fcmToken;
+  const hasApp = !!prefs.fcmToken || prefs.expoTokens.length > 0;
   const wantPush = prefs.channel === 'app' || prefs.channel === 'both' || (prefs.channel === 'auto' && hasApp);
   const wantWa = prefs.channel === 'whatsapp' || prefs.channel === 'both' || (prefs.channel === 'auto' && !hasApp);
 
@@ -249,13 +260,13 @@ async function deliver(c: Candidate, prefs: UserPrefs, now: number): Promise<Out
     else {
       const label = taskLabel(c.task);
       const when = untilLabel(c.eventAt, now);
-      const r = await deps.sendPush(
-        prefs.fcmToken!,
-        `⏰ ${clipOne(label, 80)}`,
-        `${when === 'now' ? 'Starting now' : `Starts ${when}`} (${time12(localTime(prefs.tz, c.eventAt))})`,
-        c.task.id,
-      );
-      if (r === 'ok') result = 'push';
+      const title = `⏰ ${clipOne(label, 80)}`;
+      const body = `${when === 'now' ? 'Starting now' : `Starts ${when}`} (${time12(localTime(prefs.tz, c.eventAt))})`;
+      // Same title/body to every app the user has: the PWA (FCM) and the native app (Expo).
+      const rs: ('ok' | 'dead' | 'error')[] = [];
+      if (prefs.fcmToken) rs.push(await deps.sendPush(prefs.fcmToken, title, body, c.task.id));
+      if (prefs.expoTokens.length) rs.push(await deps.sendExpo(c.uid, title, body, c.task.id));
+      if (rs.includes('ok')) result = 'push';
       else pushFailed = true;
     }
   }

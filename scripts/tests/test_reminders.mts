@@ -35,7 +35,11 @@ let buttonsOk = true;
 deps.sendPush = async (token, title, body) => { pushes.push({ token, title, body }); return pushResult; };
 deps.sendButtons = async (to, body) => { waButtons.push({ to, body }); return buttonsOk ? 'wamid.X' : null; };
 deps.sendTemplate = async (to, name, vars) => { waTemplates.push({ to, name, vars }); return 'wamid.T'; };
-const reset = () => { pushes.length = 0; waButtons.length = 0; waTemplates.length = 0; pushResult = 'ok'; buttonsOk = true; };
+const expos: { uid: string; title: string; body: string; taskId: string }[] = [];
+let expoResult: 'ok' | 'dead' | 'error' = 'ok';
+deps.sendExpo = async (uid, title, body, taskId) => { expos.push({ uid, title, body, taskId }); return expoResult; };
+const reset = () => { expos.length = 0; expoResult = 'ok'; reset0(); };
+const reset0 = () => { pushes.length = 0; waButtons.length = 0; waTemplates.length = 0; pushResult = 'ok'; buttonsOk = true; };
 
 const mkUser = async (uid: string, extra: Record<string, unknown>) =>
   db.doc(`users/${uid}`).set({ displayName: uid, friends: [], timezone: TZ, ...extra });
@@ -198,5 +202,49 @@ assert.equal(pushes.length, 1);
 assert.equal(await fireOne('missing', 1, NOW), 'stale');
 await db.doc(`tasks/${tq.id}`).update({ completed: true });
 assert.equal(await fireOne(tq.id, fireAt, NOW), 'stale', 'completed task');
+
+// ---- 10. native app (Expo tokens only): 'auto' counts as "has push"; encrypted text stays hidden; focus suppresses
+reset();
+const nat = 'nat_' + sfx;
+await mkUser(nat, { expoPushTokens: { k1: { token: 'ExponentPushToken[abc]', platform: 'ios', updatedAt: 1 } } });
+await remind(nat, 'Gym');
+const tn = await remind(nat, 'e1:AAAA');
+c = await runReminders(NOW);
+assert.equal(c.push, 2);
+assert.equal(pushes.length, 0, 'no FCM token, no FCM send');
+assert.equal(expos.length, 2);
+assert.equal(expos[0].uid, nat);
+assert.ok(expos.some((e) => /Gym/.test(e.title)));
+assert.ok(expos.some((e) => e.title.includes('a task') && !e.title.includes('e1:')));
+assert.ok(expos.every((e) => /Starts in/.test(e.body)));
+assert.ok(expos.some((e) => e.taskId === tn.id));
+assert.equal(waButtons.length, 0, 'auto + native app: no WhatsApp');
+// both apps: one send each
+reset();
+const dual = 'dual_' + sfx;
+await mkUser(dual, { fcmToken: 'tok_d', expoPushTokens: { k: { token: 'ExpoPushToken[x]', platform: 'android', updatedAt: 1 } } });
+await remind(dual, 'D');
+await runReminders(NOW);
+assert.equal(pushes.length, 1);
+assert.equal(expos.length, 1);
+assert.equal(pushes[0].title, expos[0].title, 'same title on both');
+assert.equal(pushes[0].body, expos[0].body);
+// focus mode suppresses native push too
+reset();
+const nf = 'nf_' + sfx;
+await mkUser(nf, { focusModeActive: true, expoPushTokens: { k: { token: 'ExpoPushToken[f]', platform: 'ios', updatedAt: 1 } } });
+await remind(nf, 'F');
+c = await runReminders(NOW);
+assert.equal(expos.length, 0);
+assert.equal(c.push, 0);
+// all Expo tokens dead + linked -> WhatsApp fallback
+reset();
+expoResult = 'dead';
+const nd = 'nd_' + sfx;
+await mkUser(nd, { expoPushTokens: { k: { token: 'ExpoPushToken[d]', platform: 'ios', updatedAt: 1 } } });
+await mkLink(nd, '9712000' + sfx.slice(-5), NOW - min(5));
+await remind(nd, 'Dead');
+c = await runReminders(NOW);
+assert.equal(c.waFree, 1);
 
 console.log('reminders: ok');

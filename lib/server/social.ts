@@ -322,7 +322,11 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
  * `byPhoneOrCode`: friendCode (6 chars, any case) or a phone number (digits, + and spaces ok) looked up in waLinks/{digits}.
  * If the invitee is WhatsApp-linked they get buttons `invite:accept:<id>` / `invite:decline:<id>`.
  */
-export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<{ ok: boolean; reason?: string }> {
+export async function inviteFriend(
+  uid: string,
+  byPhoneOrCode: string,
+  opts?: { toUid?: string },
+): Promise<{ ok: boolean; reason?: string; inviteId?: string }> {
   const me = await loadUser(uid);
   if (!me) return { ok: false, reason: 'no_user' };
   const raw = byPhoneOrCode.trim();
@@ -330,7 +334,9 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   const looksLikePhone = digits.length >= 8 && /^[\d\s+()-]+$/.test(raw);
   let toUid: string | null = null;
   const db = adminDb();
-  if (looksLikePhone) {
+  if (opts?.toUid) {
+    toUid = (await loadUser(opts.toUid)) ? opts.toUid : null;
+  } else if (looksLikePhone) {
     const l = await db.doc(`waLinks/${digits}`).get();
     toUid = l.exists ? ((l.data() as { uid?: string }).uid ?? null) : null;
   } else {
@@ -352,6 +358,26 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   const ref = db.collection('friendInvites').doc();
   await ref.set({ fromUid: uid, toUid, status: 'pending', createdAt: deps.now() });
 
+  // In-app inbox item + push (the notification Cloud Function sends FCM/Expo on create), so app-only users hear about it.
+  try {
+    const to = await loadUser(toUid);
+    if (to && to.notificationSettings?.enabled !== false) {
+      await createNotification({
+        userId: toUid,
+        type: 'announcement',
+        title: `🤝 ${nameOf(me)} wants to be your friend`,
+        message: 'Open Friends to accept or decline.',
+        fromUserId: uid,
+        fromUserName: nameOf(me),
+        fromUserPhotoURL: me.photoURL,
+        createdAt: deps.now(),
+        read: false,
+      });
+    }
+  } catch (e) {
+    console.error('[social] invite notification failed', e);
+  }
+
   try {
     const link = await deps.getLinkByUid(toUid);
     if (link && !link.muted && link.friendAlerts && deps.windowOpen(link.lastInboundAt, deps.now())) {
@@ -365,7 +391,12 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   } catch (e) {
     console.error('[social] invite whatsapp failed', e);
   }
-  return { ok: true };
+  return { ok: true, inviteId: ref.id };
+}
+
+/** Native app entry: invite by friend code or by uid (consent flow, same doc as the bot's invite). */
+export async function inviteFriendForApp(uid: string, target: { code: string } | { toUid: string }) {
+  return 'toUid' in target ? inviteFriend(uid, '', { toUid: target.toUid }) : inviteFriend(uid, target.code);
 }
 
 export async function answerInvite(uid: string, inviteId: string, accept: boolean): Promise<void> {

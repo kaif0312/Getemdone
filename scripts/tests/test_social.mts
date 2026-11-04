@@ -175,7 +175,13 @@ await db.doc('tasks/t3').set({ ...base, text: 'Only carol', visibility: 'only', 
   assert.equal((await social.inviteFriend('carol', 'carol1')).reason, 'self');
   assert.equal((await social.inviteFriend('alice', 'BOB123')).reason, 'already_friends');
   sent = [];
-  assert.deepEqual(await social.inviteFriend('carol', 'alice1'), { ok: true }); // by friendCode, case-insensitive
+  const first = await social.inviteFriend('carol', 'alice1'); // by friendCode, case-insensitive
+  assert.equal(first.ok, true);
+  assert.equal(typeof first.inviteId, 'string');
+  const note = (await db.collection('notifications').where('userId', '==', 'alice').where('type', '==', 'announcement').get()).docs.map((d) => d.data());
+  assert.equal(note.length, 1);
+  assert.equal(note[0].fromUserId, 'carol');
+  assert.match(note[0].title as string, /wants to be your friend/);
   const inv = (await db.collection('friendInvites').where('fromUid', '==', 'carol').get()).docs;
   assert.equal(inv.length, 1);
   const d = inv[0].data();
@@ -198,7 +204,7 @@ await db.doc('tasks/t3').set({ ...base, text: 'Only carol', visibility: 'only', 
   assert.equal(sent.length, 1);
   await assert.rejects(social.answerInvite('alice', inv[0].id, true), /invite_already_answered/);
   // by phone, decline
-  assert.deepEqual(await social.inviteFriend('dave', '+91 90000 00001'), { ok: true });
+  assert.equal((await social.inviteFriend('dave', '+91 90000 00001')).ok, true);
   const di = (await db.collection('friendInvites').where('fromUid', '==', 'dave').get()).docs[0];
   await social.answerInvite('alice', di.id, false);
   assert.equal((await db.doc(`friendInvites/${di.id}`).get()).data()!.status, 'declined');

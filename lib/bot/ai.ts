@@ -119,7 +119,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (out.length) await flush(ctx, out);
   if (showList) await showToday(ctx);
   if (proposal) await sendProposal(ctx, proposal);
-  if (!out.length && !showList && !proposal) await ctx.text(DIDNT_CATCH);
+  if (!out.length && !showList && !proposal && !ctx.meme) await ctx.text(DIDNT_CATCH);
 }
 
 async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {

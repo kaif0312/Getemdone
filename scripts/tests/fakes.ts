@@ -47,6 +47,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; vault?: Vault
     markRead: async () => undefined,
     fetchMedia: async (id) => { log(`fetchMedia ${id}`); return { data: Buffer.from('abc'), mimeType: 'audio/ogg; codecs=opus' }; },
     getUserLite: async () => ({ uid: 'u1', displayName: 'Kaif', friends: [], timezone: 'Asia/Kolkata' }),
+    setProfile: async (_u, patch) => { log('setProfile ' + JSON.stringify(patch)); },
     localDate: () => '2026-11-01',
     localTime: () => '14:00',
     addTasks: async (_u, items) => items.map((it) => {

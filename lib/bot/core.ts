@@ -9,6 +9,7 @@ import {
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
+import { maybeOnboard } from './onboarding';
 
 export const APOLOGY = 'Sorry, something went wrong on my side. Please try again in a moment 🙏';
 export const NOT_LINKED =
@@ -39,6 +40,7 @@ export async function handleWith(d: BotDeps, msg: InboundMessage): Promise<void>
 async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   const link = await d.getLink(msg.from);
   if (!link) { await unlinked(d, msg); return; }
+  if (await maybeOnboard(d, link, msg)) return; // mid-setup chat, or the user typed *setup*
   if (msg.type === 'reaction') return;
   if (msg.type === 'other' || msg.type === 'document' || msg.type === 'video') {
     await d.sendText(msg.from, 'I can read text, voice notes and photos. Send *help* to see what I can do.');

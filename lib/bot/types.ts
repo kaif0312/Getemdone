@@ -64,6 +64,8 @@ export interface BotDeps {
   restoreTask: typeof Tasks.restoreTask;
   findTask: typeof Tasks.findTask;
   setFocus: typeof Tasks.setFocus;
+  /** Optional so older test fakes keep compiling; onboarding saves the chosen name / timezone through it. */
+  setProfile?(uid: string, patch: { displayName?: string; timezone?: string }): Promise<void>;
   /** Optional so older test fakes keep compiling. Newest first. */
   listVaultFiles?(wa: string, limit: number): Promise<VaultItem[]>;
   /** Optional so older test fakes keep compiling; when absent, reminders are simply not set. */

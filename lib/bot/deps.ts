@@ -26,6 +26,7 @@ export const defaultDeps: BotDeps = {
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,
+  setProfile: users.setProfile,
   localDate: users.localDate,
   localTime: users.localTime,
   addTasks: tasks.addTasks,

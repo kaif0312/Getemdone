@@ -152,5 +152,5 @@ export async function unlink(waId: string): Promise<void> {
 /** All linked, non-muted users (for the scheduler). */
 export async function listLinks(): Promise<WaLink[]> {
   const q = await adminDb().collection('waLinks').get();
-  return q.docs.map((d) => d.data() as WaLink).filter((l) => !l.muted);
+  return q.docs.map((d) => d.data() as WaLink).filter((l) => !l.muted && !l.onboarding); // mid-setup: say nothing first
 }

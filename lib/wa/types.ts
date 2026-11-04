@@ -63,6 +63,9 @@ export const BUTTON_IDS = {
   checkinSkip: 'checkin:skip',
 } as const;
 
+/** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */
+export type OnboardStep = 'welcome' | 'name' | 'tz' | 'tzconfirm' | 'morning' | 'recap' | 'goal';
+
 /** A linked WhatsApp user: doc `waLinks/{waId}`. */
 export interface WaLink {
   waId: string;
@@ -80,6 +83,10 @@ export interface WaLink {
   friendAlerts: boolean;
   /** User sent STOP: send nothing proactive. */
   muted: boolean;
+  /** Set while the WhatsApp setup chat runs (null/absent = finished). The scheduler sends nothing proactive meanwhile. */
+  onboarding?: { step: OnboardStep; tz?: string; nm?: string } | null;
+  /** What they said they mainly want the bot for (onboarding answer). */
+  interest?: 'tasks' | 'fitness' | 'both';
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

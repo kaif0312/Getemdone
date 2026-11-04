@@ -61,6 +61,14 @@ first.
   today (the template text says "today"). The session `lastList` is set to the task so a reply "done" resolves.
 - Encrypted app task text (`e1:`) is never sent in the clear: "a task". The app's own in-app deadline timers
   (`hooks/useNotifications.ts`) still run when the app is open, so an open app may show a deadline reminder twice.
+- **Exact time (2026-11-04): QStash.** Saving a `remindAt` (bot add/set) queues a QStash message for that second
+  (`lib/server/qstash.ts` `scheduleFire`, Upstash-Not-Before) that calls `POST /api/reminders/fire` (signature-checked with
+  `QSTASH_CURRENT/NEXT_SIGNING_KEY`, no SDK) -> `fireOne`, which sends only if `task.remindAt` still equals the queued time
+  (changed/completed/deferred = 'stale'). The 15-min cron stays as the safety net and does the `dueDate` reminders; the
+  `remindSentFor` claim makes both paths safe together. Resource `nudge-qstash` (Upstash QStash Free, US East, 500 messages/day,
+  max 7-day delay, created via the Vercel Upstash integration on the Hobby team; creating it any other way is impossible, the
+  Upstash console only manages Vercel-created resources). Env `QSTASH_URL`, `QSTASH_TOKEN`, `QSTASH_*_SIGNING_KEY` (sensitive,
+  Production + Preview; they do not `vercel env pull`). No token = scheduling is a no-op (local, tests).
 - Test: `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_reminders.mts`.
 
 ## Rules

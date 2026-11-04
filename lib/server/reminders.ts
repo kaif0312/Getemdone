@@ -299,15 +299,12 @@ export async function runReminders(now: number): Promise<ReminderCounts> {
     perUser.set(c.uid, n);
     if (n > MAX_PER_USER_TICK) { counts.skipped++; continue; }
     try {
-      if (!(await claim(c.task.id, c.fireAt))) continue;
-      const out = await deliver(c, await loadPrefs(c.uid, prefsCache), now);
+      const out = await sendClaimed(c, prefsCache, now);
+      if (out === null) continue;
       if (out === 'push') counts.push++;
       else if (out === 'wa_free') counts.waFree++;
       else if (out === 'wa_template') counts.waTemplate++;
-      else if (out === 'failed') {
-        counts.errors++;
-        await tasksCol().doc(c.task.id).update({ remindSentFor: FieldValue.delete() }); // retry on the next tick
-      }
+      else if (out === 'failed') counts.errors++;
       else counts.skipped++;
     } catch (e) {
       counts.errors++;
@@ -315,6 +312,36 @@ export async function runReminders(now: number): Promise<ReminderCounts> {
     }
   }
   return counts;
+}
+
+/** Claim, deliver, and release the claim on a failed send (so the next tick or retry tries again). null = already sent. */
+async function sendClaimed(c: Candidate, prefsCache: Map<string, UserPrefs>, now: number): Promise<Outcome | null> {
+  if (!(await claim(c.task.id, c.fireAt))) return null;
+  let out: Outcome;
+  try {
+    out = await deliver(c, await loadPrefs(c.uid, prefsCache), now);
+  } catch (e) {
+    await tasksCol().doc(c.task.id).update({ remindSentFor: FieldValue.delete() });
+    throw e;
+  }
+  if (out === 'failed') await tasksCol().doc(c.task.id).update({ remindSentFor: FieldValue.delete() });
+  return out;
+}
+
+/** The exact-time path (QStash -> /api/reminders/fire). 'stale' = the reminder was changed, completed or removed since. */
+export async function fireOne(taskId: string, fireAt: number, now: number): Promise<Outcome | 'stale' | 'duplicate'> {
+  const snap = await tasksCol().doc(taskId).get();
+  if (!snap.exists) return 'stale';
+  const task = toTask(snap.id, snap.data()!);
+  if (!task.userId) return 'stale';
+  const cache = new Map<string, UserPrefs>();
+  const prefs = await loadPrefs(task.userId, cache);
+  const f = fireFor(task, now, prefs.leadMin, prefs.tz);
+  if (!f || f.fireAt !== fireAt) return 'stale';
+  const out = await sendClaimed({ task, uid: task.userId, ...f }, cache, now);
+  if (out === null) return 'duplicate';
+  if (out === 'failed') throw new Error('delivery failed'); // 500 -> QStash retries
+  return out;
 }
 
 /** users/{uid}.reminderChannel, set from the bot ("remind me on WhatsApp") or the app. */

@@ -5,6 +5,7 @@ import { parseRecurrenceFromText } from '@/utils/recurrence';
 import { shouldShowInTodayView } from '@/utils/taskFilter';
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from './firebaseAdmin';
+import { scheduleFire } from './qstash';
 import { recomputeStreak } from './streaks';
 import { addDays, getTimezone, getUserRaw, localDate, shiftToServerWallClock } from './users';
 
@@ -92,6 +93,8 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
     created.push(toTask(ref.id, doc));
   }
   await batch.commit();
+  // Exact-time reminders (QStash). Best effort: the 15-min cron still catches anything that is not queued.
+  await Promise.all(created.filter((t) => t.remindAt).map((t) => scheduleFire(t.id, t.remindAt!)));
   return created;
 }
 
@@ -272,6 +275,7 @@ export async function setReminder(uid: string, taskId: string, remindAt: number 
       ? { remindAt, remindFor: remindFor ?? FieldValue.delete(), remindSentFor: FieldValue.delete() }
       : { remindAt: FieldValue.delete(), remindFor: FieldValue.delete() },
   );
+  if (remindAt) await scheduleFire(taskId, remindAt);
   const snap = await ref.get();
   return toTask(snap.id, snap.data());
 }

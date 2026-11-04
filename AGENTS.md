@@ -37,14 +37,16 @@ first.
   (scope `drive.file`: the app only sees what it created). The token comes from the published "Iskaria" OAuth app in project
   `dr-jefna-gbp`, so it does not expire after 7 days like a Testing-mode app. Local copy: `~/.secrets/nudge/gdrive.env`.
   If uploads start failing with `invalid_grant`, the owner revoked it or the app was unpublished: mint a new one.
-- **Files over 100 MB** never arrive (Meta error `131052`, parsed into `InboundMessage.errorCode`). The bot then replies with a
+- **Files over 100 MB** never arrive: Meta sends a `failed` status with error `131052` whose `recipient_id` is the sender
+  (`tooBigSenders` in `lib/wa/inbound.ts` -> `tryVaultTooBig`; an inbound message carrying `131052` is handled too). The bot then replies with a
   signed link (`lib/vault/link.ts`, 6 h, HMAC with `NUDGE_FORWARD_SECRET`) to the console's upload page
   `app.iskaria.com/vault/<token>` (env `VAULT_UPLOAD_BASE` overrides the origin). Any text from a vault user also carries the
   link; "link" alone sends only the link. The page uploads phone -> Google directly (resumable, progress) and the console then
   calls `POST /api/vault/done` here (signed), which writes the audit doc and sends "Saved to Drive". The same console API also
   serves the Iskaria app's Upload screen. Contract + details: the console's `docs/agents/vault.md`.
 - The link goes out as a one-tap **"Upload to Drive" URL button** (2026-11-04: `sendUrlButton` in `lib/wa/send.ts`, Cloud API
-  interactive `cta_url`, no template, so only inside the 24 h window, which an inbound message always opens). If Meta refuses
+  interactive `cta_url`, no template, so only inside the 24 h window: a text/"link" always opens it, the 131052 status does not, so a vault user
+  silent for 24 h gets nothing; the text fallback hits the same wall). If Meta refuses
   it, the same body + "Upload to Drive: <link>" goes as plain text. Once the Iskaria app 1.0.3 is out (console PR #95
   `vault-applinks`, not merged on 2026-11-04), the link opens the app's upload screen (Android App Links / iOS Universal
   Links), which keeps uploading in the background; until then, and without the app, it opens the browser page.

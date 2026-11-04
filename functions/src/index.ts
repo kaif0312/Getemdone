@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { expoTokensOf, sendExpoToUser, type ExpoData } from './expoPush';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -47,12 +48,14 @@ export const sendPushNotification = functions.firestore
 
       const fcmToken = userData?.fcmToken;
 
-      if (!fcmToken) {
-        console.warn(`[sendPushNotification] No FCM token for user ${notification.userId}`);
+      const hasExpo = expoTokensOf(userData).length > 0; // native (Expo) app devices
+
+      if (!fcmToken && !hasExpo) {
+        console.warn(`[sendPushNotification] No FCM or Expo token for user ${notification.userId}`);
         return null;
       }
 
-      console.log(`[sendPushNotification] Found FCM token for user ${notification.userId}`);
+      console.log(`[sendPushNotification] Found push token(s) for user ${notification.userId} (fcm=${!!fcmToken}, expo=${hasExpo})`);
 
       // Option B: Always use generic messages. Content is decrypted in-app only.
       const taskText = (notification as any).taskText || '';
@@ -119,6 +122,18 @@ export const sendPushNotification = functions.firestore
       } else if (notification.type === 'encouragement' || notification.type === 'bugReport' || notification.type === 'announcement') {
         url = '/?openNotifications=1';
       }
+
+      // Native app (Expo): same title/body as the PWA push. `data` routes the tap: a task, a friend, or the inbox.
+      if (hasExpo) {
+        const expoData: ExpoData = taskId
+          ? { type: 'task', taskId }
+          : notification.type === 'encouragement' && notification.fromUserId
+            ? { type: 'friend', friendUid: notification.fromUserId }
+            : { type: 'inbox' };
+        await sendExpoToUser(notification.userId, userData, notificationTitle, notificationBody, expoData);
+      }
+
+      if (!fcmToken) return null;
 
       const message: admin.messaging.Message = {
         token: fcmToken,

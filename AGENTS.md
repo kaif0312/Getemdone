@@ -112,6 +112,25 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
   Production + Preview; they do not `vercel env pull`). No token = scheduling is a no-op (local, tests).
 - Test: `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_reminders.mts`.
 
+## Native app server side (2026-11-05): WhatsApp sign-in + Expo push
+- **Continue with WhatsApp** (`lib/wa/appLogin.ts`, routes `app/api/app/login/{start,poll}`): `POST start` -> `{code, waLink, pollToken, expiresAt}`
+  (6-char code, `waLink` = `wa.me/<NUDGE_WA_NUMBER>?text=LOGIN%20<code>`, 10 min; 10 starts per IP per 10 min, else 429 `{error:'rate_limited'}`;
+  docs `appLogins/{pollToken}`, `appLoginCodes/{code}`, `appLoginRate/*`). `GET poll?t=` -> `{status:'pending'}` | `{status:'done', customToken}`
+  (single use: the login becomes `consumed`, a second poll says `expired`) | `{status:'expired'}`; `no-store`. The bot's `tryAppLogin` runs FIRST in
+  `app/api/wa/inbound` (before the vault): text `LOGIN <code>` -> linked number uses its uid, else it creates an Auth user (no email; name = WhatsApp
+  profile name or "Nudge friend"), `users/{uid}` with the PWA's defaults, `userKeys/{uid}` (random 256-bit master key), `waLinks/{wa}`; replies
+  "You're signed in on the Nudge app ✅" + `blowing` sticker, or "That code expired..." for a wrong/used/expired code. PWA gating
+  (`betaWhitelist`) is by email, so these accounts have none: the PWA is not meant for them. Test: `test_app_login.mts` (Auth stubbed via `deps`).
+- **Expo push** (`lib/server/expoPush.ts`): `sendExpoPush(uid | tokens[], {title, body, data:{type:'task'|'friend'|'inbox', taskId?, friendUid?}})`,
+  plain `fetch` to `exp.host/--/api/v2/push/send`, batches of 100, removes `DeviceNotRegistered` tokens from `users/{uid}.expoPushTokens`
+  (`{<key>: {token, platform, updatedAt}}`, written by the app; rules already let the owner write any field of their doc). Optional env
+  `EXPO_ACCESS_TOKEN` (only if Expo "enhanced security" is on). Only tickets are read, not receipts.
+- **Call sites** (every push in the repo): `reminders.ts` `deliver` (FCM and/or Expo; `auto` counts Expo tokens as "has push"; focus mode and
+  `deadlineReminders` apply to both) and the Cloud Function `sendPushNotification` (`functions/src/index.ts`, + `functions/src/expoPush.ts`, a copy
+  of the send half): comment / reaction / encouragement / announcement notifications, tap data `task` if a taskId, `friend` for encouragement, else
+  `inbox`. Social nudges and bot notices only create `notifications` docs, so the function covers them. **Functions are deployed by hand**:
+  `firebase deploy --only functions`. Tests: `test_expo_push.mts` (mock fetch), `test_reminders.mts` (cases 10).
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

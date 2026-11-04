@@ -22,7 +22,7 @@
 
 Memes only ever go out in reply to the user (inside the 24h window), never proactively and never in a template.
 
-## Providers (env)
+## Providers (env, set in Vercel Production 2026-11-05)
 - **Imgflip** `IMGFLIP_USERNAME`, `IMGFLIP_PASSWORD`: a free imgflip.com account. API is free and allows bots.
   Template ids + box counts are in `T` in `lib/bot/memes.ts` (from `api.imgflip.com/get_memes`, 2026-11-04).
 - **GIPHY** `GIPHY_API_KEY`: free beta key from developers.giphy.com (100 calls/hour; a sticker or GIF = 1 call).
@@ -38,4 +38,6 @@ Memes only ever go out in reply to the user (inside the 24h window), never proac
 - `lib/wa/media.ts`: `sendImage`, `sendVideo`, `uploadMedia`, `sendStickerId` (dry-run aware).
 - Tests: `NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_memes.mts`. Live preview of a book:
   `npx tsx scripts/try_memes.mts drill deferred` (needs the provider env; stickers land in `.memes-preview/`).
+- End-to-end (real Gemini + Imgflip + GIPHY + sharp, fake Firestore, sends captured): `npx tsx scripts/e2e_memes.mts`.
+  Passed 2026-11-05: coach switch, asked GIF/sticker/meme, defer + excuse memes, opt-out, caps.
 - `sharp` is a direct dependency (it was only transitive via Next).

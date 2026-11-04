@@ -7,7 +7,9 @@ import {
   logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setReminderAction, setReminderChannelAction, setScheduleAction,
   showToday, weekLines, type WorkoutArgs,
 } from './actions';
-import { buildContext, SYSTEM } from './prompt';
+import { buildContext, systemFor } from './prompt';
+import { setCoachAction } from './actions';
+import { MOMENTS, type MemeFormat, type Moment } from './memes';
 import { TOOLS } from './tools';
 import { str } from './format';
 
@@ -63,7 +65,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
     user = [{ text: `User message:\n${msg.text ?? msg.reply?.title ?? ''}\n\n${context}` }];
   }
 
-  const res = await ctx.d.gemini({ system: SYSTEM, user, tools: TOOLS });
+  const res = await ctx.d.gemini({ system: systemFor(ctx.link.coach), user, tools: TOOLS });
 
   const lead: string[] = [];
   if (res.text) lead.push(res.text);
@@ -100,6 +102,13 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'set_reminder': lines.push(...await setReminderAction(ctx, a)); break;
         case 'set_reminder_channel': lines.push(...await setReminderChannelAction(ctx, str(a.channel))); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
+        case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
+        case 'send_meme': {
+          const moment = MOMENTS.includes(a.moment as Moment) ? (a.moment as Moment) : 'random';
+          const format = ['meme', 'gif', 'sticker'].includes(String(a.format)) ? (a.format as MemeFormat) : undefined;
+          ctx.wantMeme({ moment, topic: str(a.topic), format, asked: a.asked === true, byModel: true });
+          break;
+        }
         default: break;
       }
     } catch (e) {
@@ -112,7 +121,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (out.length) await flush(ctx, out);
   if (showList) await showToday(ctx);
   if (proposal) await sendProposal(ctx, proposal);
-  if (!out.length && !showList && !proposal) await ctx.text(DIDNT_CATCH);
+  if (!out.length && !showList && !proposal && !ctx.meme) await ctx.text(DIDNT_CATCH);
 }
 
 async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {
@@ -143,7 +152,7 @@ export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
         session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName,
       });
       const res = await ctx.d.gemini({
-        system: SYSTEM,
+        system: systemFor(ctx.link.coach),
         user: [{ text: `The user sent the /task command. Add the text below as task(s) with add_tasks (keep their wording; split only if it clearly lists several tasks; set due/when only if it states a date or time). Call nothing else.\n\nTask text:\n${text}\n\n${context}` }],
         tools: TOOLS.filter((t) => t.name === 'add_tasks'),
       });

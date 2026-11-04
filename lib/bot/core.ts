@@ -4,11 +4,12 @@ import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
   Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
-  logWorkoutAction, nudgeUid, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
+  coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
 } from './actions';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
+import { allowMeme, chooseRecipe, sendRecipe } from './memes';
 import { maybeOnboard } from './onboarding';
 
 export const APOLOGY = 'Sorry, something went wrong on my side. Please try again in a moment 🙏';
@@ -22,6 +23,7 @@ export const WELCOME = [
   '• *today* shows your list, *done 2* ticks one off',
   '• "ran 5k in 28 min" logs a workout',
   '• Voice notes and screenshots work too',
+  '• *coach* picks my personality: friendly, hardcore drill sergeant, hype...',
   '',
   'Send *help* any time.',
 ].join('\n');
@@ -58,7 +60,8 @@ async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   const fast = parseFast(msg);
   if (fast) await runFast(ctx, fast);
   else await runGemini(ctx, msg);
-  if (ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
+  const memed = await runMeme(ctx);
+  if (!memed && ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
 
   const t = d.now();
   session.turns.push({ role: 'user', text: transcriptOf(msg).slice(0, 500), at: msg.timestamp || t });
@@ -66,6 +69,32 @@ async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
   if (session.turns.length > MAX_TURNS) session.turns = session.turns.slice(-MAX_TURNS);
   session.updatedAt = t;
   await d.saveSession(msg.from, session);
+}
+
+/** Send this turn's meme if the budget, dice and providers allow. Never throws. True if something went out. */
+async function runMeme(ctx: Ctx): Promise<boolean> {
+  const m = ctx.d.memes;
+  const req = ctx.meme;
+  if (!m || !req) return false;
+  try {
+    const rnd = m.random ?? Math.random;
+    const patch = allowMeme(ctx.link, req, ctx.today, process.env, rnd);
+    if (!patch) {
+      if (req.asked) await ctx.text((process.env.NUDGE_MEMES || '').toLowerCase() === 'off' ? 'Memes are switched off right now.' : "That's enough memes for today 😄 More tomorrow.");
+      return false;
+    }
+    const recipe = chooseRecipe(ctx.link.coach, req, m.providers.has, rnd);
+    if (!recipe) { if (req.asked) await ctx.text("I couldn't find one right now. Try again in a bit."); return false; }
+    const sent = await sendRecipe(m, ctx.waId, recipe, { task: req.topic, name: ctx.user?.displayName });
+    if (!sent) { if (req.asked) await ctx.text("I couldn't find one right now. Try again in a bit."); return false; }
+    ctx.out.push(sent);
+    Object.assign(ctx.link, patch);
+    await ctx.d.updateLink(ctx.waId, patch);
+    return true;
+  } catch (e) {
+    console.error('[bot] meme failed', e);
+    return false;
+  }
 }
 
 /** Stickers are decoration: a failed or unavailable send never breaks the reply. */
@@ -144,12 +173,26 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       await d.updateLink(ctx.waId, { muted: true });
       await ctx.text("Paused. I won't message you first. Send *start* to resume.");
       ctx.sticker = 'disappointed';
+      ctx.wantMeme({ moment: 'quit' });
       return;
     case 'unmute':
       await d.updateLink(ctx.waId, { muted: false });
       await ctx.text("Welcome back! I'll check in again. Send *today* to see your list.");
       return;
     case 'help': await ctx.text(HELP); return;
+    case 'coachMenu': await coachMenu(ctx); return;
+    case 'meme': ctx.wantMeme({ moment: 'random', format: f.format, asked: true }); return;
+    case 'memesOff':
+      await d.updateLink(ctx.waId, { memes: false });
+      await ctx.text('Okay, no more memes from me. Send *memes on* to bring them back (or *meme* for one on demand).');
+      return;
+    case 'memesOn':
+      await d.updateLink(ctx.waId, { memes: true });
+      ctx.link.memes = true;
+      await ctx.text('Memes are back on 😎');
+      ctx.wantMeme({ moment: 'random', asked: true });
+      return;
+    case 'setCoach': await flush(ctx, await setCoachAction(ctx, f.id)); return;
     case 'addTask':
       if (!f.text) await ctx.text(TASK_USAGE); else await addTaskCommand(ctx, f.text);
       return;

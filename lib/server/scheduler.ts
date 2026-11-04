@@ -13,6 +13,7 @@ import * as tasksMod from './tasks';
 import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
+import { coachOf } from '../bot/coaches';
 import type { Task } from '../../lib/types';
 
 /** Extra minutes after the slot end during which a missed slot is still sent (idempotent, so safe). */
@@ -116,14 +117,14 @@ async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, da
     const friends = await friendsLine(link);
     if (open.length) {
       const body = clip(
-        `Good morning ${name}! You have ${open.length} task${open.length === 1 ? '' : 's'} today. Pick up to 3 to focus on.` +
+        coachOf(link.coach).morning(name, open.length) +
           (friends ? `\n\n${friends}` : ''),
         1000,
       );
       const rows = open.slice(0, 10).map((t) => ({ id: BUTTON_IDS.focus(t.id), title: clip(taskLabel(t), 24) }));
       await deps.sendList(link.waId, body, 'Pick focus', rows);
     } else {
-      const body = clip(`Good morning ${name}! Nothing planned for today yet. Want to plan your day?` + (friends ? `\n\n${friends}` : ''), 1000);
+      const body = clip(coachOf(link.coach).morningEmpty(name) + (friends ? `\n\n${friends}` : ''), 1000);
       await deps.sendButtons(link.waId, body, [
         { id: BUTTON_IDS.checkinStart, title: 'Plan my day' },
         { id: BUTTON_IDS.checkinSkip, title: 'Skip today' },
@@ -153,7 +154,7 @@ async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, da
 async function sendRecap(link: WaLink, counts: ScheduleCounts): Promise<boolean> {
   const s = await deps.daySummary(link.uid);
   if (!s.done.length && !s.open.length) return false;
-  const lines = [`Today: ${s.done.length} done, ${s.open.length} still open.`];
+  const lines = [coachOf(link.coach).recap(s.done.length, s.open.length)];
   if (s.done.length) lines.push('Done:\n' + s.done.slice(0, 5).map((t) => `- ${clip(taskLabel(t), 60)}`).join('\n'));
   if (s.open.length) lines.push('Open:\n' + s.open.slice(0, 5).map((t) => `- ${clip(taskLabel(t), 60)}`).join('\n'));
   lines.push(`Streak: ${s.streak} day${s.streak === 1 ? '' : 's'}` + (s.fitnessStreak ? `, fitness streak ${s.fitnessStreak}` : ''));

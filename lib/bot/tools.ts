@@ -138,6 +138,31 @@ export const TOOLS: FunctionDecl[] = [
     parameters: { type: 'OBJECT', properties: { checkin_time: S, recap_time: S } },
   },
   {
+    name: 'set_coach',
+    description: 'Switch the coach personality that talks to the user.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { coach: { ...S, enum: ['buddy', 'drill', 'hype', 'stoic', 'zen', 'analyst'] } },
+      required: ['coach'],
+    },
+  },
+  {
+    name: 'send_meme',
+    description:
+      "Send a meme, GIF or sticker in the coach's style along with your reply. Use when the user makes an excuse, says they are " +
+      'tired, brags, or asks for a meme/GIF/sticker. At most once per message; the app limits how many go out.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        moment: { ...S, enum: ['excuse', 'tired', 'brag', 'deferred', 'workout', 'all_done', 'random'] },
+        topic: { ...S, description: 'Short subject: the task, or what they asked for ("david goggins", "cat gym fail")' },
+        format: { ...S, enum: ['meme', 'gif', 'sticker'], description: 'Only if the user asked for a specific kind' },
+        asked: { type: 'BOOLEAN', description: 'true only if the user explicitly asked for a meme/GIF/sticker' },
+      },
+      required: ['moment'],
+    },
+  },
+  {
     name: 'reply',
     description: 'Say something to the user: chit-chat, an answer, a clarifying question, or a one-line confirmation in their language.',
     parameters: { type: 'OBJECT', properties: { text: S }, required: ['text'] },

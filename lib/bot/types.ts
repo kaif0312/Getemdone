@@ -7,6 +7,7 @@ import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
 import type * as Send from '@/lib/wa/send';
+import type { MemeDeps } from './memes';
 
 export interface GeminiPart {
   text?: string;
@@ -48,6 +49,8 @@ export interface BotDeps {
   sendList: typeof Send.sendList;
   /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
   sendSticker?: typeof Send.sendSticker;
+  /** Meme/GIF/sticker sending; absent = no memes (tests that do not care, or no providers). */
+  memes?: MemeDeps;
   markRead: typeof Send.markRead;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server

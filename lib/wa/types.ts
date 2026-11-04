@@ -83,6 +83,14 @@ export interface WaLink {
   friendAlerts: boolean;
   /** User sent STOP: send nothing proactive. */
   muted: boolean;
+  /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
+  coach?: string;
+  /** false = the user sent *memes off* (asked-for memes still work). Missing = on. */
+  memes?: boolean;
+  /** Meme budget for the local day memeDay (lib/bot/memes.ts allowMeme). */
+  memeDay?: string;
+  memeCount?: number;
+  memeAskedCount?: number;
   /** Set while the WhatsApp setup chat runs (null/absent = finished). The scheduler sends nothing proactive meanwhile. */
   onboarding?: { step: OnboardStep; tz?: string; nm?: string } | null;
   /** What they said they mainly want the bot for (onboarding answer). */

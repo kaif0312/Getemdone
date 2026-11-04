@@ -21,6 +21,18 @@ first.
   `proud`, `clipboard`, `sleepy`, `waiting`. Source art + rejected logo rounds: `docs/brand/` in the main checkout
   (untracked).
 
+## Coach personalities (2026-11-04, branch `coaches`)
+- `lib/bot/coaches.ts`: six coaches (`buddy` default, `drill` hardcore no-excuses, `hype`, `stoic`, `zen`, `analyst`).
+  Stored on `waLinks/{waId}.coach` (missing = buddy). Picked with *coach* (WhatsApp list, ids `coach:<id>`) or by asking
+  ("be harder on me" -> Gemini `set_coach`). Each coach = a voice block appended to SYSTEM (`systemFor()`, static per coach
+  so the prefix caches) + fixed check-in/recap lines in `scheduler.ts` (no model call). The `nudge_checkin` template is
+  the same for everyone.
+- **Archetypes, never real people**: no real names, likenesses or trademarked catchphrases ("Stay Hard" is a registered
+  mark). Asking for a real person (e.g. "be like David Goggins") maps to the closest archetype. Every coach drops the act on
+  injury/pain/illness/crisis (`coachPrompt`). The drill coach attacks excuses, never the person's body, food or worth.
+- Hear them live: `GEMINI_API_KEY=... npx tsx scripts/try_coaches.mts [drill hype ...]` (fake deps, no sends).
+- **Memes, GIFs, stickers** per coach (Imgflip + GIPHY, daily caps, *memes off*, kill switch `NUDGE_MEMES=off`): `docs/MEMES.md`.
+
 ## File vault (2026-11-04): people send files on WhatsApp, the bot files them in Drive
 - `lib/vault/`: `vault.ts` (allowlist, naming, ack, pure and tested), `drive.ts` (Drive REST), `index.ts` (production wiring).
   `app/api/wa/inbound` calls `tryVault(msg)` right after dedupe: an allowlisted sender never reaches the todo bot and

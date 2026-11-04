@@ -119,7 +119,10 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
   (single use: the login becomes `consumed`, a second poll says `expired`) | `{status:'expired'}`; `no-store`. The bot's `tryAppLogin` runs FIRST in
   `app/api/wa/inbound` (before the vault): text `LOGIN <code>` -> linked number uses its uid, else it creates an Auth user (no email; name = WhatsApp
   profile name or "Nudge friend"), `users/{uid}` with the PWA's defaults, `userKeys/{uid}` (random 256-bit master key), `waLinks/{wa}`; replies
-  "You're signed in on the Nudge app ✅" + `blowing` sticker, or "That code expired..." for a wrong/used/expired code. PWA gating
+  "You're signed in on the Nudge app ✅" + `blowing` sticker, or "That code expired..." for a wrong/used/expired code. Only `LOGIN` + 6 chars of
+  the code alphabet matches; an unknown all-lowercase word ("login please") falls through to the bot. A new account's link is created with
+  `create()` (two racing LOGINs from one number share one account) and `onboarding:{step:'welcome'}` (WhatsApp setup on the next message, like
+  `add_friend.mjs`; the scheduler skips it until then). PWA gating
   (`betaWhitelist`) is by email, so these accounts have none: the PWA is not meant for them. Test: `test_app_login.mts` (Auth stubbed via `deps`).
 - **Friend invites for the app** (consent; `friendInvites` is server-write only): `lib/server/appAuth.ts` `uidFromRequest` verifies
   `Authorization: Bearer <Firebase ID token>`. `POST /api/app/friends/invite` body `{code}` (friend code, any case) or `{uid}` -> `200 {ok, inviteId}` |

@@ -19,6 +19,8 @@ export interface VaultDeps {
   now(): number;
   /** A fresh signed link to the console's upload page for files over WhatsApp's 100 MB limit. */
   link(wa: string, name: string): string;
+  /** The link as a one-tap "Upload to Drive" button (a plain-text link when the button cannot be sent). */
+  sendLink(to: string, body: string, url: string): Promise<unknown>;
 }
 
 export const VAULT_HELP = [
@@ -26,11 +28,17 @@ export const VAULT_HELP = [
   '',
   '• Add a caption (e.g. "Ahmed passport") and it goes into the file name.',
   '• For ID or visa scans, send them as *Document* (paperclip → Document) so WhatsApp does not shrink them.',
-  '• WhatsApp only carries files up to 100 MB. For bigger ones (long videos) use the upload link below.',
+  '• WhatsApp only carries files up to 100 MB. For bigger ones (long videos) tap *Upload to Drive* below.',
 ].join('\n');
 
-export const TOO_BIG =
-  'That file is too big for WhatsApp (the limit is 100 MB). Upload it with this link instead, it goes straight to Drive and shows progress:';
+export const TOO_BIG = [
+  'That file is too big for WhatsApp (the limit is 100 MB). Tap *Upload to Drive* and pick it again: it goes straight to Drive and shows progress.',
+  '',
+  'In the Iskaria app it keeps going in the background. In the browser, keep the page open until it says Saved.',
+].join('\n');
+
+export const LINK_ONLY = 'Upload big files straight to Drive (any size; the button works for 6 hours).';
+export const LINK_LABEL = 'Upload to Drive';
 
 /** True for text that just asks for the upload link. */
 export const wantsLink = (text: string | undefined) => /^\s*(link|upload|big|large|video)\b/i.test(text ?? '');
@@ -102,12 +110,11 @@ export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Reco
   if (msg.type === 'reaction') return true;
 
   if (msg.errorCode === 131052) {
-    await d.sendText(msg.from, `${TOO_BIG}\n${d.link(msg.from, who)}`);
+    await d.sendLink(msg.from, TOO_BIG, d.link(msg.from, who));
     return true;
   }
   if (!FILE_TYPES.has(msg.type) || !msg.media) {
-    const link = d.link(msg.from, who);
-    await d.sendText(msg.from, wantsLink(msg.text) ? `Upload link (valid 6 hours, any size):\n${link}` : `${VAULT_HELP}\n\n${link}`);
+    await d.sendLink(msg.from, wantsLink(msg.text) ? LINK_ONLY : VAULT_HELP, d.link(msg.from, who));
     return true;
   }
   d.markRead(msg.id).catch(() => undefined);

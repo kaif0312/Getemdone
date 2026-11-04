@@ -27,7 +27,8 @@ first.
   needs no Nudge account. Everyone else is unchanged (their documents/videos get the "I can read text, voice notes and
   photos" reply).
 - **Registered users (2026-11-04):** anyone with a linked Nudge account also gets the vault, but only for FILES: documents and videos
-  always; a photo only when its caption starts with `save` (`save passport`), because plain photos are screenshots for the to-do bot.
+  always; a photo only when its caption starts with `save` or `/ref` (the rest is the file name: `/ref logo ideas`) OR WhatsApp marks it
+  forwarded (`context.forwarded` / `frequently_forwarded`, parsed into `InboundMessage.forwarded`); plain photos are screenshots for the to-do bot.
   Text and voice notes never reach the vault. Folder `<root>/<display name> <last 4 digits>/<yyyy-mm>/`. Logic: `registeredVaultMsg` /
   `registeredFolder` in `vault.ts` (pure, tested), wiring in `index.ts` `tryVault` (allowlist first, then linked users; one Firestore
   read only for a file message). Kill switch: env `NUDGE_VAULT_REGISTERED=0`. Everyone's files share the owner's Drive quota and the
@@ -58,6 +59,15 @@ first.
   Links), which keeps uploading in the background; until then, and without the app, it opens the browser page.
 - WhatsApp limits: documents up to 100 MB; photos sent as photos are compressed (tell people to send ID/visa scans as
   *Document*); videos sent as videos are squeezed to about 16 MB. Test: `npx tsx scripts/tests/test_vault.mts` (no emulator).
+
+## Slash commands (2026-11-04)
+`parseSlash` in `lib/bot/fastpath.ts`; no Gemini unless noted. A leading `/` works on every bare-word command (`/today`, `/list`, `/done 2`,
+`/undo`, `/week`, `/friends`, `/stop`, `/start`, `/help`). New: `/task <text>` (alias `/add`; newline or `;` separates tasks; plain text is added
+with no model call, text with a digit/comma/date or time word goes to Gemini with ONLY the `add_tasks` tool, raw text is the fallback, so it can
+never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUploads` by sender, `lib/vault/audit.ts`, no composite index), unknown
+`/xyz` -> "Unknown command". Bare `list` stays today's tasks. `/ref` is only a photo/video/document caption prefix. WhatsApp has no slash menu: `/help` lists them.
+- **Claude Code side:** `~/.claude/scripts/vault.mjs` (latest / get / search against Drive with `~/.secrets/nudge/gdrive.env`) and the user skill
+  `vault` let a Claude session fetch what the owner just forwarded ("grab what I just sent").
 
 ## Reminders (2026-11-04): push for app users, WhatsApp for the rest, cheap by design
 - `lib/server/reminders.ts`, run by `app/api/cron/nudge` after the scheduler (same 15-min tick, so a reminder is up to 15 min

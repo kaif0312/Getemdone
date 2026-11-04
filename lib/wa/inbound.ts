@@ -29,6 +29,8 @@ export function parseForwarded(body: ForwardedEvent): { messages: InboundMessage
       timestamp: Number.isFinite(ts) && ts > 0 ? ts * 1000 : Date.now(),
       type: 'other',
     };
+    const cx = obj(r.context);
+    if (cx.forwarded === true || cx.frequently_forwarded === true) msg.forwarded = true;
     const pn = names.get(from);
     if (pn) msg.profileName = pn;
     const codes = (Array.isArray(r.errors) ? r.errors : []).map((e) => Number(obj(e).code)).filter(Number.isFinite);

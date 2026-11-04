@@ -31,6 +31,9 @@ export interface GeminiResult {
   model?: string;
 }
 
+/** One file in the user's Drive vault (from the `vaultUploads` audit collection). */
+export interface VaultItem { name: string; bytes: number; at: number }
+
 export interface BotDeps {
   now(): number;
   gemini(req: GeminiRequest): Promise<GeminiResult>;
@@ -61,6 +64,8 @@ export interface BotDeps {
   restoreTask: typeof Tasks.restoreTask;
   findTask: typeof Tasks.findTask;
   setFocus: typeof Tasks.setFocus;
+  /** Optional so older test fakes keep compiling. Newest first. */
+  listVaultFiles?(wa: string, limit: number): Promise<VaultItem[]>;
   /** Optional so older test fakes keep compiling; when absent, reminders are simply not set. */
   setReminder?: typeof Tasks.setReminder;
   setReminderChannel?: typeof Reminders.setReminderChannel;

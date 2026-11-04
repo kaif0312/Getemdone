@@ -59,17 +59,18 @@ export function vaultUsers(env: string | undefined = process.env.NUDGE_VAULT_USE
 // The allowlist above hands a person's WHOLE chat to the vault. A registered user also uses the to-do bot, so the vault
 // only takes their files: documents and videos always, a photo only when its caption starts with "save" (plain photos
 // stay screenshots for the bot). Text and voice notes never reach the vault.
-export const SAVE_PREFIX = /^\s*save\b[\s:,-]*/i;
+// Also: a photo that WhatsApp marks as forwarded goes to the vault, and "/ref" works like "save" as a caption prefix.
+// The rest of the caption becomes the file name; for a document/video the same prefixes are stripped.
+export const SAVE_PREFIX = /^\s*(?:save|\/ref)\b[\s:,-]*/i;
 
 /** The message the vault should handle for a registered user, or null to leave it to the to-do bot. Pure, no IO. */
 export function registeredVaultMsg(msg: InboundMessage): InboundMessage | null {
   if (msg.errorCode === 131052) return msg; // media over WhatsApp's 100 MB limit: reply with the upload link
   if (!msg.media) return null;
-  if (msg.type === 'document' || msg.type === 'video') return msg;
-  if (msg.type === 'image' && msg.text && SAVE_PREFIX.test(msg.text)) {
-    return { ...msg, text: msg.text.replace(SAVE_PREFIX, '').trim() || undefined };
-  }
-  return null;
+  const prefixed = !!msg.text && SAVE_PREFIX.test(msg.text);
+  const keep = msg.type === 'document' || msg.type === 'video' || (msg.type === 'image' && (prefixed || msg.forwarded === true));
+  if (!keep) return null;
+  return prefixed ? { ...msg, text: msg.text!.replace(SAVE_PREFIX, '').trim() || undefined } : msg;
 }
 
 /** Drive folder for a registered user: "<display name> <last 4 digits>" so two Sams never share a folder. */

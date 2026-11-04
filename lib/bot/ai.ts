@@ -123,3 +123,37 @@ async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {
     { id: `cancel:${id}`, title: 'Skip' },
   ]);
 }
+
+/** Anything that hints at a date, time, reminder or a list: only then is Gemini worth its cost for "/task". */
+const NEEDS_PARSING = /[\d,]|\b(today|tonight|tomorrow|tmrw|morning|afternoon|evening|noon|midnight|mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next|every|daily|weekly|remind\w*|by|at|and)\b/i;
+
+/**
+ * "/task <text>" (alias "/add"): always adds. Plain text is added as is (newline or ";" separates tasks), with no model
+ * call. Text with a date, time or list in it goes to Gemini with ONLY the add_tasks tool, so it cannot be read as anything
+ * else; if the model returns nothing usable the raw text is added.
+ */
+export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
+  let items: unknown[] = [];
+  if (NEEDS_PARSING.test(text)) {
+    try {
+      const all = await ctx.d.listToday(ctx.uid);
+      ctx.rememberTasks(all);
+      const numbered = numberTasks(ctx, all.filter((t) => !t.completed));
+      const context = buildContext({
+        session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName,
+      });
+      const res = await ctx.d.gemini({
+        system: SYSTEM,
+        user: [{ text: `The user sent the /task command. Add the text below as task(s) with add_tasks (keep their wording; split only if it clearly lists several tasks; set due/when only if it states a date or time). Call nothing else.\n\nTask text:\n${text}\n\n${context}` }],
+        tools: TOOLS.filter((t) => t.name === 'add_tasks'),
+      });
+      const call = res.calls.find((c) => c.name === 'add_tasks');
+      if (call && Array.isArray(call.args?.items)) items = call.args.items as unknown[];
+    } catch (e) {
+      console.error('[bot] /task parse failed, adding raw text', e);
+    }
+  }
+  if (!items.length) items = text.split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => ({ text: s }));
+  const lines = await addItems(ctx, items);
+  await flush(ctx, lines.length ? lines : [DIDNT_CATCH]);
+}

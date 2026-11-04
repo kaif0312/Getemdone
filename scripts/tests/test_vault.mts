@@ -187,4 +187,33 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
   assert.deepEqual(log.reactions, ['✅']);
 }
 
+// ---- forwarded photos + /ref (owner flow: a linked user forwards references to the Nudge number)
+{
+  const fwd = parseForwarded({ tenant: 'nudge', receivedAt: 1, value: { messages: [
+    { id: 'wamid.F1', from: '916238952660', timestamp: '1793000000', type: 'image', image: { id: 'a', mime_type: 'image/jpeg' }, context: { forwarded: true } },
+    { id: 'wamid.F2', from: '916238952660', timestamp: '1793000001', type: 'image', image: { id: 'b', mime_type: 'image/jpeg' }, context: { frequently_forwarded: true } },
+    { id: 'wamid.F3', from: '916238952660', timestamp: '1793000002', type: 'image', image: { id: 'c', mime_type: 'image/jpeg' }, context: { from: '1', id: 'x' } },
+    { id: 'wamid.F4', from: '916238952660', timestamp: '1793000003', type: 'image', image: { id: 'd', mime_type: 'image/jpeg' } },
+  ] } }).messages;
+  assert.deepEqual(fwd.map((m) => m.forwarded), [true, true, undefined, undefined]);
+  assert.ok(registeredVaultMsg(fwd[0]), 'forwarded photo is filed');
+  assert.ok(registeredVaultMsg(fwd[1]), 'frequently forwarded photo is filed');
+  assert.equal(registeredVaultMsg(fwd[2]), null, 'a reply-to context is not a forward');
+  assert.equal(registeredVaultMsg(fwd[3]), null, 'plain uncaptioned photo stays with the to-do bot');
+  const img: InboundMessage = { id: 'p', from: '916238952660', timestamp: ts, type: 'image', media: { id: 'm', mimeType: 'image/jpeg' } };
+  assert.equal(registeredVaultMsg({ ...img, text: '/ref logo ideas' })?.text, 'logo ideas');
+  assert.equal(registeredVaultMsg({ ...img, text: '/REF: logo' })?.text, 'logo');
+  assert.equal(registeredVaultMsg({ ...img, text: '/ref' })?.text, undefined);
+  assert.equal(registeredVaultMsg({ ...img, text: '/reference' }), null);
+  assert.equal(registeredVaultMsg({ ...img, text: 'ref logo' }), null);
+  assert.equal(registeredVaultMsg({ ...img, forwarded: true, text: 'nice thumbnail' })?.text, 'nice thumbnail');
+  assert.equal(registeredVaultMsg({ ...img, type: 'video', text: '/ref intro cut' })?.text, 'intro cut');
+  assert.equal(registeredVaultMsg({ id: 't', from: '916238952660', timestamp: ts, type: 'text', text: '/ref hi', forwarded: true }), null, 'forwarded TEXT never');
+  const { d, log } = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(d, registeredVaultMsg({ ...img, text: '/ref logo ideas' })!, { '916238952660': registeredFolder('Ibrahim', '916238952660') });
+  assert.equal(log.saved[0].name, '2026-11-05_0105_logo ideas.jpg');
+  assert.deepEqual(log.saved[0].path, ['Nudge Vault', 'Ibrahim 2660', '2026-11']);
+}
+
+
 console.log('test_vault: ok');

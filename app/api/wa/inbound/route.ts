@@ -2,6 +2,7 @@
 import { after } from 'next/server';
 import { handleMessage } from '@/lib/bot/handle';
 import { tryVault, tryVaultTooBig } from '@/lib/vault';
+import { tryAppLogin } from '@/lib/wa/appLogin';
 import { parseForwarded, tooBigSenders, verifySignature } from '@/lib/wa/inbound';
 import { claimMessage } from '@/lib/wa/sessions';
 import type { ForwardedEvent, InboundMessage } from '@/lib/wa/types';
@@ -12,6 +13,7 @@ export const maxDuration = 60;
 async function processOne(msg: InboundMessage): Promise<void> {
   try {
     if (!(await claimMessage(msg.id))) return; // Meta retry
+    if (await tryAppLogin(msg)) return; // "LOGIN <code>": sign-in for the native app, before anything else
     if (await tryVault(msg)) return; // file vault allowlist (Fairooz and co): files go to Drive, no Nudge account needed
     // handleMessage itself marks the message read and records lastInboundAt (lib/bot/core.ts).
     await handleMessage(msg);

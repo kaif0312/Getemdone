@@ -8,6 +8,7 @@ import type { Metric } from '@/lib/server/fitness';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps, Undo } from './types';
 import { COACH_IDS, COACHES, isCoachId } from './coaches';
+import { raise, type MemeRequest } from './memes';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
 
 export const MAX_LIST = 10;
@@ -22,6 +23,7 @@ export const HELP = [
   '• *week* - fitness this week, *friends* - what friends did',
   '• "nudge Ali" - cheer a friend on',
   '• *coach* - pick your coach (friendly, hardcore, hype...)',
+  '• *meme* - a meme from your coach, *memes off* to stop them',
   '• Voice notes and screenshots work too',
   '• *stop* pauses my messages, *start* resumes',
 ].join('\n');
@@ -33,7 +35,11 @@ export class Ctx {
   readonly out: string[] = [];
   /** A coach sticker to send after this turn's replies (the last one set wins). */
   sticker?: StickerName;
+  /** A meme moment raised this turn (lib/bot/memes.ts). */
+  meme?: MemeRequest;
   private loaded = false;
+
+  wantMeme(r: MemeRequest): void { this.meme = raise(this.meme, r); }
 
   constructor(
     readonly d: BotDeps,
@@ -151,8 +157,10 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
         } catch { /* streak is a nicety */ }
         lines.push(`🎉 All done for today!${extra}`);
         ctx.sticker = 'cheer';
+        ctx.wantMeme({ moment: 'all_done', topic: names[0] });
       } else {
         lines.push(`${left.length} left today`);
+        ctx.wantMeme({ moment: 'done', topic: names[0] });
       }
     } catch (e) {
       console.error('[bot] left count failed', e);
@@ -183,6 +191,7 @@ export async function deferById(ctx: Ctx, id: string, toDate?: string): Promise<
   try {
     const t = await ctx.d.deferTask(ctx.uid, id, to);
     ctx.undos.push({ k: 'defer', ids: [id], to: ctx.today, label: `moved ${clip(t.text, 30)}` });
+    if (to > ctx.today) ctx.wantMeme({ moment: 'deferred', topic: t.text });
     return [`➡️ ${t.text} moved to ${whenLabel(to, ctx.today) || 'today'}`];
   } catch (e) {
     console.error('[bot] defer failed', id, e);
@@ -349,6 +358,7 @@ export async function logWorkoutAction(ctx: Ctx, w: WorkoutArgs): Promise<string
   ctx.undos.push({ k: 'workout', label: `workout ${clip(w.type, 20)}` });
   const lines = [`💪 Logged: ${describeWorkout(w)}`];
   ctx.sticker = 'flex';
+  ctx.wantMeme({ moment: 'workout', topic: w.type });
   try {
     const wk = await ctx.d.weekSummary(ctx.uid);
     lines.push(wk.goal ? `${wk.workouts}/${wk.goal} workouts this week` : `${wk.workouts} workout${wk.workouts === 1 ? '' : 's'} this week`);

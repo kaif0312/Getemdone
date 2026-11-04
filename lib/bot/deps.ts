@@ -6,6 +6,8 @@ import * as users from '@/lib/server/users';
 import * as links from '@/lib/wa/links';
 import * as sessions from '@/lib/wa/sessions';
 import * as send from '@/lib/wa/send';
+import * as media from '@/lib/wa/media';
+import { makeProviders } from '@/lib/memes/providers';
 import { callGemini } from './gemini';
 import type { BotDeps } from './types';
 
@@ -21,6 +23,13 @@ export const defaultDeps: BotDeps = {
   sendButtons: send.sendButtons,
   sendList: send.sendList,
   sendSticker: send.sendSticker,
+  memes: {
+    providers: makeProviders(),
+    sendImage: media.sendImage,
+    sendVideo: media.sendVideo,
+    uploadMedia: media.uploadMedia,
+    sendStickerId: media.sendStickerId,
+  },
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,

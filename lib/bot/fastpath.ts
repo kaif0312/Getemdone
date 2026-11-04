@@ -7,6 +7,8 @@ export type Fast =
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'coachMenu' }
   | { t: 'setCoach'; id: string }
+  | { t: 'meme'; format?: 'meme' | 'gif' | 'sticker' }
+  | { t: 'memesOn' | 'memesOff' }
   | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
@@ -79,6 +81,11 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (t === 'week') return { t: 'week' };
   if (t === 'friends') return { t: 'friends' };
   if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };
+  if (/^(memes? off|no memes?|stop memes?)$/.test(t)) return { t: 'memesOff' };
+  if (/^(memes? on|start memes?)$/.test(t)) return { t: 'memesOn' };
+  if (/^(meme|memes|send (a |me a )?meme)$/.test(t)) return { t: 'meme', format: 'meme' };
+  if (/^(gif|send (a |me a )?gif)$/.test(t)) return { t: 'meme', format: 'gif' };
+  if (/^(sticker|send (a |me a )?sticker)$/.test(t)) return { t: 'meme', format: 'sticker' };
   const m = /^(done|did|finished|complete|completed|del|delete|remove|tmrw|tomorrow)\s+(.+)$/.exec(t);
   if (m) {
     const nums = parseNumbers(m[2]);

@@ -18,7 +18,8 @@ Rules:
 - When you call action tools, you may also call reply with at most one short sentence (their language) as a lead-in; the app prints the details itself, so do not repeat the item lists.
 - Pure chit-chat, questions about what you can do, thanks, etc.: reply only.
 - set_schedule times are 24h HH:mm in the user's zone.
-- The user can switch coach personality: "be harder on me" / "go easy" / "switch coach" -> set_coach (drill = hardcore no-excuses, hype = energetic cheerleader, stoic = calm philosophical mentor, zen = gentle, analyst = numbers, buddy = default friendly). If they ask for a specific real person (e.g. a famous athlete), pick the closest archetype and say you coach in that style but are not that person.`;
+- The user can switch coach personality: "be harder on me" / "go easy" / "switch coach" -> set_coach (drill = hardcore no-excuses, hype = energetic cheerleader, stoic = calm philosophical mentor, zen = gentle, analyst = numbers, buddy = default friendly). If they ask for a specific real person (e.g. a famous athlete), pick the closest archetype and say you coach in that style but are not that person.
+- Memes: call send_meme (once) when the user makes an excuse, says they are tired or lazy, brags, or asks for a meme/GIF/sticker (then asked=true, topic = what they asked for). Still reply in words too.`;
 
 /** SYSTEM plus the user's coach block. Static per coach, so the prefix still caches. */
 export function systemFor(coachId: string | null | undefined): string {

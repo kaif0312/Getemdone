@@ -9,6 +9,7 @@ import {
 } from './actions';
 import { buildContext, systemFor } from './prompt';
 import { setCoachAction } from './actions';
+import { MOMENTS, type MemeFormat, type Moment } from './memes';
 import { TOOLS } from './tools';
 import { str } from './format';
 
@@ -100,6 +101,12 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'friends_today': lines.push(...await friendsLines(ctx)); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
         case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
+        case 'send_meme': {
+          const moment = MOMENTS.includes(a.moment as Moment) ? (a.moment as Moment) : 'random';
+          const format = ['meme', 'gif', 'sticker'].includes(String(a.format)) ? (a.format as MemeFormat) : undefined;
+          ctx.wantMeme({ moment, topic: str(a.topic), format, asked: a.asked === true, byModel: true });
+          break;
+        }
         default: break;
       }
     } catch (e) {

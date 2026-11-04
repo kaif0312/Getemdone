@@ -78,6 +78,12 @@ export interface WaLink {
   muted: boolean;
   /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
   coach?: string;
+  /** false = the user sent *memes off* (asked-for memes still work). Missing = on. */
+  memes?: boolean;
+  /** Meme budget for the local day memeDay (lib/bot/memes.ts allowMeme). */
+  memeDay?: string;
+  memeCount?: number;
+  memeAskedCount?: number;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

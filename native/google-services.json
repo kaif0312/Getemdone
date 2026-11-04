@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "427240262615",
+    "firebase_url": "https://getemdone-87679-default-rtdb.firebaseio.com",
+    "project_id": "getemdone-87679",
+    "storage_bucket": "getemdone-87679.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:427240262615:android:bcabd44e8edf7a74bcd992",
+        "android_client_info": {
+          "package_name": "com.iskaria.nudge"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "427240262615-kgq32adfktar1emhd6lv30m17alhc6ph.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQA0IbnyqbnB_FjnAXejZi4zB7LYw4iA8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "427240262615-ar8i7pgbik9beeb5fbic3310betcfs93.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

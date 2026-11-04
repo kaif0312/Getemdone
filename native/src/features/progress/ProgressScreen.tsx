@@ -46,7 +46,7 @@ export function ProgressScreen() {
   }, [tasks, zone]);
 
   return (
-    <Screen header={<Header title="Progress" unread={unread} onBellPress={() => router.push('/inbox')} />} gap={18}>
+    <Screen header={<Header title="Progress" subtitle="Numbers do not lie." unread={unread} onBellPress={() => router.push('/inbox')} />} gap={18}>
       {streak.loading ? (
         <Loading />
       ) : (

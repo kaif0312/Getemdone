@@ -9,7 +9,8 @@
     "android": "expo start --android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test:crypto": "tsx scripts/test_crypto_parity.mts"
+    "test:crypto": "tsx scripts/test_crypto_parity.mts",
+    "seed:emulator": "tsx scripts/seed_emulator.mts"
   },
   "dependencies": {
     "@expo-google-fonts/nunito": "^0.4.2",

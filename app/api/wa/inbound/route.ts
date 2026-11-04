@@ -31,7 +31,13 @@ export async function POST(req: Request) {
   } catch {
     return new Response('bad json', { status: 400 });
   }
-  const { messages } = parseForwarded(body);
+  const { messages, statuses } = parseForwarded(body);
+  // Shape-only diagnostic (no message content): events that produce no messages, or carry a Meta error code, are the ones
+  // we can't explain from the reply alone (e.g. 131052 = media over 100 MB).
+  if ((!messages.length && !statuses.length) || messages.some((m) => m.errorCode)) {
+    const v = (body.value ?? {}) as Record<string, unknown>;
+    console.log('[wa/inbound] event shape', JSON.stringify({ keys: Object.keys(v), msgs: messages.map((m) => ({ t: m.type, e: m.errorCode })), errors: v.errors ?? null }).slice(0, 800));
+  }
   if (messages.length) {
     after(async () => {
       for (const m of messages) await processOne(m);

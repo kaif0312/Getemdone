@@ -1,7 +1,7 @@
 // File vault: parser, naming, allowlist and the save/ack/failure paths. No Firestore or network needed.
 //   npx tsx scripts/tests/test_vault.mts
 import assert from 'node:assert/strict';
-import { parseForwarded } from '../../lib/wa/inbound';
+import { parseForwarded, tooBigSenders } from '../../lib/wa/inbound';
 import { cleanName, fileNameFor, handleVault, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
 import { signUploadToken, verifyUploadToken } from '../../lib/vault/link';
 import type { InboundMessage } from '../../lib/wa/types';
@@ -129,6 +129,17 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
   assert.match(log.texts[0], /100 MB/);
   await handleVault(d, { id: 't2', from: '971501234567', timestamp: ts, type: 'text', text: 'link' }, users);
   assert.match(log.texts[1], /^Upload link/);
+}
+
+// ---- the real shape Meta uses for a >100 MB inbound file: a failed STATUS with 131052 (measured 2026-11-04)
+{
+  const { statuses } = parseForwarded({ tenant: 'nudge', receivedAt: 1, value: { statuses: [
+    { id: 'wamid.S1', status: 'failed', timestamp: '1793806000', recipient_id: '916238952660', errors: [{ code: 131052, title: 'Media download error' }] },
+    { id: 'wamid.S2', status: 'delivered', recipient_id: '916238952660' },
+    { id: 'wamid.S3', status: 'failed', recipient_id: '916238952660', errors: [{ code: 131047 }] },
+    { id: 'wamid.S4', status: 'failed', errors: [{ code: 131052 }] },
+  ] } });
+  assert.deepEqual(tooBigSenders(statuses), [{ wa: '916238952660', key: '916238952660:wamid.S1' }]);
 }
 
 console.log('test_vault: ok');

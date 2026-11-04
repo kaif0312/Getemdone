@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/server/firebaseAdmin';
 import * as send from '@/lib/wa/send';
 import type { InboundMessage } from '@/lib/wa/types';
 import { uploadLink } from './link';
+import { claimMessage } from '@/lib/wa/sessions';
 import { driveConfigured, ensurePath, uploadFile } from './drive';
 import { handleVault, vaultUsers, type VaultDeps } from './vault';
 
@@ -26,4 +27,11 @@ export const defaultVaultDeps: VaultDeps = {
 export async function tryVault(msg: InboundMessage): Promise<boolean> {
   if (!vaultUsers()[msg.from]) return false;
   return handleVault(defaultVaultDeps, msg);
+}
+
+/** Meta refused a file over 100 MB from this sender (status error 131052): answer with the upload link, once per event. */
+export async function tryVaultTooBig(wa: string, key: string): Promise<boolean> {
+  if (!vaultUsers()[wa]) return false;
+  if (!(await claimMessage(`big:${key}`))) return true;
+  return handleVault(defaultVaultDeps, { id: `big:${key}`, from: wa, timestamp: Date.now(), type: 'other', errorCode: 131052 });
 }

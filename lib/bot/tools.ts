@@ -38,7 +38,7 @@ export const TOOLS: FunctionDecl[] = [
   },
   {
     name: 'defer_task',
-    description: 'Move a task to another day (default tomorrow).',
+    description: 'Move a task to another day (default tomorrow). Only when the user explicitly asks to move or postpone it; never because they are skipping, tired or making an excuse.',
     parameters: {
       type: 'OBJECT',
       properties: { ref: S, to_date: { ...S, description: 'YYYY-MM-DD; omit for tomorrow' } },

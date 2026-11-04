@@ -3,6 +3,9 @@ import type { InboundMessage } from '@/lib/wa/types';
 
 export type Fast =
   | { t: 'today' }
+  | { t: 'addTask'; text: string }
+  | { t: 'files' }
+  | { t: 'unknownCmd'; cmd: string }
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' }
@@ -65,10 +68,35 @@ function fromReply(id: string): Fast | null {
   }
 }
 
+/** Commands that take the rest of the line as written (not lower-cased). */
+const ADD_CMDS = new Set(['task', 'add']);
+const FILE_CMDS = new Set(['files', 'vault']);
+/** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
+const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
+  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends']);
+
+/**
+ * Slash commands (WhatsApp has no native slash menu, so these are typed). null = not a slash command (text starts with
+ * anything but "/" and a letter). `{ rest }` = a bare-word command with the slash removed, parsed by the normal rules.
+ * `{ fast }` = decided here. Every "/word" is handled without Gemini: unknown ones get a short hint.
+ */
+export function parseSlash(text: string): { rest: string } | { fast: Fast } | null {
+  const m = /^\s*\/([A-Za-z]+)(?:\s+([\s\S]*))?$/.exec(text);
+  if (!m) return null;
+  const cmd = m[1].toLowerCase();
+  const arg = (m[2] ?? '').trim();
+  if (ADD_CMDS.has(cmd)) return { fast: { t: 'addTask', text: arg } };
+  if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
+  if (BARE_CMDS.has(cmd)) return { rest: arg ? `${cmd} ${arg}` : cmd };
+  return { fast: { t: 'unknownCmd', cmd } };
+}
+
 export function parseFast(msg: InboundMessage): Fast | null {
   if (msg.reply) return fromReply(msg.reply.id);
   if (msg.type !== 'text' || !msg.text) return null;
-  const t = msg.text.trim().toLowerCase().replace(/[.!]+$/g, '').trim();
+  const slash = parseSlash(msg.text);
+  if (slash && 'fast' in slash) return slash.fast;
+  const t = (slash ? slash.rest : msg.text).trim().toLowerCase().replace(/[.!]+$/g, '').trim();
   if (/^(today|list|tasks|my tasks|todo|to do|show tasks)$/.test(t)) return { t: 'today' };
   if (t === 'undo') return { t: 'undo' };
   if (t === 'stop') return { t: 'mute' };

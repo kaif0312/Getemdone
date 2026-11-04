@@ -22,8 +22,31 @@ export const HELP = [
   '• *week* - fitness this week, *friends* - what friends did',
   '• "nudge Ali" - cheer a friend on',
   '• Voice notes and screenshots work too',
+  '• Send a document or video and I file it in Drive (a photo: forward it, or caption it "save passport" or "/ref name")',
   '• *stop* pauses my messages, *start* resumes',
+  '',
+  '*Slash commands* (a leading / works on the commands above)',
+  '/task <text> add a task, /today, /done 2, /undo, /week',
+  '/files your last 5 Drive files, /help',
 ].join('\n');
+
+export const UNKNOWN_CMD = (cmd: string) => `Unknown command /${cmd.slice(0, 20)}. Send /help to see what I can do.`;
+export const TASK_USAGE = 'Add a task like this: /task call the bank';
+export const FILES_NONE = 'Nothing in your Drive vault yet. Send me a document or video, or a photo captioned "/ref name".';
+
+const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+/** "/files": the user's last vault items, newest first. */
+export async function filesLines(ctx: Ctx): Promise<string[]> {
+  const items = (await ctx.d.listVaultFiles?.(ctx.waId, 5)) ?? [];
+  if (!items.length) return [FILES_NONE];
+  const lines = ['*Your last files in Drive* 📁'];
+  for (const it of items) {
+    const date = new Date(it.at).toLocaleDateString('en-GB', { timeZone: ctx.tz, day: 'numeric', month: 'short' });
+    lines.push(`• ${it.name}${it.bytes ? ` (${fmtSize(it.bytes)})` : ''} · ${date}`);
+  }
+  return lines;
+}
 
 export class Ctx {
   readonly known = new Map<string, Task>();

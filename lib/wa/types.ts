@@ -19,6 +19,8 @@ export interface InboundMessage {
   /** Media id for audio (voice note), image, document or video; fetch with lib/wa/send.ts fetchMedia(). `filename` is the
    *  original name of a document (WhatsApp only sends it for documents). */
   media?: { id: string; mimeType: string; filename?: string };
+  /** True when WhatsApp marks the message as forwarded (`context.forwarded` or `frequently_forwarded`). */
+  forwarded?: boolean;
   /** Error code Meta attached to the message (e.g. 131052 = the user's media file is over the 100 MB Cloud API limit). */
   errorCode?: number;
   /** Emoji reaction to one of our messages. */

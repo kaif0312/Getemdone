@@ -3,10 +3,10 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
-  Ctx, HELP, completeByIds, deferById, deleteById, flush, friendsLines,
+  Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
   logWorkoutAction, nudgeUid, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
 } from './actions';
-import { runGemini, transcriptOf } from './ai';
+import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
 
@@ -148,6 +148,11 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       await ctx.text("Welcome back! I'll check in again. Send *today* to see your list.");
       return;
     case 'help': await ctx.text(HELP); return;
+    case 'addTask':
+      if (!f.text) await ctx.text(TASK_USAGE); else await addTaskCommand(ctx, f.text);
+      return;
+    case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
+    case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;
     case 'nudge': await ctx.text((await nudgeUid(ctx, f.uid)).join('\n')); return;

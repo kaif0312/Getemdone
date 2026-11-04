@@ -8,6 +8,7 @@ import * as sessions from '@/lib/wa/sessions';
 import * as send from '@/lib/wa/send';
 import * as reminders from '@/lib/server/reminders';
 import { callGemini } from './gemini';
+import { listVaultFiles } from '@/lib/vault/audit';
 import type { BotDeps } from './types';
 
 export const defaultDeps: BotDeps = {
@@ -37,6 +38,7 @@ export const defaultDeps: BotDeps = {
   restoreTask: tasks.restoreTask,
   findTask: tasks.findTask,
   setFocus: tasks.setFocus,
+  listVaultFiles,
   setReminder: tasks.setReminder,
   setReminderChannel: reminders.setReminderChannel,
   daySummary: tasks.daySummary,

@@ -3,7 +3,7 @@
 import { adminDb } from '@/lib/server/firebaseAdmin';
 import { sendText } from '@/lib/wa/send';
 import { verifySignature } from '@/lib/wa/inbound';
-import { vaultUsers } from '@/lib/vault/vault';
+import { vaultFolderFor } from '@/lib/vault';
 
 export const runtime = 'nodejs';
 
@@ -23,12 +23,13 @@ export async function POST(req: Request) {
   const wa = typeof b.wa === 'string' ? b.wa : '';
   const fileName = typeof b.fileName === 'string' ? b.fileName.slice(0, 200) : '';
   const size = typeof b.size === 'number' && Number.isFinite(b.size) ? b.size : 0;
-  // Only people on the vault allowlist, even with a valid signature.
-  if (!wa || !fileName || !vaultUsers()[wa]) return new Response('not allowed', { status: 403 });
+  // Only vault users (allowlist or a linked Nudge account), even with a valid signature.
+  const who = wa && fileName ? await vaultFolderFor(wa) : null;
+  if (!who) return new Response('not allowed', { status: 403 });
 
   await adminDb()
     .collection('vaultUploads')
-    .add({ via: 'link', from: wa, who: vaultUsers()[wa], name: fileName, driveId: typeof b.fileId === 'string' ? b.fileId : null, bytes: size, at: Date.now() })
+    .add({ via: 'link', from: wa, who, name: fileName, driveId: typeof b.fileId === 'string' ? b.fileId : null, bytes: size, at: Date.now() })
     .catch((e) => console.error('[vault/done] audit write failed', e));
   // Free-form text only works inside 24 h of their last message; a failure here must not fail the request.
   await sendText(wa, `✅ Saved to Drive: ${fileName}${size ? ` (${mb(size)})` : ''}`).catch((e) => console.error('[vault/done] confirm failed', e));

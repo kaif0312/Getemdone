@@ -2,7 +2,9 @@
 import assert from 'node:assert/strict';
 import { adminDb } from '../../lib/server/firebaseAdmin';
 import { addTasks, deferTask, setReminder } from '../../lib/server/tasks';
-import { deps, fireFor, runReminders, untilLabel } from '../../lib/server/reminders';
+import { deps, fireFor, fireOne, runReminders, untilLabel } from '../../lib/server/reminders';
+import { createHash, createHmac } from 'node:crypto';
+import { fireUrl, scheduleFire, verifySignature } from '../../lib/server/qstash';
 import { zonedToMs } from '../../lib/bot/format';
 import type { Task } from '../../lib/types';
 
@@ -163,5 +165,38 @@ await setReminder(dd, t.id, NOW + min(5), NOW + min(20));
 assert.equal((await db.doc(`tasks/${t.id}`).get()).data()?.remindAt, NOW + min(5));
 await setReminder(dd, t.id, null);
 assert.equal((await db.doc(`tasks/${t.id}`).get()).data()?.remindAt, undefined);
+
+// ---- 9. QStash: signature check + exact-time fire
+process.env.QSTASH_CURRENT_SIGNING_KEY = 'cur_key';
+process.env.QSTASH_NEXT_SIGNING_KEY = 'next_key';
+const jwt = (key: string, body: string, over: Record<string, unknown> = {}) => {
+  const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const sec = Math.floor(Date.now() / 1000);
+  const h = enc({ alg: 'HS256', typ: 'JWT' });
+  const p = enc({ iss: 'Upstash', sub: fireUrl(), exp: sec + 300, nbf: sec - 1, iat: sec, jti: 'x', body: createHash('sha256').update(body).digest('base64url'), ...over });
+  return `${h}.${p}.${createHmac('sha256', key).update(`${h}.${p}`).digest('base64url')}`;
+};
+const body = JSON.stringify({ taskId: 'a', fireAt: 1 });
+assert.equal(verifySignature(jwt('cur_key', body), body, fireUrl()), true);
+assert.equal(verifySignature(jwt('next_key', body), body, fireUrl()), true, 'key rotation: next key accepted');
+assert.equal(verifySignature(jwt('wrong', body), body, fireUrl()), false);
+assert.equal(verifySignature(jwt('cur_key', body), body + ' ', fireUrl()), false, 'tampered body');
+assert.equal(verifySignature(jwt('cur_key', body, { sub: 'https://evil.example/x' }), body, fireUrl()), false, 'wrong url');
+assert.equal(verifySignature(jwt('cur_key', body, { exp: 1 }), body, fireUrl()), false, 'expired');
+assert.equal(verifySignature(null, body, fireUrl()), false);
+assert.equal(await scheduleFire('t', NOW), false, 'no token / dry run: scheduling is a no-op');
+
+reset();
+const qs = 'qs_' + sfx;
+await mkUser(qs, { fcmToken: 'tok_qs' });
+const tq = await remind(qs, 'Exact');
+const fireAt = (await db.doc(`tasks/${tq.id}`).get()).data()!.remindAt as number;
+assert.equal(await fireOne(tq.id, fireAt + 5, NOW), 'stale', 'reminder changed since it was queued');
+assert.equal(await fireOne(tq.id, fireAt, NOW), 'push');
+assert.equal(await fireOne(tq.id, fireAt, NOW), 'duplicate', 'QStash retry / cron overlap sends nothing');
+assert.equal(pushes.length, 1);
+assert.equal(await fireOne('missing', 1, NOW), 'stale');
+await db.doc(`tasks/${tq.id}`).update({ completed: true });
+assert.equal(await fireOne(tq.id, fireAt, NOW), 'stale', 'completed task');
 
 console.log('reminders: ok');

@@ -37,6 +37,12 @@ first.
   (scope `drive.file`: the app only sees what it created). The token comes from the published "Iskaria" OAuth app in project
   `dr-jefna-gbp`, so it does not expire after 7 days like a Testing-mode app. Local copy: `~/.secrets/nudge/gdrive.env`.
   If uploads start failing with `invalid_grant`, the owner revoked it or the app was unpublished: mint a new one.
+- **Files over 100 MB** never arrive (Meta error `131052`, parsed into `InboundMessage.errorCode`). The bot then replies with a
+  signed link (`lib/vault/link.ts`, 6 h, HMAC with `NUDGE_FORWARD_SECRET`) to the console's upload page
+  `app.iskaria.com/vault/<token>` (env `VAULT_UPLOAD_BASE` overrides the origin). Any text from a vault user also carries the
+  link; "link" alone sends only the link. The page uploads phone -> Google directly (resumable, progress) and the console then
+  calls `POST /api/vault/done` here (signed), which writes the audit doc and sends "Saved to Drive". The same console API also
+  serves the Iskaria app's Upload screen. Contract + details: the console's `docs/agents/vault.md`.
 - WhatsApp limits: documents up to 100 MB; photos sent as photos are compressed (tell people to send ID/visa scans as
   *Document*); videos sent as videos are squeezed to about 16 MB. Test: `npx tsx scripts/tests/test_vault.mts` (no emulator).
 

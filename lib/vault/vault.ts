@@ -17,6 +17,8 @@ export interface VaultDeps {
   sendReaction(to: string, messageId: string, emoji: string): Promise<unknown>;
   markRead(messageId: string, typing?: boolean): Promise<unknown>;
   now(): number;
+  /** A fresh signed link to the console's upload page for files over WhatsApp's 100 MB limit. */
+  link(wa: string, name: string): string;
 }
 
 export const VAULT_HELP = [
@@ -24,7 +26,14 @@ export const VAULT_HELP = [
   '',
   '• Add a caption (e.g. "Ahmed passport") and it goes into the file name.',
   '• For ID or visa scans, send them as *Document* (paperclip → Document) so WhatsApp does not shrink them.',
+  '• WhatsApp only carries files up to 100 MB. For bigger ones (long videos) use the upload link below.',
 ].join('\n');
+
+export const TOO_BIG =
+  'That file is too big for WhatsApp (the limit is 100 MB). Upload it with this link instead, it goes straight to Drive and shows progress:';
+
+/** True for text that just asks for the upload link. */
+export const wantsLink = (text: string | undefined) => /^\s*(link|upload|big|large|video)\b/i.test(text ?? '');
 
 /** Parse NUDGE_VAULT_USERS into { waId: name }. */
 export function vaultUsers(env: string | undefined = process.env.NUDGE_VAULT_USERS): Record<string, string> {
@@ -92,8 +101,13 @@ export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Reco
   if (!who) return false;
   if (msg.type === 'reaction') return true;
 
+  if (msg.errorCode === 131052) {
+    await d.sendText(msg.from, `${TOO_BIG}\n${d.link(msg.from, who)}`);
+    return true;
+  }
   if (!FILE_TYPES.has(msg.type) || !msg.media) {
-    await d.sendText(msg.from, VAULT_HELP);
+    const link = d.link(msg.from, who);
+    await d.sendText(msg.from, wantsLink(msg.text) ? `Upload link (valid 6 hours, any size):\n${link}` : `${VAULT_HELP}\n\n${link}`);
     return true;
   }
   d.markRead(msg.id).catch(() => undefined);

@@ -2,6 +2,7 @@
 import { adminDb } from '@/lib/server/firebaseAdmin';
 import * as send from '@/lib/wa/send';
 import type { InboundMessage } from '@/lib/wa/types';
+import { uploadLink } from './link';
 import { driveConfigured, ensurePath, uploadFile } from './drive';
 import { handleVault, vaultUsers, type VaultDeps } from './vault';
 
@@ -18,6 +19,7 @@ export const defaultVaultDeps: VaultDeps = {
   sendReaction: send.sendReaction,
   markRead: send.markRead,
   now: () => Date.now(),
+  link: uploadLink,
 };
 
 /** Route hook: true when the sender is on the vault allowlist and the message was handled. */

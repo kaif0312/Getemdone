@@ -31,6 +31,8 @@ export function parseForwarded(body: ForwardedEvent): { messages: InboundMessage
     };
     const pn = names.get(from);
     if (pn) msg.profileName = pn;
+    const codes = (Array.isArray(r.errors) ? r.errors : []).map((e) => Number(obj(e).code)).filter(Number.isFinite);
+    if (codes.length) msg.errorCode = codes[0];
 
     switch (r.type) {
       case 'text':

@@ -2,7 +2,8 @@
 //   npx tsx scripts/tests/test_vault.mts
 import assert from 'node:assert/strict';
 import { parseForwarded } from '../../lib/wa/inbound';
-import { cleanName, fileNameFor, handleVault, stamp, vaultUsers, type VaultDeps } from '../../lib/vault/vault';
+import { cleanName, fileNameFor, handleVault, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
+import { signUploadToken, verifyUploadToken } from '../../lib/vault/link';
 import type { InboundMessage } from '../../lib/wa/types';
 
 process.env.NUDGE_VAULT_TZ = 'Asia/Dubai';
@@ -52,6 +53,7 @@ function fakes(over: Partial<VaultDeps> = {}) {
     sendReaction: async (_to, _id, emoji) => { log.reactions.push(emoji); },
     markRead: async () => undefined,
     now: () => 123,
+    link: (wa, name) => `https://x.test/vault/${wa}-${name}`,
     ...over,
   };
   return { d, log };
@@ -93,6 +95,40 @@ function fakes(over: Partial<VaultDeps> = {}) {
   assert.equal(await handleVault(d, base, users), true);
   assert.deepEqual(log.reactions, ['✅']);
   assert.deepEqual(log.texts, []);
+}
+
+// ---- upload link tokens (the console verifies these with the same secret)
+process.env.NUDGE_FORWARD_SECRET = 'test-secret';
+{
+  const t = signUploadToken('971501234567', 'Fairooz', 1000, 5000);
+  assert.deepEqual(verifyUploadToken(t, 2000), { wa: '971501234567', name: 'Fairooz', exp: 6000 });
+  assert.equal(verifyUploadToken(t, 7000), null); // expired
+  const [p, sig] = t.split('.');
+  assert.equal(verifyUploadToken(p + '.' + sig.replace(/.$/, sig.endsWith('0') ? '1' : '0'), 2000), null); // tampered signature
+  const forged = Buffer.from(JSON.stringify({ wa: '1', name: 'X', exp: 9e15 })).toString('base64url');
+  assert.equal(verifyUploadToken(forged + '.' + sig, 2000), null); // tampered payload
+  assert.equal(verifyUploadToken('garbage', 2000), null);
+}
+assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') && !wantsLink(undefined));
+
+// ---- Meta error 131052 (media over 100 MB) parses and gets the link reply
+{
+  const { messages: m } = parseForwarded({ tenant: 'nudge', receivedAt: 1, value: { messages: [{ id: 'wamid.E', from: '971501234567', timestamp: '1793000000', type: 'unsupported', errors: [{ code: 131052, title: 'Media file size too big' }] }] } });
+  assert.equal(m[0].errorCode, 131052);
+  const { d, log } = fakes();
+  assert.equal(await handleVault(d, m[0], users), true);
+  assert.match(log.texts[0], /too big/i);
+  assert.match(log.texts[0], /https:\/\/x\.test\/vault\/971501234567-Fairooz/);
+  assert.equal(log.saved.length, 0);
+}
+// text from Fairooz now carries the link too; "link" alone sends only the link
+{
+  const { d, log } = fakes();
+  await handleVault(d, { id: 't1', from: '971501234567', timestamp: ts, type: 'text', text: 'hi' }, users);
+  assert.match(log.texts[0], /vault\/971501234567-Fairooz/);
+  assert.match(log.texts[0], /100 MB/);
+  await handleVault(d, { id: 't2', from: '971501234567', timestamp: ts, type: 'text', text: 'link' }, users);
+  assert.match(log.texts[1], /^Upload link/);
 }
 
 console.log('test_vault: ok');

@@ -7,6 +7,7 @@ import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
 import type * as Send from '@/lib/wa/send';
+import type * as Meds from '@/lib/server/meds';
 import type { MemeDeps } from './memes';
 
 export interface GeminiPart {
@@ -32,6 +33,17 @@ export interface GeminiResult {
   model?: string;
 }
 
+/** The slice of lib/server/meds.ts the bot needs: patient taps (care.ts) and the family member's /meds + tools. */
+export interface MedBotDeps {
+  openDosesFor: typeof Meds.openDosesFor;
+  takeDose: typeof Meds.takeDose;
+  snoozeDose: typeof Meds.snoozeDose;
+  forwardToOwner: typeof Meds.forwardToOwner;
+  statusLines: typeof Meds.statusLines;
+  addMedication: typeof Meds.addMedication;
+  removeMedication: typeof Meds.removeMedication;
+}
+
 /** One file in the user's Drive vault (from the `vaultUploads` audit collection). */
 export interface VaultItem { name: string; bytes: number; at: number }
 
@@ -51,6 +63,8 @@ export interface BotDeps {
   sendSticker?: typeof Send.sendSticker;
   /** Meme/GIF/sticker sending; absent = no memes (tests that do not care, or no providers). */
   memes?: MemeDeps;
+  /** Medicine reminders (lib/server/meds.ts). Optional so older test fakes keep compiling. */
+  meds?: MedBotDeps;
   markRead: typeof Send.markRead;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server

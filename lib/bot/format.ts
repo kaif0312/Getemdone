@@ -1,5 +1,6 @@
 // Pure helpers: dates in a user's zone, text clipping, message formatting.
 import type { Task } from '@/lib/types';
+import { localeOf, t, type Lang } from './i18n';
 
 export function clip(s: string, n: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -60,24 +61,24 @@ export function time12(hhmm: string): string {
 }
 
 /** Short human label for a task's schedule: "6:00 PM", "Fri 7 Nov", "" for plain today. */
-export function whenLabel(deferredTo: string | undefined, today: string): string {
+export function whenLabel(deferredTo: string | undefined, today: string, lang: Lang = 'en'): string {
   if (!deferredTo) return '';
   const [date, time] = deferredTo.split('T');
   const parts: string[] = [];
   if (date && date !== today) {
-    if (date === addDays(today, 1)) parts.push('tomorrow');
+    if (date === addDays(today, 1)) parts.push(t(lang, 'tomorrow'));
     else {
       const d = new Date(date + 'T12:00:00Z');
-      parts.push(d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }));
+      parts.push(d.toLocaleDateString(localeOf(lang), { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }));
     }
   }
   if (time) parts.push(time12(time));
   return parts.join(' ');
 }
 
-export function taskLine(n: number, t: Task, today: string): string {
-  const w = whenLabel(t.deferredTo, today);
-  return `${n}. ${t.text}${w ? ` (${w})` : ''}`;
+export function taskLine(n: number, task: Task, today: string, lang: Lang = 'en'): string {
+  const w = whenLabel(task.deferredTo, today, lang);
+  return `${n}. ${task.text}${w ? ` (${w})` : ''}`;
 }
 
 export function num(v: unknown): number | undefined {

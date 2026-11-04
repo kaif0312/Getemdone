@@ -71,7 +71,7 @@ export function ActivityCard({ feed, presence, nudgeSent, nudgeBusy, onNudge }: 
           <View style={{ flex: 1 }}>
             <Text variant="subheading" numberOfLines={1}>{friend.displayName}</Text>
             <Text variant="caption" tone={presence ? 'accent' : 'muted'} numberOfLines={1}>
-              {presence ? 'Focusing right now' : parts.join(' · ')}
+              {presence ? 'Focusing now' : parts.join(' · ')}
             </Text>
           </View>
         </Pressable>
@@ -116,7 +116,7 @@ export function QuietRow({ feed, presence, nudgeSent, nudgeBusy, pending, onNudg
         <View style={{ flex: 1 }}>
           <Text variant="bodyStrong" numberOfLines={1}>{first(friend.displayName)}</Text>
           <Text variant="caption" tone="muted" numberOfLines={1}>
-            {presence ? 'Focusing. Quiet so far.' : pending > 0 ? `Nothing done yet. ${pending} on the list.` : 'Nothing yet today.'}
+            {presence ? 'Focusing. Quiet so far.' : pending > 0 ? `Nothing yet. ${pending} to go.` : 'Nothing yet today.'}
           </Text>
         </View>
       </Pressable>

@@ -6,10 +6,9 @@ import { useFriends } from '@/hooks/useFriends';
 import { formatElapsed, presenceElapsedSeconds, usePresence } from '@/hooks/usePresence';
 import { useToday } from '@/hooks/useToday';
 import { addDays, dayOfWeek, localDate, weekStart } from '@/lib/dates';
-import { shouldShowInTodayView } from '@/lib/taskFilter';
 import { BackButton } from '@/features/friends/BackButton';
 import { useNudges } from '@/features/friends/hooks';
-import { describeWorkout, first } from '@/features/friends/logic';
+import { describeWorkout, first, isForToday } from '@/features/friends/logic';
 import { NudgeButton } from '@/features/friends/NudgeButton';
 import { TaskReactions } from '@/features/friends/Reactions';
 import {
@@ -79,9 +78,9 @@ export default function FriendProfile() {
   const doneToday = (t: (typeof mine)[number]) =>
     (t.completed && t.completedAt != null && localDate(zone, t.completedAt) === today) || !!t.raw.recurrence?.completedDates?.includes(today);
   const todayList = visible
-    .filter((t) => doneToday(t) || (!t.completed && shouldShowInTodayView(t.raw, today)))
+    .filter((t) => doneToday(t) || (!t.completed && isForToday(t.raw, today)))
     .sort((a, b) => Number(doneToday(a)) - Number(doneToday(b)) || b.createdAt - a.createdAt);
-  const privateToday = mine.filter((t) => t.hidden && !t.completed && shouldShowInTodayView(t.raw, today)).length;
+  const privateToday = mine.filter((t) => t.hidden && !t.completed && isForToday(t.raw, today)).length;
   const upcoming = visible
     .filter((t) => !t.completed && !t.raw.recurrence && !todayList.includes(t) && ((t.deferredTo && t.deferredTo > today) || (t.raw.dueDate && localDate(zone, t.raw.dueDate) > today)))
     .slice(0, 5);

@@ -20,7 +20,7 @@ export function NudgeButton({ sent, busy, onPress, variant = 'pill' }: NudgeButt
   const s = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   const block = variant === 'block';
-  const label = sent ? (block ? `Nudged. Back in ${untilMidnight()}` : `Back in ${untilMidnight()}`) : 'Nudge';
+  const label = sent ? (block ? `Nudged. Back in ${untilMidnight()}` : untilMidnight()) : 'Nudge';
   const fg = sent ? colors.textFaint : colors.onFill;
   return (
     <Pressable
@@ -50,7 +50,7 @@ export function NudgeButton({ sent, busy, onPress, variant = 'pill' }: NudgeButt
           anim,
         ]}
       >
-        <Icon name="bolt" size={block ? 20 : 15} color={fg} filled={!sent} strokeWidth={2} />
+        <Icon name={sent && !block ? 'clock' : 'bolt'} size={block ? 20 : 15} color={fg} filled={!sent} strokeWidth={2} />
         <Text variant={block ? 'subheading' : 'caption'} style={{ color: fg, fontFamily: 'Nunito_800ExtraBold' }} numberOfLines={1}>
           {label}
         </Text>

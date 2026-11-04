@@ -12,6 +12,11 @@ export interface DayStats {
   total: number;
 }
 
+/** On today's list, excluding tasks scheduled for a later day (the PWA lists those too, with a badge). */
+export function isForToday(t: Task, today: string): boolean {
+  return shouldShowInTodayView(t, today) && !(t.deferredTo && t.deferredTo.slice(0, 10) > today);
+}
+
 /** Done = completed today (or a recurring instance ticked today). Total = done + what is still on today's list. */
 export function dayStats(tasks: Task[], today: string, zone: string): DayStats {
   let done = 0;
@@ -22,7 +27,7 @@ export function dayStats(tasks: Task[], today: string, zone: string): DayStats {
       (t.completed && t.completedAt != null && localDate(zone, t.completedAt) === today) ||
       !!t.recurrence?.completedDates?.includes(today);
     if (doneToday) done++;
-    else if (!t.completed && shouldShowInTodayView(t, today)) pending++;
+    else if (!t.completed && isForToday(t, today)) pending++;
   }
   return { done, total: done + pending };
 }

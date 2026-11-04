@@ -63,7 +63,7 @@ export function TodayBoard({ rows, headline }: TodayBoardProps) {
               <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: rc.bg, alignItems: 'center', justifyContent: 'center' }}>
                 <Text variant="caption" style={{ color: rc.fg, fontFamily: 'Nunito_900Black' }}>{i + 1}</Text>
               </View>
-              <Avatar name={r.me ? 'You' : r.name} photoURL={r.photoURL} size={36} />
+              <Avatar name={r.name} photoURL={r.photoURL} size={36} />
               <View style={{ flex: 1, gap: 5 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>{r.me ? 'You' : first(r.name)}</Text>

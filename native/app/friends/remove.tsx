@@ -38,9 +38,9 @@ export default function RemoveFriend() {
         <Text variant="body" align="center" tone="muted" style={{ maxWidth: 300 }}>
           {friend ? `${friend.displayName} and you stop seeing each other's tasks. You can add each other again later.` : 'You stop seeing each other.'}
         </Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-          <Button label="Keep" variant="secondary" style={{ flex: 1 }} fullWidth onPress={() => router.back()} />
-          <Button label="Remove" variant="danger" style={{ flex: 1 }} fullWidth loading={busy} onPress={confirm} />
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 8, alignSelf: 'stretch' }}>
+          <View style={{ flex: 1 }}><Button label="Keep" variant="secondary" fullWidth onPress={() => router.back()} /></View>
+          <View style={{ flex: 1 }}><Button label="Remove" variant="danger" fullWidth loading={busy} onPress={confirm} /></View>
         </View>
       </View>
     </SheetScaffold>

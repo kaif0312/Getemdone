@@ -28,7 +28,7 @@ export function FriendStrip({ friends, presence, stats, onAdd }: FriendStripProp
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8, gap: 14 }}
-      style={{ marginHorizontal: -20 }}
+      style={{ marginHorizontal: -20, flexGrow: 0 }}
     >
       <Pressable
         accessibilityRole="button"

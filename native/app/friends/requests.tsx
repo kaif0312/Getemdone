@@ -63,8 +63,8 @@ export default function Requests() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                  <Button label="Accept" icon="check" variant="success" loading={busy[inv.id]} style={{ flex: 1 }} fullWidth onPress={() => answer(inv, true)} />
-                  <Button label="Decline" variant="secondary" disabled={busy[inv.id]} style={{ flex: 1 }} fullWidth onPress={() => answer(inv, false)} />
+                  <View style={{ flex: 1 }}><Button label="Accept" icon="check" variant="success" loading={busy[inv.id]} fullWidth onPress={() => answer(inv, true)} /></View>
+                  <View style={{ flex: 1 }}><Button label="Decline" variant="secondary" disabled={busy[inv.id]} fullWidth onPress={() => answer(inv, false)} /></View>
                 </View>
               </Card>
             );

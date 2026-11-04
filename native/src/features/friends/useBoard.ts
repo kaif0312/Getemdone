@@ -50,7 +50,7 @@ export function useBoard() {
     }));
     if (uid && profile) {
       rows.push({
-        id: uid, name: 'You', photoURL: profile.photoURL, me: true, done: myStats.done, total: myStats.total,
+        id: uid, name: profile.displayName || 'You', photoURL: profile.photoURL, me: true, done: myStats.done, total: myStats.total,
         workouts: myWorkouts, streak: current,
       });
     }

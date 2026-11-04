@@ -40,6 +40,23 @@ first.
 - WhatsApp limits: documents up to 100 MB; photos sent as photos are compressed (tell people to send ID/visa scans as
   *Document*); videos sent as videos are squeezed to about 16 MB. Test: `npx tsx scripts/tests/test_vault.mts` (no emulator).
 
+## Reminders (2026-11-04): push for app users, WhatsApp for the rest, cheap by design
+- `lib/server/reminders.ts`, run by `app/api/cron/nudge` after the scheduler (same 15-min tick, so a reminder is up to 15 min
+  late). Fire time = `task.remindAt` (bot: a slotted time like "gym 6pm" reminds 15 min before; "remind me 30 min before",
+  "remind me at 5" via `add_tasks.remind_*` / `set_reminder`), else `task.dueDate` minus the user's own app setting
+  `notificationSettings.deadlineMinutesBefore` (a 23:59 deadline = date-only, skipped). `remindSentFor` is claimed in a
+  transaction first: no double sends. Deferring a task clears `remindAt`.
+- Channel `users/{uid}.reminderChannel`: `auto` (default: push if the user has `fcmToken`, else WhatsApp), `app`, `whatsapp`,
+  `both`; the bot sets it (`set_reminder_channel`). A dead push falls back to WhatsApp when linked. Focus mode suppresses push;
+  WhatsApp STOP (`muted`) blocks WhatsApp.
+- Cost: inside the 24h window = interactive message with Done / Tomorrow buttons (free). Window closed = template
+  `nudge_reminder` ("{{1}}" at {{2}} today), at most `NUDGE_MAX_REMINDER_TEMPLATES_PER_USER_DAY` (default 2) per person per
+  local day and inside the global `NUDGE_MAX_TEMPLATES_PER_DAY`; more are dropped, never sent paid. Only for events that are
+  today (the template text says "today"). The session `lastList` is set to the task so a reply "done" resolves.
+- Encrypted app task text (`e1:`) is never sent in the clear: "a task". The app's own in-app deadline timers
+  (`hooks/useNotifications.ts`) still run when the app is open, so an open app may show a deadline reminder twice.
+- Test: `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_reminders.mts`.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

@@ -175,6 +175,27 @@ await test('parseFast / parseNumbers', async () => {
   assert.equal(parseFast(tap('weird:thing')), null);
 });
 
+await test('reminders: a slotted time reminds 15 min before; explicit/none/past cases', async () => {
+  const f = makeFake({
+    gemini: async () => gem([{ name: 'add_tasks', args: { items: [
+      { text: 'gym', when: '2026-11-01T18:00' },
+      { text: 'no time', when: '2026-11-01' },
+      { text: 'call', when: '2026-11-01T19:00', remind_before_min: 30 },
+      { text: 'quiet', when: '2026-11-01T20:00', no_reminder: true },
+      { text: 'past', when: '2026-11-01T09:00' },
+    ] } }]),
+  });
+  await handleWith(f.deps, text('plan'));
+  const adds = f.calls.filter((c) => c.startsWith('addTasks')).map((c) => JSON.parse(c.slice(9)));
+  const ms = (s: string) => zonedToMs(s, 'Asia/Kolkata')!;
+  assert.equal(adds[0].remindAt, ms('2026-11-01T17:45'));
+  assert.equal(adds[0].remindFor, ms('2026-11-01T18:00'));
+  assert.equal(adds[1].remindAt, undefined);
+  assert.equal(adds[2].remindAt, ms('2026-11-01T18:30'));
+  assert.equal(adds[3].remindAt, undefined);
+  assert.equal(adds[4].remindAt, undefined, 'reminder time already passed: none');
+});
+
 await test('gemini: add_tasks round trip with when/due, numbering continues', async () => {
   const f = makeFake({
     tasks: [mkTask('t1', 'gym')],

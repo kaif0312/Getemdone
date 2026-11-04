@@ -76,6 +76,8 @@ export interface WaLink {
   friendAlerts: boolean;
   /** User sent STOP: send nothing proactive. */
   muted: boolean;
+  /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
+  coach?: string;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

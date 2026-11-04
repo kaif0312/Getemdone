@@ -7,6 +7,7 @@ import type { UserLite } from '@/lib/server/users';
 import type { Metric } from '@/lib/server/fitness';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps, Undo } from './types';
+import { COACH_IDS, COACHES, isCoachId } from './coaches';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
 
 export const MAX_LIST = 10;
@@ -20,6 +21,7 @@ export const HELP = [
   '• Log fitness: "ran 5k in 28 min", "82.4 kg"',
   '• *week* - fitness this week, *friends* - what friends did',
   '• "nudge Ali" - cheer a friend on',
+  '• *coach* - pick your coach (friendly, hardcore, hype...)',
   '• Voice notes and screenshots work too',
   '• *stop* pauses my messages, *start* resumes',
 ].join('\n');
@@ -442,4 +444,23 @@ export async function setScheduleAction(ctx: Ctx, a: Record<string, unknown>): P
   if (!Object.keys(patch).length) return ['⚠️ What time should I use? e.g. "check in at 8am".'];
   await ctx.d.updateLink(ctx.waId, patch);
   return ['⏰ Saved', ...lines];
+}
+
+/** Switch coach. Returns the new coach's hello line; the whistle sticker marks the change. */
+export async function setCoachAction(ctx: Ctx, id: string | undefined): Promise<string[]> {
+  if (!isCoachId(id)) return ["⚠️ I don't know that coach. Send *coach* to see the list."];
+  await ctx.d.updateLink(ctx.waId, { coach: id });
+  ctx.link.coach = id;
+  ctx.sticker = 'blowing';
+  return [COACHES[id].hello];
+}
+
+/** The coach picker (WhatsApp list, ids `coach:<id>`). */
+export async function coachMenu(ctx: Ctx): Promise<void> {
+  const cur = COACHES[isCoachId(ctx.link.coach) ? ctx.link.coach : 'buddy'];
+  await ctx.list(
+    `Who should coach you? Right now it's *${cur.title.replace(/^\S+\s/, '')}*.`,
+    'Pick a coach',
+    COACH_IDS.map((id) => ({ id: `coach:${id}`, title: COACHES[id].title, description: COACHES[id].blurb })),
+  );
 }

@@ -5,7 +5,8 @@ export type Fast =
   | { t: 'today' }
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
-  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' }
+  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'coachMenu' }
+  | { t: 'setCoach'; id: string }
   | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
@@ -45,6 +46,7 @@ function fromReply(id: string): Fast | null {
     case 'focus': return { t: 'focus', id: rest };
     case 'nudge': return { t: 'nudge', uid: rest };
     case 'confirm': return { t: 'confirm', id: rest };
+    case 'coach': return { t: 'setCoach', id: rest };
     case 'cancel': return { t: 'cancel', id: rest };
     case 'react': {
       const j = rest.indexOf(':');
@@ -76,6 +78,7 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (t === 'week') return { t: 'week' };
   if (t === 'friends') return { t: 'friends' };
+  if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };
   const m = /^(done|did|finished|complete|completed|del|delete|remove|tmrw|tomorrow)\s+(.+)$/.exec(t);
   if (m) {
     const nums = parseNumbers(m[2]);

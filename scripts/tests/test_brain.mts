@@ -8,6 +8,7 @@ import { zonedToMs } from '../../lib/bot/format';
 import type { InboundMessage } from '../../lib/wa/types';
 import type { GeminiResult } from '../../lib/bot/types';
 import { makeFake, mkTask } from './fakes';
+import { COACH_IDS, COACHES, coachOf } from '../../lib/bot/coaches';
 
 let n = 0;
 const text = (t: string): InboundMessage => ({ id: 'm' + ++n, from: '9100', timestamp: 1000 + n, type: 'text', text: t });
@@ -340,6 +341,41 @@ await test('callGemini: REST shape, fallback model on failure, key never in erro
   assert.ok((bodySeen as { tools: unknown[] }).tools);
   const bad = (async () => new Response('x', { status: 500 })) as unknown as typeof fetch;
   await assert.rejects(callGemini({ system: 'S', user: [], tools: [] }, { fetchImpl: bad, env: { GEMINI_API_KEY: 'KEY123' } }), (e: Error) => !e.message.includes('KEY123'));
+});
+
+await test('coach: menu lists every coach, a tap saves it and the next prompt uses its voice', async () => {
+  const f = makeFake({ gemini: async () => gem([{ name: 'reply', args: { text: 'ok' } }]) });
+  await handleWith(f.deps, text('coach'));
+  const menu = f.sent.at(-1)!;
+  assert.equal(menu.kind, 'list');
+  assert.deepEqual(menu.rows!.map((r) => r.id), COACH_IDS.map((id) => `coach:${id}`));
+  for (const id of COACH_IDS) { assert.ok(COACHES[id].title.length <= 24, id); assert.ok(COACHES[id].blurb.length <= 72, id); }
+  await handleWith(f.deps, tap('coach:drill'));
+  assert.equal(f.getLink()!.coach, 'drill');
+  assert.match(f.sent.at(-1)!.body, /Drill Sergeant/);
+  assert.deepEqual(f.stickers, ['blowing']);
+  await handleWith(f.deps, text('i skipped the gym again'));
+  assert.match(f.geminiReqs.at(-1)!.system, /no-excuses/);
+  assert.match(f.geminiReqs.at(-1)!.system, /Drop the act/);
+});
+
+await test('coach: Gemini set_coach switches; unknown ids are refused; default voice is the buddy', async () => {
+  const f = makeFake({ gemini: async () => gem([{ name: 'set_coach', args: { coach: 'zen' } }]) });
+  await handleWith(f.deps, text('go easy on me please'));
+  assert.match(f.geminiReqs[0].system, /Friendly accountability buddy/);
+  assert.equal(f.getLink()!.coach, 'zen');
+  assert.match(f.sent.at(-1)!.body, /Zen Guide/);
+  const g = makeFake();
+  await handleWith(g.deps, tap('coach:goggins'));
+  assert.equal(g.getLink()!.coach, undefined);
+  assert.match(g.sent.at(-1)!.body, /don't know that coach/);
+});
+
+await test('coach: scheduler lines per coach', async () => {
+  assert.match(coachOf('drill').morning('Ali', 3), /Ali.*3 tasks.*Hardest one first/);
+  assert.match(coachOf(undefined).recap(2, 1), /2 done, 1 still open/);
+  assert.match(coachOf('analyst').recap(3, 1), /75%/);
+  assert.match(coachOf('analyst').recap(0, 0), /0%/);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', SOME FAILED' : ''}`);

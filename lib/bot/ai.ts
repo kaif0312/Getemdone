@@ -7,7 +7,8 @@ import {
   logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setScheduleAction,
   showToday, weekLines, type WorkoutArgs,
 } from './actions';
-import { buildContext, SYSTEM } from './prompt';
+import { buildContext, systemFor } from './prompt';
+import { setCoachAction } from './actions';
 import { TOOLS } from './tools';
 import { str } from './format';
 
@@ -63,7 +64,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
     user = [{ text: `User message:\n${msg.text ?? msg.reply?.title ?? ''}\n\n${context}` }];
   }
 
-  const res = await ctx.d.gemini({ system: SYSTEM, user, tools: TOOLS });
+  const res = await ctx.d.gemini({ system: systemFor(ctx.link.coach), user, tools: TOOLS });
 
   const lead: string[] = [];
   if (res.text) lead.push(res.text);
@@ -98,6 +99,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'react_to_friend': lines.push(...await reactAction(ctx, str(a.name) ?? '', str(a.emoji) ?? '👏')); break;
         case 'friends_today': lines.push(...await friendsLines(ctx)); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
+        case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
         default: break;
       }
     } catch (e) {

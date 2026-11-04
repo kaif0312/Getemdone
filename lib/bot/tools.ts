@@ -116,6 +116,15 @@ export const TOOLS: FunctionDecl[] = [
     parameters: { type: 'OBJECT', properties: { checkin_time: S, recap_time: S } },
   },
   {
+    name: 'set_coach',
+    description: 'Switch the coach personality that talks to the user.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { coach: { ...S, enum: ['buddy', 'drill', 'hype', 'stoic', 'zen', 'analyst'] } },
+      required: ['coach'],
+    },
+  },
+  {
     name: 'reply',
     description: 'Say something to the user: chit-chat, an answer, a clarifying question, or a one-line confirmation in their language.',
     parameters: { type: 'OBJECT', properties: { text: S }, required: ['text'] },

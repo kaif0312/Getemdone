@@ -4,7 +4,7 @@ import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
   Ctx, HELP, completeByIds, deferById, deleteById, flush, friendsLines,
-  logWorkoutAction, nudgeUid, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
+  coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
 } from './actions';
 import { runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
@@ -21,6 +21,7 @@ export const WELCOME = [
   '• *today* shows your list, *done 2* ticks one off',
   '• "ran 5k in 28 min" logs a workout',
   '• Voice notes and screenshots work too',
+  '• *coach* picks my personality: friendly, hardcore drill sergeant, hype...',
   '',
   'Send *help* any time.',
 ].join('\n');
@@ -148,6 +149,8 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       await ctx.text("Welcome back! I'll check in again. Send *today* to see your list.");
       return;
     case 'help': await ctx.text(HELP); return;
+    case 'coachMenu': await coachMenu(ctx); return;
+    case 'setCoach': await flush(ctx, await setCoachAction(ctx, f.id)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;
     case 'nudge': await ctx.text((await nudgeUid(ctx, f.uid)).join('\n')); return;

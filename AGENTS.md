@@ -69,6 +69,12 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
 - **Claude Code side:** `~/.claude/scripts/vault.mjs` (latest / get / search against Drive with `~/.secrets/nudge/gdrive.env`) and the user skill
   `vault` let a Claude session fetch what the owner just forwarded ("grab what I just sent").
 
+## WhatsApp onboarding + adding friends by number (2026-11-05)
+- `scripts/add_friend.mjs "<Name>" <digits with country code> <IANA tz>` adds a friend with no web-app signup: Firebase Auth user + `users/{uid}` + `waLinks/{waId}` (production, SA key in `~/.secrets/nudge`), with `onboarding: {step:'welcome'}`.
+- `lib/bot/onboarding.ts` (`maybeOnboard`, called in `core.ts run()` right after the link lookup): their first message starts a setup chat: name (offers the WhatsApp profile name) -> city/country (`PLACES` table, else a one-tool Gemini call, then a Yes/No confirm showing local time) -> morning time -> evening recap time -> goal (tasks / fitness / both). State: `waLinks.onboarding {step, tz?, nm?}`; `null`/absent = done. Answers save to `waLinks` (timezone, checkinTime, recapTime, interest) and `setProfile` (`lib/server/users.ts`: user doc + Auth displayName). `skip` keeps a default; `setup` or `/setup` re-runs it for anyone.
+- `listLinks()` skips links mid-setup, so the scheduler sends no check-in before they finish. Existing users have no `onboarding` field and are untouched.
+- Test: `npx tsx scripts/tests/test_onboarding.mts` (fake deps, no emulator).
+
 ## Reminders (2026-11-04): push for app users, WhatsApp for the rest, cheap by design
 - `lib/server/reminders.ts`, run by `app/api/cron/nudge` after the scheduler (same 15-min tick, so a reminder is up to 15 min
   late). Fire time = `task.remindAt` (bot: a slotted time like "gym 6pm" reminds 15 min before; "remind me 30 min before",

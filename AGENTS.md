@@ -71,6 +71,21 @@ first.
   Production + Preview; they do not `vercel env pull`). No token = scheduling is a no-op (local, tests).
 - Test: `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_reminders.mts`.
 
+## Privacy + learning log (2026-11-04, branch `privacy`)
+- Owner decision: keep people's messages for learning, **tell them, let them opt out**. Never call the bot "end-to-end
+  encrypted": the server reads every message (Meta Cloud API -> console relay -> this app -> Gemini).
+- Every bot turn is also written to `learningLog/{auto}` = `{lid, at, path, user, bot}` (`lib/server/learning.ts`), text run
+  through `lib/bot/scrub.ts` (e-mails, 8+ digit numbers, the person's display name; friends' names and the content itself
+  are NOT removed). `lid` is a random id stored only on `waLinks/{waId}.learnId`. Server-only in `firestore.rules`. A failed
+  write never breaks the reply.
+- One-time notice (`PRIVACY_NOTICE`, `waLinks.privacyNoticeAt`): new people right after the welcome, existing people after
+  their next reply. `privacy` shows `PRIVACY` (`lib/bot/core.ts`); change that text if what is kept changes.
+- `delete my data` / `forget me` -> Delete / Keep buttons (`forget:yes|no`) -> `forgetMe` (`lib/wa/privacy.ts`): deletes
+  `waSessions/{waId}` and unlinks (the link doc holds `learnId`, so learning rows are no longer tied to the person). Tasks and
+  workouts stay in the app account. Nothing is saved or logged on that turn.
+- Vault users never reach the bot (`tryVault` first), so they get no notice and their files are in the owner's Drive.
+- Tests: `scripts/tests/test_privacy.mts` (fakes), `scripts/tests/test_forget.mts` (emulator).
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

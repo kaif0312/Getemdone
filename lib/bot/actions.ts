@@ -23,6 +23,7 @@ export const HELP = [
   '• "nudge Ali" - cheer a friend on',
   '• Voice notes and screenshots work too',
   '• *stop* pauses my messages, *start* resumes',
+  '• *privacy* - what I keep, *delete my data* - erase it',
 ].join('\n');
 
 export class Ctx {

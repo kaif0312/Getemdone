@@ -6,6 +6,7 @@ export type Fast =
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' }
+  | { t: 'privacy' | 'forgetAsk' | 'forgetYes' | 'forgetNo' }
   | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
@@ -55,6 +56,8 @@ function fromReply(id: string): Fast | null {
       const m = /^(accept|decline):(.+)$/.exec(rest);
       return m ? { t: 'invite', id: m[2], accept: m[1] === 'accept' } : null;
     }
+    case 'forget':
+      return rest === 'yes' ? { t: 'forgetYes' } : rest === 'no' ? { t: 'forgetNo' } : null;
     case 'checkin':
       return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : null;
     case 'settime': {
@@ -76,6 +79,8 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (t === 'week') return { t: 'week' };
   if (t === 'friends') return { t: 'friends' };
+  if (/^(privacy|my data|what do you (keep|save|store))\??$/.test(t)) return { t: 'privacy' };
+  if (/^((delete|erase|remove|wipe)( all)? (my )?(data|chats?|history|everything)|forget me)$/.test(t)) return { t: 'forgetAsk' };
   const m = /^(done|did|finished|complete|completed|del|delete|remove|tmrw|tomorrow)\s+(.+)$/.exec(t);
   if (m) {
     const nums = parseNumbers(m[2]);

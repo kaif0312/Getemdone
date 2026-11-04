@@ -7,6 +7,8 @@ import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
 import type * as Send from '@/lib/wa/send';
+import type * as Learning from '@/lib/server/learning';
+import type * as Privacy from '@/lib/wa/privacy';
 
 export interface GeminiPart {
   text?: string;
@@ -46,6 +48,10 @@ export interface BotDeps {
   /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
   sendSticker?: typeof Send.sendSticker;
   markRead: typeof Send.markRead;
+  /** Optional so older test fakes keep compiling; when absent, nothing goes to the learning log. */
+  logLearning?: typeof Learning.logLearning;
+  /** "delete my data". Optional for older fakes; when absent the bot says it cannot do it right now. */
+  forgetMe?: typeof Privacy.forgetMe;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server
   getUserLite: typeof Users.getUserLite;

@@ -7,6 +7,8 @@ import * as links from '@/lib/wa/links';
 import * as sessions from '@/lib/wa/sessions';
 import * as send from '@/lib/wa/send';
 import * as reminders from '@/lib/server/reminders';
+import * as learning from '@/lib/server/learning';
+import * as privacy from '@/lib/wa/privacy';
 import { callGemini } from './gemini';
 import type { BotDeps } from './types';
 
@@ -23,6 +25,8 @@ export const defaultDeps: BotDeps = {
   sendList: send.sendList,
   sendSticker: send.sendSticker,
   markRead: send.markRead,
+  logLearning: learning.logLearning,
+  forgetMe: privacy.forgetMe,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,
   localDate: users.localDate,

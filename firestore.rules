@@ -314,6 +314,7 @@ service cloud.firestore {
     match /waSessions/{id} { allow read, write: if false; }
     match /waSeen/{id} { allow read, write: if false; }
     match /nudgeLimits/{id} { allow read, write: if false; }
+    match /learningLog/{id} { allow read, write: if false; } // server-only (lib/server/learning.ts)
 
     // Friend invites: created/answered server-side only; the two people involved may read.
     match /friendInvites/{id} {

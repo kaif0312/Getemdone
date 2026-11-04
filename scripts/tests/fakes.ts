@@ -9,13 +9,15 @@ export function mkTask(id: string, text: string, extra: Partial<Task> = {}): Tas
   return { id, userId: 'u1', text, isPrivate: false, completed: false, createdAt: 1, completedAt: null, ...extra } as Task;
 }
 
-export function makeFake(opts: { linked?: boolean; tasks?: Task[]; gemini?: (req: Parameters<BotDeps['gemini']>[0]) => Promise<GeminiResult> } = {}) {
+export function makeFake(opts: { linked?: boolean; link?: Partial<WaLink>; tasks?: Task[]; gemini?: (req: Parameters<BotDeps['gemini']>[0]) => Promise<GeminiResult> } = {}) {
   const calls: string[] = [];
   const sent: Sent[] = [];
   const tasks = new Map<string, Task>((opts.tasks ?? []).map((t) => [t.id, t]));
   let seq = 100;
+  // privacyNoticeAt set: existing tests see no one-time notice (test_privacy.mts covers it).
   let link: WaLink | null = opts.linked === false ? null : {
     waId: '9100', uid: 'u1', linkedAt: 1, lastInboundAt: 0, timezone: 'Asia/Kolkata', checkinTime: null, recapTime: null, friendAlerts: true, muted: false,
+    privacyNoticeAt: 1, ...opts.link,
   };
   let session: WaSession = { turns: [], lastList: [], updatedAt: 0 };
   const log = (s: string) => calls.push(s);

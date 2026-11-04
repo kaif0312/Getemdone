@@ -78,6 +78,10 @@ export interface WaLink {
   friendAlerts: boolean;
   /** User sent STOP: send nothing proactive. */
   muted: boolean;
+  /** Random id for the learning log (lib/server/learning.ts); deleted with this doc on "delete my data". */
+  learnId?: string;
+  /** Unix ms when the one-time privacy notice was sent. */
+  privacyNoticeAt?: number;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

@@ -30,7 +30,7 @@ await test('unlinked: how to connect', async () => {
 await test('unlinked: LINK code -> welcome + 3 time buttons', async () => {
   const f = makeFake({ linked: false });
   await handleWith(f.deps, text('link abc234'));
-  assert.deepEqual(f.calls, ['redeem ABC234']);
+  assert.equal(f.calls[0], 'redeem ABC234'); // then the privacy notice is recorded (test_privacy.mts)
   assert.match(f.sent[0].body, /connected/);
   assert.deepEqual(f.stickers, ['blowing']);
   assert.equal(f.sent[1].kind, 'buttons');

@@ -82,4 +82,15 @@ admin dashboard (stays web).
 | 3 | Review + polish | `native-app` | merge wave 2, cross-screen polish, real-device dev build, then EAS builds |
 
 ## 6. Status
-- 2026-11-05: scope agreed with the owner; waves 1-2 started.
+- 2026-11-05: scope agreed with the owner; waves 1-3 done on `native-app` (foundation, Today, Friends, Progress+Me,
+  polish/review; screenshots `native/docs/screens/final-*`). Server side on `app-api` (WhatsApp login, friend invite/answer
+  endpoints, Expo push in reminders + the `sendPushNotification` function). Neither branch is pushed.
+- EAS project `@kaifuten/nudge` (`1e20a99c-af53-4651-bc2c-4bc8701e1ac9`). Firebase Android app `com.iskaria.nudge`
+  created via the Management API (service account), `native/google-services.json` committed (public client config).
+- First Android production build started 2026-11-05 (EAS, AAB).
+- **Blocking a working beta (owner):** deploy `firestore.rules` (live rules are from 2026-02: no presence/fitness/
+  focusSessions/friendInvites) and `functions` (`firebase deploy --only firestore:rules,functions:sendPushNotification`);
+  merge `app-api` (Vercel deploy) so WhatsApp sign-in and friend invites work; upload the FCM V1 key to EAS
+  (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`) for Android push; first iOS build
+  interactively (`eas build -p ios --profile production`, Apple login creates the bundle id/profile), then
+  `eas submit -p ios --latest`; create the Play app and upload the first AAB to Internal testing.

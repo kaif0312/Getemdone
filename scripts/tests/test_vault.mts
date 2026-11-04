@@ -2,7 +2,7 @@
 //   npx tsx scripts/tests/test_vault.mts
 import assert from 'node:assert/strict';
 import { parseForwarded, tooBigSenders } from '../../lib/wa/inbound';
-import { cleanName, fileNameFor, handleVault, registeredFolder, registeredVaultMsg, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
+import { FORWARD_NOTE, cleanName, fileNameFor, handleVault, isPlainForward, registeredFolder, registeredVaultMsg, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
 import { signUploadToken, verifyUploadToken } from '../../lib/vault/link';
 import type { InboundMessage } from '../../lib/wa/types';
 
@@ -213,6 +213,28 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
   await handleVault(d, registeredVaultMsg({ ...img, text: '/ref logo ideas' })!, { '916238952660': registeredFolder('Ibrahim', '916238952660') });
   assert.equal(log.saved[0].name, '2026-11-05_0105_logo ideas.jpg');
   assert.deepEqual(log.saved[0].path, ['Nudge Vault', 'Ibrahim 2660', '2026-11']);
+  assert.deepEqual(log.texts, [], 'a /ref photo gets only the ✅ reaction');
+
+  // a forwarded screenshot: only a plain forward earns the "how to get it read" note, and only after a successful save
+  assert.equal(isPlainForward(fwd[0]), true);
+  assert.equal(isPlainForward({ ...fwd[0], text: '/ref logo' }), false);
+  assert.equal(isPlainForward(fwd[3]), false);
+  assert.equal(isPlainForward({ ...fwd[0], type: 'document' }), false);
+  const f = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(f.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => FORWARD_NOTE);
+  assert.deepEqual(f.log.reactions, ['✅']);
+  assert.deepEqual(f.log.texts, [FORWARD_NOTE]);
+  assert.match(FORWARD_NOTE, /Saved to Drive/);
+  assert.match(FORWARD_NOTE, /not forwarded/);
+  const g = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(g.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => null); // already told today
+  assert.deepEqual(g.log.texts, []);
+  const h = fakes({ save: async () => { throw new Error('drive down'); } });
+  let asked = false;
+  await handleVault(h.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => { asked = true; return FORWARD_NOTE; });
+  assert.equal(asked, false, 'no note when the save failed');
+  assert.equal(h.log.texts.length, 1);
+  assert.match(h.log.texts[0], /Could not save/);
 }
 
 

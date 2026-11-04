@@ -73,6 +73,16 @@ export function registeredVaultMsg(msg: InboundMessage): InboundMessage | null {
   return prefixed ? { ...msg, text: msg.text!.replace(SAVE_PREFIX, '').trim() || undefined } : msg;
 }
 
+/** A forwarded photo the user may have meant for the to-do bot (no "save" / "/ref" caption): they get FORWARD_NOTE once a day. */
+export function isPlainForward(msg: InboundMessage): boolean {
+  return msg.type === 'image' && msg.forwarded === true && !(msg.text && SAVE_PREFIX.test(msg.text));
+}
+
+export const FORWARD_NOTE = [
+  '📁 Saved to Drive: forwarded photos go to your files (/files lists them).',
+  'Wanted me to read it for tasks instead? Save the photo and send it from your gallery (not forwarded).',
+].join('\n');
+
 /** Drive folder for a registered user: "<display name> <last 4 digits>" so two Sams never share a folder. */
 export function registeredFolder(displayName: string | undefined, waId: string): string {
   return `${cleanName(displayName ?? '', 40) || 'User'} ${waId.slice(-4)}`;
@@ -127,7 +137,11 @@ export function fileNameFor(msg: InboundMessage, mimeType: string, tz: string): 
 const FILE_TYPES = new Set<InboundMessage['type']>(['image', 'document', 'video']);
 
 /** True when the message was handled by the vault (the caller must then not run the normal bot). */
-export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Record<string, string> = vaultUsers()): Promise<boolean> {
+export async function handleVault(
+  d: VaultDeps, msg: InboundMessage, users: Record<string, string> = vaultUsers(),
+  /** Called only after a successful save; a non-empty result is sent as a text after the ✅ reaction. */
+  savedNote?: () => Promise<string | null>,
+): Promise<boolean> {
   const who = users[msg.from];
   if (!who) return false;
   if (msg.type === 'reaction') return true;
@@ -154,6 +168,10 @@ export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Reco
     await d.record({ wamid: msg.id, from: msg.from, who, name, driveId: saved.id, mime, bytes: m.data.length, caption: msg.text ?? null, at: d.now() })
       .catch((e) => console.error('[vault] audit write failed', e));
     await d.sendReaction(msg.from, msg.id, '✅').catch(() => undefined);
+    if (savedNote) {
+      const note = await savedNote().catch(() => null);
+      if (note) await d.sendText(msg.from, note).catch(() => undefined);
+    }
   } catch (e) {
     console.error('[vault] save failed', msg.id, e);
     await d.sendText(msg.from, `❌ Could not save ${name || 'that file'}. Please send it again. If it keeps failing, tell Ibrahim.`).catch(() => undefined);

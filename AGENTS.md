@@ -31,7 +31,7 @@ first.
   forwarded (`context.forwarded` / `frequently_forwarded`, parsed into `InboundMessage.forwarded`); plain photos are screenshots for the to-do bot.
   Text and voice notes never reach the vault. Folder `<root>/<display name> <last 4 digits>/<yyyy-mm>/`. Logic: `registeredVaultMsg` /
   `registeredFolder` in `vault.ts` (pure, tested), wiring in `index.ts` `tryVault` (allowlist first, then linked users; one Firestore
-  read only for a file message). Kill switch: env `NUDGE_VAULT_REGISTERED=0`. Everyone's files share the owner's Drive quota and the
+  read only for a file message). A plain forwarded photo gets the ✅ plus, once a day per user (`waSeen/fwdnote:<wa>:<date>`), `FORWARD_NOTE`: saved to Drive, send it from the gallery (not forwarded) to have it read as tasks. `vaultFolderFor(wa)` (index.ts) resolves allowlist-or-linked for `tryVault`, `tryVaultTooBig` and `POST /api/vault/done` (so linked users' >100 MB link uploads get the audit doc + "Saved"). Kill switch: env `NUDGE_VAULT_REGISTERED=0`. Everyone's files share the owner's Drive quota and the
   owner can open all of them (privacy and storage are the owner's call).
 - Allowlist: env `NUDGE_VAULT_USERS` = `971501234567:Fairooz,...` (wa id digits : name). To give someone the capability, add
   them there and redeploy. `NUDGE_VAULT_ROOT` (default `Nudge Vault`) and `NUDGE_VAULT_TZ` (default `Asia/Dubai`, used in

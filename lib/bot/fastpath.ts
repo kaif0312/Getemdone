@@ -6,6 +6,7 @@ export type Fast =
   | { t: 'today' }
   | { t: 'addTask'; text: string }
   | { t: 'files' }
+  | { t: 'calendar'; view: 'month' | 'week'; offset: number }
   | { t: 'unknownCmd'; cmd: string }
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
@@ -51,6 +52,10 @@ function fromReply(id: string): Fast | null {
     case 'del': return { t: 'delId', id: rest };
     case 'undo': return { t: 'undo', id: rest };
     case 'task': return { t: 'taskOpen', id: rest };
+    case 'cal': { // cal:month:0 / cal:week:-1 (offset from the current month / week)
+      const m = /^(month|week):(-?\d{1,3})$/.exec(rest);
+      return m ? { t: 'calendar', view: m[1] as 'month' | 'week', offset: Math.max(-24, Math.min(24, +m[2])) } : null;
+    }
     case 'focus': return { t: 'focus', id: rest };
     case 'nudge': return { t: 'nudge', uid: rest };
     case 'confirm': return { t: 'confirm', id: rest };
@@ -79,6 +84,16 @@ function fromReply(id: string): Fast | null {
 /** Commands that take the rest of the line as written (not lower-cased). */
 const ADD_CMDS = new Set(['task', 'add']);
 const FILE_CMDS = new Set(['files', 'vault']);
+const CAL_CMDS = new Set(['calendar', 'cal', 'month', 'agenda', 'schedule']);
+
+/** "calendar", "cal week", "month next", "agenda", "calendar last month"... null = not a calendar request. */
+export function parseCalendar(cmd: string, arg: string): Fast | null {
+  const a = arg.toLowerCase().replace(/[.!]+$/g, '').trim();
+  const off = /(next|following)/.test(a) ? 1 : /(prev|previous|last|before)/.test(a) ? -1 : 0;
+  if (a && !/^((this|next|last|prev|previous|following)\s*)?(week|month)?$/.test(a)) return null;
+  const view: 'month' | 'week' = /week/.test(a) ? 'week' : /month/.test(a) ? 'month' : cmd === 'agenda' ? 'week' : 'month';
+  return { t: 'calendar', view, offset: off };
+}
 /** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
 const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
   'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines']);
@@ -95,6 +110,7 @@ export function parseSlash(text: string): { rest: string } | { fast: Fast } | nu
   const arg = (m[2] ?? '').trim();
   if (ADD_CMDS.has(cmd)) return { fast: { t: 'addTask', text: arg } };
   if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
+  if (CAL_CMDS.has(cmd)) return { fast: parseCalendar(cmd, arg) ?? { t: 'calendar', view: 'month', offset: 0 } };
   if (BARE_CMDS.has(cmd)) return { rest: arg ? `${cmd} ${arg}` : cmd };
   return { fast: { t: 'unknownCmd', cmd } };
 }
@@ -111,6 +127,8 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (t === 'start') return { t: 'unmute' };
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (t === 'week') return { t: 'week' };
+  const cal = /^(?:show |open |see |my )?(calendar|cal|agenda|schedule|month)(?: view)?(?:\s+(.+))?$/.exec(t) ?? /^(week|next week|this week)\s+(?:calendar|agenda|schedule)$/.exec(t);
+  if (cal) return cal[2] === undefined && /^(week|next week|this week)$/.test(cal[1]) ? parseCalendar('calendar', cal[1]) : parseCalendar(cal[1], cal[2] ?? '');
   if (/^(meds|medicine|medicines|my meds|medicine status)$/.test(t)) return { t: 'meds' };
   if (isLangCommand(t)) return { t: 'lang' };
   const lm = /^(?:language|lang)\s+(.+)$/.exec(t);

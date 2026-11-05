@@ -71,6 +71,25 @@ export async function uploadMedia(data: Buffer, mimeType: string, filename = 'me
   }
 }
 
+/** Image by uploaded media id (PNG/JPEG <= 5 MB), with an optional caption. */
+export function sendImageId(to: string, mediaId: string, caption?: string): Promise<string | null> {
+  return post('image', to, { type: 'image', image: { id: mediaId, ...(caption ? { caption: cap(caption) } : {}) } });
+}
+
+/** One message: an uploaded image on top, the body text and up to 3 reply buttons below (interactive header image). */
+export function sendImageButtons(to: string, mediaId: string, body: string, buttons: { id: string; title: string }[]): Promise<string | null> {
+  const t = (s: string) => Array.from(s).slice(0, 20).join('');
+  return post('image_buttons', to, {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      header: { type: 'image', image: { id: mediaId } },
+      body: { text: body.slice(0, 1024) },
+      action: { buttons: buttons.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: b.id.slice(0, 256), title: t(b.title) } })) },
+    },
+  });
+}
+
 /** Sticker from an uploaded media id (512x512 WebP; animated <= 500 KB, static <= 100 KB). */
 export function sendStickerId(to: string, mediaId: string): Promise<string | null> {
   return post('sticker', to, { type: 'sticker', sticker: { id: mediaId } });

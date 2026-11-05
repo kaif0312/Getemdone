@@ -203,3 +203,18 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
 | `GEMINI_API_KEY` | Gemini key |
 | `CRON_SECRET` | Auth for `/api/cron/nudge` |
 | `NUDGE_WA_NUMBER` | `96560091617` (for `wa.me` links) |
+
+## Calendar images (2026-11-05): `/calendar` (month) and `/cal week` (agenda) on WhatsApp
+- Commands (`lib/bot/fastpath.ts` `parseCalendar`): `/calendar`, `/cal`, `/month`, `/agenda` (= week), `calendar`, `show calendar`; args `week`,
+  `month`, `next`, `last`/`prev`. Reply buttons `cal:<month|week>:<offset>` walk Prev / Next and switch view (one message: image header + buttons).
+  `/week` and `week` are still the FITNESS week; the calendar week is `/cal week` or `/agenda`.
+- Data: `lib/calendar/events.ts` (pure, tested): `deferredTo` -> task on that day (+time); `dueDate` -> deadline (merged into the task when the
+  same day); recurring tasks expand per day (`dateMatchesRecurrence`, done = `completedDates`); reminder-only tasks sit at `remindFor`;
+  undated open tasks are only counted ("+ N open tasks with no date"). Weeks start Monday. In the month grid habits are dots, not chips.
+- Drawing: `lib/calendar/render.tsx` uses `next/og` (satori + resvg) at 1080 px wide; fonts are committed in `lib/calendar/fonts/` (Inter, Cairo for
+  Arabic, Noto Sans Malayalam; **Noto Sans Arabic and Noto Kufi break satori's shaper, "substFormat: 3"**, so don't swap them in) and shipped via
+  `outputFileTracingIncludes` in `next.config.ts`. Satori has no check/arrow glyphs: draw them with CSS (see `Check`). Emoji in task text are
+  fetched from the network by next/og at render time. Image heights are computed in `renderMonthPng` / `renderWeekPng`: re-check them if you
+  change row sizes (`npx tsx scripts/try_calendar.mts` writes `tmp-cal/*.png`).
+- Sending: `lib/calendar/send.ts` renders, uploads (`uploadMedia`), sends `sendImageButtons`; any failure returns false and the bot sends a text
+  agenda instead. Tests: `scripts/tests/test_calendar_images.mts`.

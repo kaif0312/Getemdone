@@ -47,6 +47,13 @@ export interface MedBotDeps {
 /** One file in the user's Drive vault (from the `vaultUploads` audit collection). */
 export interface VaultItem { name: string; bytes: number; at: number }
 
+/** Calendar images (/calendar, /cal week). Optional so older test fakes keep compiling; absent = a text agenda only. */
+export interface CalendarDeps {
+  tasks(uid: string): Promise<import('@/lib/types').Task[]>;
+  /** Render, upload and send the PNG with the caption and buttons. false = could not send an image (caller falls back to text). */
+  sendImage(to: string, view: 'month' | 'week', model: import('@/lib/calendar/events').MonthModel | import('@/lib/calendar/events').WeekModel, caption: string, buttons: { id: string; title: string }[]): Promise<boolean>;
+}
+
 export interface BotDeps {
   now(): number;
   gemini(req: GeminiRequest): Promise<GeminiResult>;
@@ -61,6 +68,7 @@ export interface BotDeps {
   sendList: typeof Send.sendList;
   /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
   sendSticker?: typeof Send.sendSticker;
+  calendar?: CalendarDeps;
   /** Meme/GIF/sticker sending; absent = no memes (tests that do not care, or no providers). */
   memes?: MemeDeps;
   /** Medicine reminders (lib/server/meds.ts). Optional so older test fakes keep compiling. */

@@ -23,7 +23,8 @@ const onlyLang = argOf('--lang');
 const tpl = (name, language, text, example, buttons = []) => ({
   name,
   language,
-  category: 'UTILITY',
+  // Meta classed nudge_checkin and nudge_friend as MARKETING (their English versions); every language of a name must match.
+  category: ['nudge_checkin', 'nudge_friend'].includes(name) ? 'MARKETING' : 'UTILITY',
   components: [
     { type: 'BODY', text, example: { body_text: [example] } },
     ...(buttons.length ? [{ type: 'BUTTONS', buttons: buttons.map((b) => ({ type: 'QUICK_REPLY', text: b })) }] : []),

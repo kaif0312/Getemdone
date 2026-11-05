@@ -143,6 +143,17 @@ export default function TodayScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Calendar"
+            onPress={() => {
+              haptic.select();
+              router.push('/calendar');
+            }}
+            style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border }}
+          >
+            <Icon name="calendar" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel="More"
             onPress={() => {
               haptic.select();

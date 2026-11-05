@@ -27,7 +27,9 @@ export default function DeleteAccount() {
   const [reauthError, setReauthError] = useState<string | null>(null);
   const [wa, setWa] = useState<LoginStart | null>(null);
   const waId = (profile as { whatsapp?: { waId?: string } } | null)?.whatsapp?.waId ?? null;
-  const method = reauthMethod(user);
+  // A WhatsApp account whose number was unlinked ("delete my data") cannot prove itself with LOGIN: the server would make a
+  // NEW empty account for that number. Such a person gets the e-mail request instead of a code.
+  const method = reauthMethod(user) === 'whatsapp' && !waId ? 'none' : reauthMethod(user);
   // uid at the moment the person confirmed: a re-auth must come back as this same account.
   const confirmedUid = useRef<string | null>(null);
 
@@ -183,6 +185,11 @@ export default function DeleteAccount() {
                 <Button label="Confirm and delete" variant="danger" fullWidth loading={busy} disabled={!password} onPress={() => void submitPassword()} />
               </View>
             </>
+          ) : method === 'none' ? (
+            <Text tone="muted" align="center">
+              This account has no password and no WhatsApp number linked to confirm with. Send us a deletion request by e-mail
+              instead and we delete the account within 30 days.
+            </Text>
           ) : (
             <>
               <Text tone="muted" align="center">
@@ -205,6 +212,7 @@ export default function DeleteAccount() {
             </>
           )}
           <View style={{ alignSelf: 'stretch', gap: 8 }}>
+            <Button label="Request deletion by e-mail" variant={method === 'none' ? 'danger' : 'secondary'} fullWidth disabled={busy} onPress={() => void sendRequest()} />
             <Button label="Keep my account" variant="ghost" fullWidth disabled={busy} onPress={() => router.back()} />
           </View>
         </View>

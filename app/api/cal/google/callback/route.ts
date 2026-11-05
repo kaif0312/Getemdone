@@ -1,5 +1,5 @@
 // Google redirects here after consent: ?code=...&state=<signed>. Saves the connection, runs the first sync, then
-// sends the person back: the app via its `nudge://calendar` link, WhatsApp via a button to the Nudge chat.
+// sends the person back: the app via its `nudge://me/calendar` link, WhatsApp via a button to the Nudge chat.
 import { connect, syncUser, verifyState } from '@/lib/server/googleCal';
 import { calPage } from '@/lib/server/calPage';
 import { getTimezone } from '@/lib/server/users';
@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 function back(via: 'wa' | 'app', ok: boolean, reason?: string): Response {
   if (via === 'app') {
-    return Response.redirect(`nudge://calendar?${ok ? 'connected=1' : `error=${encodeURIComponent(reason ?? 'failed')}`}`, 302);
+    return Response.redirect(`nudge://me/calendar?${ok ? 'connected=1' : `error=${encodeURIComponent(reason ?? 'failed')}`}`, 302);
   }
   const button = { href: waChatUrl(), label: 'Back to WhatsApp' };
   return ok

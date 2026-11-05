@@ -32,7 +32,7 @@ Not shown: completed, deleted, recurring templates, tasks with no time, a bare d
   7 days); unverified-with-sensitive-scope shows a warning screen and caps at 100 users, fine for the friends beta.
 - Flow: `startLink(uid, via)` = `/api/cal/google/start?s=<signed state, 20 min, HMAC NUDGE_FORWARD_SECRET>` -> Google ->
   `/api/cal/google/callback` (code -> refresh token, creates the calendar, saves `calendarLinks/{uid}.google`, first
-  sync). `via:'wa'` ends on an HTML page + a WhatsApp confirmation; `via:'app'` redirects to `nudge://calendar?connected=1`
+  sync). `via:'wa'` ends on an HTML page + a WhatsApp confirmation; `via:'app'` redirects to `nudge://me/calendar?connected=1`
   (the app opens the start link with `expo-web-browser`).
 - Sync (`googleCal.syncUser`): make Google match `eventsForTasks`. Event id = sha1(taskId) hex, so inserts are idempotent
   (409 -> update; update 404 because the user deleted it -> insert). `google.synced` = `{taskId: hash}` is the memory: patch

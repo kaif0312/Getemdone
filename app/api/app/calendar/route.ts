@@ -2,7 +2,7 @@
 //   GET  -> { feed: {url, webcalUrl} | null, google: { connected, email?, lastSyncAt?, error?, needsReconnect? }, googleAvailable }
 //   POST { action } where action is
 //     feed.create | feed.rotate | feed.remove          -> the new status
-//     google.start                                      -> { url } open it in the in-app browser; it ends at nudge://calendar?connected=1
+//     google.start                                      -> { url } open it in the in-app browser; it ends at nudge://me/calendar?connected=1
 //     google.sync                                       -> { sync: {created, updated, deleted, ...}, ...status }
 //     google.disconnect                                 -> the new status (deletes the "Nudge" calendar in Google)
 // 401 unauthorized | 400 bad_request | 409 not_connected | 503 google_unavailable

@@ -15,6 +15,7 @@ import { listVaultFiles } from '@/lib/vault/audit';
 import * as calLink from '@/lib/server/calendarLink';
 import * as gcal from '@/lib/server/googleCal';
 import type { BotDeps } from './types';
+import { sendCalendarImage } from '@/lib/calendar/send';
 
 export const defaultDeps: BotDeps = {
   now: () => Date.now(),
@@ -35,6 +36,7 @@ export const defaultDeps: BotDeps = {
     uploadMedia: media.uploadMedia,
     sendStickerId: media.sendStickerId,
   },
+  calendar: { tasks: tasks.listCalendar, sendImage: sendCalendarImage },
   meds: {
     openDosesFor: meds.openDosesFor,
     takeDose: meds.takeDose,
@@ -44,7 +46,7 @@ export const defaultDeps: BotDeps = {
     addMedication: meds.addMedication,
     removeMedication: meds.removeMedication,
   },
-  calendar: {
+  calSync: {
     status: async (uid) => calLink.toPublicStatus(await calLink.getCalendarLink(uid)),
     ensureFeed: async (uid, rotate) => {
       const token = await calLink.ensureFeedToken(uid, rotate);

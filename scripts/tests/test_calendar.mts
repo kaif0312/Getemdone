@@ -200,13 +200,13 @@ function harness(tasks: Task[], g: Partial<GoogleLink> = {}) {
   assert.deepEqual(parseFast({ type: 'text', text: '/sync Link' } as any), { t: 'sync', arg: 'link' });
   assert.deepEqual(parseFast({ type: 'text', text: 'sync calendar' } as any), { t: 'sync', arg: '' });
   assert.deepEqual(parseFast({ type: 'text', text: 'connect google calendar' } as any), { t: 'sync', arg: '' });
-  assert.equal(parseFast({ type: 'text', text: '/calendar' } as any)?.t, 'unknownCmd', '/calendar belongs to the month/week image command');
+  assert.equal(parseFast({ type: 'text', text: '/calendar' } as any)?.t, 'calendar', '/calendar is the month/week image command, not sync');
 }
 {
   const f = makeFake();
   let st: any = { feed: null, google: { connected: false } };
   const log: string[] = [];
-  f.deps.calendar = {
+  f.deps.calSync = {
     status: async () => st,
     ensureFeed: async (_u, rotate) => { log.push('feed' + (rotate ? ':rotate' : '')); st = { ...st, feed: { url: 'https://h/api/cal/T.ics', webcalUrl: 'webcal://h/api/cal/T.ics' } }; return st.feed; },
     removeFeed: async () => { log.push('removeFeed'); st = { ...st, feed: null }; },
@@ -242,9 +242,9 @@ function harness(tasks: Task[], g: Partial<GoogleLink> = {}) {
   assert.deepEqual(log.slice(-2), ['disconnect', 'removeFeed']);
   assert.equal((await syncLines(ctx, 'off'))[0], 'Nothing is connected.');
 
-  f.deps.calendar = { ...f.deps.calendar, googleAvailable: () => false };
+  f.deps.calSync = { ...f.deps.calSync, googleAvailable: () => false };
   assert.ok((await syncLines(ctx, 'google'))[0].includes('not switched on'));
-  delete (f.deps as any).calendar;
+  delete (f.deps as any).calSync;
   assert.ok((await syncLines(ctx, ''))[0].includes('not available'));
 }
 

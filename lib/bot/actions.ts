@@ -10,6 +10,7 @@ import type { BotDeps, Undo } from './types';
 import { COACH_IDS, COACHES, isCoachId } from './coaches';
 import { raise, type MemeRequest } from './memes';
 import { REMIND_LEAD_MIN } from '@/lib/server/reminders';
+import { agendaText, buildMonth, buildWeek } from '@/lib/calendar/events';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
 
 export const MAX_LIST = 10;
@@ -21,6 +22,7 @@ export const HELP = [
   '• *done 2* or *done 1,3* - tick off',
   '• *undo* - take back the last change',
   '• Log fitness: "ran 5k in 28 min", "82.4 kg"',
+  '• *calendar* - your month as a picture, *cal week* - this week (tap Prev / Next)',
   '• *week* - fitness this week, *friends* - what friends did',
   '• "nudge Ali" - cheer a friend on',
   '• *coach* - pick your coach (friendly, hardcore, hype...)',
@@ -31,7 +33,7 @@ export const HELP = [
   '',
   '*Slash commands* (a leading / works on the commands above)',
   '/task <text> add a task, /today, /done 2, /undo, /week',
-  '/files your last 5 Drive files, /help',
+  '/cal month calendar, /cal week agenda, /cal next, /files your last 5 Drive files, /help',
 ].join('\n');
 
 export const UNKNOWN_CMD = (cmd: string) => `Unknown command /${cmd.slice(0, 20)}. Send /help to see what I can do.`;
@@ -41,6 +43,37 @@ export const FILES_NONE = 'Nothing in your Drive vault yet. Send me a document o
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 /** "/files": the user's last vault items, newest first. */
+/** "/calendar": the month grid or the week agenda as a picture, with Prev / Next / switch buttons; a text agenda if the picture fails. */
+export async function showCalendar(ctx: Ctx, view: 'month' | 'week', offset: number): Promise<void> {
+  const cal = ctx.d.calendar;
+  if (!cal) { await ctx.text('The calendar is not available right now.'); return; }
+  const tasks = await cal.tasks(ctx.uid);
+  const model = view === 'month' ? buildMonth(tasks, ctx.tz, ctx.today, offset) : buildWeek(tasks, ctx.tz, ctx.today, offset);
+  const days = view === 'month' ? (model as ReturnType<typeof buildMonth>).weeks.flat() : (model as ReturnType<typeof buildWeek>).days;
+  // Caption: a month shows what is coming up next (this month only); a week shows its own days.
+  const upcoming = view === 'month' ? days.filter((d) => d.date >= ctx.today && d.date <= addDays(ctx.today, 7)) : days;
+  const agenda = (view === 'week' || offset === 0 ? agendaText(upcoming, ctx.today, view === 'week' ? 7 : 4, 4) : '');
+  const headline = view === 'month' ? (model as ReturnType<typeof buildMonth>).title : (model as ReturnType<typeof buildWeek>).title;
+  const nothing = 'Nothing planned. Send me what you want to get done.';
+  const caption = agenda
+    ? `*${headline}*\n\n${view === 'month' ? '*Coming up*\n' : ''}${agenda}`.slice(0, 1000)
+    : `*${headline}*\n${model.total ? `${model.total - model.done} to go, ${model.done} done` : nothing}`;
+  const other = view === 'month' ? 'week' : 'month';
+  const buttons = [
+    { id: `cal:${view}:${offset - 1}`, title: '◀ Prev' },
+    { id: `cal:${view}:${offset + 1}`, title: 'Next ▶' },
+    { id: `cal:${other}:0`, title: other === 'week' ? 'Week view' : 'Month view' },
+  ];
+  const sent = await cal.sendImage(ctx.waId, view, model, caption, buttons);
+  ctx.out.push(caption);
+  if (!sent) {
+    const text = agendaText(days, ctx.today, 7, 5);
+    await ctx.text(`*${headline}*
+
+${text || 'Nothing planned yet. Tell me what you want to get done.'}`);
+  }
+}
+
 export async function filesLines(ctx: Ctx): Promise<string[]> {
   const items = (await ctx.d.listVaultFiles?.(ctx.waId, 5)) ?? [];
   if (!items.length) return [FILES_NONE];

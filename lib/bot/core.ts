@@ -4,7 +4,7 @@ import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
   Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
-  coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
+  coachMenu, logWorkoutAction, showCalendar, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
 } from './actions';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
@@ -196,6 +196,7 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'addTask':
       if (!f.text) await ctx.text(TASK_USAGE); else await addTaskCommand(ctx, f.text);
       return;
+    case 'calendar': await showCalendar(ctx, f.view, f.offset); return;
     case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
     case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;

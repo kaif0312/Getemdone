@@ -12,6 +12,7 @@ import * as reminders from '@/lib/server/reminders';
 import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
 import type { BotDeps } from './types';
+import { sendCalendarImage } from '@/lib/calendar/send';
 
 export const defaultDeps: BotDeps = {
   now: () => Date.now(),
@@ -32,6 +33,7 @@ export const defaultDeps: BotDeps = {
     uploadMedia: media.uploadMedia,
     sendStickerId: media.sendStickerId,
   },
+  calendar: { tasks: tasks.listCalendar, sendImage: sendCalendarImage },
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,

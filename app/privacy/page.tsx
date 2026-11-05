@@ -66,8 +66,9 @@ export default function PrivacyPage() {
         <li>To understand your WhatsApp messages: message text and voice notes are sent to Google&apos;s Gemini AI to work
           out what you asked for (add a task, log a workout, set a reminder) and to write the coach&apos;s reply.</li>
         <li>To improve the coach: we keep a copy of conversations with the coach, with e-mail addresses, long numbers and
-          your name removed, to find and fix mistakes. Send <b>privacy</b> to the coach to see what is kept, or{' '}
-          <b>delete my data</b> to stop it being linked to you (see &quot;Deleting your data&quot;).</li>
+          your name removed, to find and fix mistakes. Send <b>privacy</b> to the coach to see what is kept,{' '}
+          <b>learning off</b> to stop it from then on, or <b>delete my data</b> to stop it being linked to you (see
+          &quot;Deleting your data&quot;).</li>
       </ul>
       <p className="mt-3">
         We do not show ads, we do not sell or rent your data, and we do not use it to build advertising profiles.
@@ -109,10 +110,12 @@ export default function PrivacyPage() {
 
       <H>Deleting your data</H>
       <ul className="list-disc space-y-2 pl-5">
-        <li>In the app: <b>Me &rarr; Privacy and security &rarr; Delete my data</b>.</li>
-        <li>On WhatsApp: send <b>delete my data</b> to the Nudge number.</li>
-        <li>By e-mail: write to <a className="underline" href={`mailto:${CONTACT}`}>{CONTACT}</a> from the address or with
-          the phone number on your account.</li>
+        <li>Your whole account: e-mail <a className="underline" href={`mailto:${CONTACT}`}>{CONTACT}</a> from the address
+          or with the phone number on your account. We delete it within 30 days and confirm.</li>
+        <li>Your WhatsApp chat history: send <b>delete my data</b> to the Nudge number (or in the app, <b>Me &rarr; Privacy
+          and security &rarr; Delete my data</b>). This erases the coach&apos;s chat history and disconnects WhatsApp at
+          once; your tasks stay in the app.</li>
+        <li>Single tasks: delete them in the app.</li>
       </ul>
       <p className="mt-3">
         Step by step, and what is deleted: <Link className="underline" href="/delete-account">Delete your Nudge account</Link>.

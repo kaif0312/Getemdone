@@ -13,28 +13,26 @@ export default function DeleteAccountPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-12 text-[15px] leading-7 text-fg-primary">
       <h1 className="text-3xl font-bold text-fg-primary">Delete your Nudge account</h1>
-      <p className="mt-4">Nudge is made by Iskaria. You can ask us to delete your account and its data in any of these ways:</p>
+      <p className="mt-4">Nudge is made by Iskaria.</p>
 
-      <ol className="mt-4 list-decimal space-y-3 pl-5">
-        <li>
-          <b>In the Nudge app:</b> open <b>Me &rarr; Privacy and security &rarr; Delete my data</b> and tap{' '}
-          <b>Send delete request</b>.
-        </li>
-        <li>
-          <b>On WhatsApp:</b> send <b>delete my data</b> to the Nudge number and confirm.
-        </li>
-        <li>
-          <b>By e-mail</b> (no app needed): write to <a className="underline" href={`mailto:${CONTACT}?subject=Delete%20my%20Nudge%20account`}>{CONTACT}</a>{' '}
-          with the subject &quot;Delete my Nudge account&quot;, from the e-mail address on your account or giving the
-          WhatsApp number you use with Nudge.
-        </li>
-      </ol>
+      <h2 className="mt-8 mb-3 text-xl font-semibold text-fg-primary">Delete your whole account</h2>
+      <p>
+        E-mail <a className="underline" href={`mailto:${CONTACT}?subject=Delete%20my%20Nudge%20account`}>{CONTACT}</a>{' '}
+        (no app needed) with the subject &quot;Delete my Nudge account&quot;, from the e-mail address on your account or
+        giving the WhatsApp number you use with Nudge. We delete the account and confirm by e-mail or WhatsApp within 30 days.
+      </p>
 
-      <h2 className="mt-10 mb-3 text-xl font-semibold text-fg-primary">What is deleted</h2>
+      <h2 className="mt-8 mb-3 text-xl font-semibold text-fg-primary">Delete only your WhatsApp chat history</h2>
+      <p>
+        Send <b>delete my data</b> to the Nudge number and confirm (in the app: <b>Me &rarr; Privacy and security &rarr;
+        Delete my data</b> opens that chat). This at once erases the coach&apos;s chat history with you and disconnects your
+        WhatsApp number from Nudge. Your tasks stay in the app, where you can delete them yourself.
+      </p>
+
+      <h2 className="mt-10 mb-3 text-xl font-semibold text-fg-primary">What account deletion removes</h2>
       <p>
         Your account (name, phone number or e-mail, profile photo), your tasks, notes, reminders, habits, workouts,
-        attachments, friend connections, push tokens, calendar links and your WhatsApp chat history with the coach. We
-        confirm on WhatsApp or by e-mail when it is done, within 30 days.
+        attachments, friend connections, push tokens, calendar links and your WhatsApp chat history with the coach.
       </p>
 
       <h2 className="mt-10 mb-3 text-xl font-semibold text-fg-primary">What may be kept</h2>

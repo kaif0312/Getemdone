@@ -137,3 +137,9 @@ Verified: `tsc` clean, `npm run test:crypto` 138/138, `expo export` ios + androi
 - Focus presence (`nudge_focus_presence_started_at`) and the Nudge throttle are per device, not per account: signing in as someone else on the same phone inherits them.
 - Friends' wall-clock tasks and the "today" of a friend in another zone are shown in YOUR zone.
 - Not built: drag-reorder, document attachments, Google Calendar strip, in-app QR scanning, circles, widgets, share extension.
+
+## Calendar (Me -> Calendar, 2026-11-05)
+`app/me/calendar.tsx` (container) + `src/features/settings/CalendarView.tsx` (layout, state in / callbacks out) + `useCalendar.ts` + `src/lib/calendarApi.ts`.
+Talks to the web app's `POST/GET /api/app/calendar` (design and owner steps: web repo `docs/CALENDAR.md`). Google consent opens in the browser via
+`Linking`, then returns on `nudge://me/calendar?connected=1`; the screen also refreshes when the app comes to the foreground. No new native module: OTA-able.
+Same thing on WhatsApp: `/sync`. Added the `refresh` icon to `src/ui/Icon.tsx`.

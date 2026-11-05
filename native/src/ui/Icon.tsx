@@ -6,6 +6,7 @@ const paths = {
   bell: ['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9', 'M13.73 21a2 2 0 0 1-3.46 0'],
   plus: ['M12 5v14M5 12h14'],
   check: ['M20 6L9 17l-5-5'],
+  refresh: ['M21 12a9 9 0 1 1-3-6.7', 'M21 4v5h-5'],
   x: ['M18 6L6 18M6 6l12 12'],
   chevronRight: ['M9 18l6-6-6-6'],
   chevronLeft: ['M15 18l-6-6 6-6'],

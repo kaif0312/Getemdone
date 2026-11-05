@@ -33,8 +33,8 @@ const tpl = (name, language, text, example, buttons = []) => ({
 const templates = [
   // ---- morning check-in (vars: name, number of tasks; buttons: plan / skip)
   tpl('nudge_checkin', 'en', 'Hi {{1}}, you have {{2}} tasks on your Nudge list today. Tap a button below to plan your day or skip it.', ['Sam', '4'], ['Plan my day', 'Skip today']),
-  tpl('nudge_checkin', 'hi', 'नमस्ते {{1}}, आज आपकी Nudge लिस्ट में {{2}} टास्क हैं। दिन की योजना बनाने या छोड़ने के लिए नीचे बटन दबाएँ।', ['राहुल', '4'], ['दिन की योजना', 'आज छोड़ें']),
-  tpl('nudge_checkin', 'ur', 'السلام علیکم {{1}}، آج آپ کی Nudge فہرست میں {{2}} ٹاسک ہیں۔ دن کی منصوبہ بندی کرنے یا چھوڑنے کے لیے نیچے بٹن دبائیں۔', ['احمد', '4'], ['دن کی منصوبہ بندی', 'آج چھوڑیں']),
+  tpl('nudge_checkin', 'hi', 'नमस्ते {{1}}, आज आपकी Nudge लिस्ट में {{2}} टास्क हैं। दिन की योजना बनाने या छोड़ने के लिए नीचे दिया गया बटन दबाएँ।', ['राहुल', '4'], ['दिन प्लान करें', 'आज छोड़ें']),
+  tpl('nudge_checkin', 'ur', 'السلام علیکم {{1}}، آج آپ کی Nudge فہرست میں {{2}} ٹاسک ہیں۔ دن کا پلان بنانے یا چھوڑنے کے لیے نیچے بٹن دبائیں۔', ['احمد', '4'], ['دن کا پلان', 'آج چھوڑیں']),
   tpl('nudge_checkin', 'ml', 'നമസ്കാരം {{1}}, ഇന്ന് നിങ്ങളുടെ Nudge ലിസ്റ്റിൽ {{2}} ടാസ്ക് ഉണ്ട്. ദിവസം പ്ലാൻ ചെയ്യാനോ ഒഴിവാക്കാനോ താഴെയുള്ള ബട്ടൺ അമർത്തുക.', ['അനു', '4'], ['ദിവസം പ്ലാൻ ചെയ്യാം', 'ഇന്ന് വേണ്ട']),
 
   // ---- a friend's nudge (vars: friend, message; button: nudge back)
@@ -42,7 +42,7 @@ const templates = [
   tpl('nudge_friend', 'en', 'Your friend {{1}} sent you a nudge on Nudge: "{{2}}". Reply here to see your tasks for today, or tap the button to nudge them back.', ['Ali', 'Finish your tasks for today'], ['Nudge back']),
   tpl('nudge_friend', 'hi', 'आपके दोस्त {{1}} ने Nudge पर आपको नज भेजा है: "{{2}}"। आज के टास्क देखने के लिए यहाँ जवाब दें, या बटन दबाकर उन्हें वापस नज करें।', ['अली', 'आज के टास्क पूरे करो'], ['वापस नज करें']),
   tpl('nudge_friend', 'ur', 'آپ کے دوست {{1}} نے Nudge پر آپ کو نج بھیجا ہے: "{{2}}"۔ آج کے ٹاسک دیکھنے کے لیے یہاں جواب دیں، یا بٹن دبا کر انہیں واپس نج کریں۔', ['علی', 'آج کے ٹاسک مکمل کرو'], ['واپس نج کریں']),
-  tpl('nudge_friend', 'ml', 'നിങ്ങളുടെ കൂട്ടുകാരൻ {{1}} Nudge-ൽ നിങ്ങൾക്ക് ഒരു നഡ്ജ് അയച്ചിട്ടുണ്ട്: "{{2}}". ഇന്നത്തെ ടാസ്ക് കാണാൻ ഇവിടെ മറുപടി അയക്കൂ, അല്ലെങ്കിൽ ബട്ടൺ അമർത്തി തിരിച്ച് നഡ്ജ് ചെയ്യൂ.', ['അലി', 'ഇന്നത്തെ ടാസ്ക് തീർക്കൂ'], ['തിരിച്ച് നഡ്ജ്']),
+  tpl('nudge_friend', 'ml', 'നിങ്ങളുടെ സുഹൃത്ത് {{1}} Nudge-ൽ നിങ്ങൾക്ക് ഒരു നഡ്ജ് അയച്ചിട്ടുണ്ട്: "{{2}}". ഇന്നത്തെ ടാസ്ക് കാണാൻ ഇവിടെ മറുപടി അയക്കൂ, അല്ലെങ്കിൽ ബട്ടൺ അമർത്തി തിരിച്ച് നഡ്ജ് ചെയ്യൂ.', ['അലി', 'ഇന്നത്തെ ടാസ്ക് തീർക്കൂ'], ['തിരിച്ച് നഡ്ജ്']),
 
   // ---- task reminder when the 24 h window is closed (vars: task, time)
   tpl('nudge_reminder', 'en', 'Reminder from Nudge: "{{1}}" is scheduled for {{2}} today. Reply done when it is finished, or reply later to move it.', ['Call the bank', '5:30 PM']),
@@ -53,9 +53,9 @@ const templates = [
   // ---- medicine reminder for family (vars: name, medicines, time; buttons: taken / later). Needs to exist because the
   //      parent's 24 h window is usually closed at the first dose of the day. See lib/server/meds.ts.
   tpl('nudge_med_reminder', 'en', 'Medicine reminder from Nudge: {{1}}, it is time for {{2}} (scheduled for {{3}}). Please tap Taken below once you have taken it.', ['Amma', 'BP tablet', '8:00 AM'], ['Taken', 'Later']),
-  tpl('nudge_med_reminder', 'hi', 'Nudge की ओर से दवा का रिमाइंडर: {{1}}, {{2}} लेने का समय हो गया है ({{3}})। दवा लेने के बाद नीचे ले ली बटन दबाएँ।', ['माँ', 'BP की गोली', '8:00 AM'], ['ले ली', 'बाद में']),
-  tpl('nudge_med_reminder', 'ur', 'Nudge کی طرف سے دوا کی یاد دہانی: {{1}}، {{2}} لینے کا وقت ہو گیا ہے ({{3}})۔ دوا لینے کے بعد نیچے لے لی بٹن دبائیں۔', ['امی', 'BP کی گولی', '8:00 AM'], ['لے لی', 'بعد میں']),
-  tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്നുള്ള മരുന്ന് ഓർമ്മപ്പെടുത്തൽ: {{1}}, {{2}} കഴിക്കാനുള്ള സമയമായി ({{3}}). കഴിച്ചു കഴിഞ്ഞാൽ താഴെയുള്ള കഴിച്ചു ബട്ടൺ അമർത്തുക.', ['അമ്മ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നീട്']),
+  tpl('nudge_med_reminder', 'hi', 'Nudge की ओर से दवा का रिमाइंडर: {{1}}, {{2}} लेने का समय हो गया है ({{3}})। दवा लेने के बाद नीचे "ले ली" बटन दबाएँ।', ['माँ', 'BP की गोली', '8:00 AM'], ['ले ली', 'बाद में']),
+  tpl('nudge_med_reminder', 'ur', 'Nudge کی طرف سے دوا کی یاد دہانی: {{1}}، {{2}} لینے کا وقت ہو گیا ہے ({{3}})۔ دوا لینے کے بعد نیچے "لے لی" کا بٹن دبائیں۔', ['امی', 'BP کی گولی', '8:00 AM'], ['لے لی', 'بعد میں']),
+  tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്നുള്ള മരുന്ന് ഓർമ്മപ്പെടുത്തൽ: {{1}}, {{2}} കഴിക്കാനുള്ള സമയമായി ({{3}}). കഴിച്ചു കഴിഞ്ഞാൽ താഴെയുള്ള "കഴിച്ചു" എന്ന ബട്ടൺ അമർത്തുക.', ['അമ്മ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നീട്']),
 
   // ---- to the family member when a dose is still not confirmed and their own window is closed (vars: person, medicines, time)
   tpl('nudge_med_alert', 'en', 'Medicine check from Nudge: {{1}} has not confirmed {{2}} due at {{3}}. Please check on them.', ['Amma', 'BP tablet', '8:00 AM']),

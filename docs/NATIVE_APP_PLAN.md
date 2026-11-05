@@ -99,6 +99,13 @@ admin dashboard (stays web).
   and the Firebase SA gets 403 "Google Play Android Developer API not enabled" on project 427240262615. Releases 2 and 3
   go up by hand in Play Console (download the `.aab` from the EAS build page). To automate: enable the API, create a
   Play-only SA, invite it in Play Console > Users and permissions (release to testing tracks), upload its key to EAS.
+- 2026-11-06 build 4: EAS Android `db397a9e-8d77-4899-a836-d929671e093a` = versionCode 4 (1.0.0) from `c87704e` (in-app
+  Delete account; Calendar; Someday), started ~03:05, still IN_QUEUE (free tier) when the uploading agent stopped. Not yet
+  on Play: internal = still 3, closed "Closed testing - Alpha" draft = still `3 (1.0.0)` (not sent for review). Next: when
+  FINISHED, download the AAB to `~/Downloads/nudge-1.0.0-4.aab`, internal new release (notes "Delete account inside the
+  app; calendar; Someday") + roll out, closed draft: remove 3, add 4, Save (no "Send changes for review": owner does IARC
+  + reviewer password first). Data safety checked: account deletion URL = `/delete-account`, which already says
+  "Delete your whole account in the app" (Me -> Privacy and security -> Delete account) with e-mail fallback; no change needed.
 - Live checks 2026-11-06: Firestore rules release (updated 2026-11-04 21:08Z) = main's rules minus the deny-all
   `calendarLinks`/`calendarFeeds` matches (no wildcard match, so the same effect). Functions list: SA lacks
   `cloudfunctions.functions.list`, so whether `sendPushNotification` is deployed is unverified.

@@ -166,7 +166,7 @@ await test('care: the Taken button records it and thanks in Malayalam; no to-do 
   const f = makeFake({ link: parent, meds });
   await handleWith(f.deps, tap('med:taken:p_2026-11-01_0800'));
   assert.deepEqual(log, ['take p_2026-11-01_0800']);
-  assert.match(f.sent.at(-1)!.body, /നന്ദി അമ്മ/);
+  assert.match(f.sent.at(-1)!.body, /ശരി അമ്മ/);
   assert.equal(f.geminiReqs.length, 0);
 });
 
@@ -196,7 +196,7 @@ await test('care: a "no" is never a confirmation; other text is passed to the fa
     const f = makeFake({ link: parent, meds });
     await handleWith(f.deps, text(w));
     assert.deepEqual(log, ['forward ' + JSON.stringify({ text: w })], w);
-    assert.match(f.sent.at(-1)!.body, /കൈമാറിയിട്ടുണ്ട്/);
+    assert.match(f.sent.at(-1)!.body, /എത്തിച്ചിട്ടുണ്ട്/);
   }
 });
 
@@ -222,7 +222,7 @@ await test('care: nothing due -> a short Malayalam line, nothing forwarded', asy
   const f = makeFake({ link: parent, meds });
   await handleWith(f.deps, text('കഴിച്ചു'));
   assert.deepEqual(log, []);
-  assert.match(f.sent.at(-1)!.body, /ഇപ്പോൾ കഴിക്കേണ്ട/);
+  assert.match(f.sent.at(-1)!.body, /ഇപ്പോൾ കഴിക്കാൻ/);
 });
 
 // ---------- the family member's side

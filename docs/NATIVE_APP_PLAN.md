@@ -93,7 +93,8 @@ admin dashboard (stays web).
   `https://play.google.com/apps/internaltest/4700437539470821663`.
 - 2026-11-06: PR #11 (Calendar, + fix: day card Add pre-fills that day via `/add?date=`) merged `b4ec8a7`; PR #15
   (Someday; fields `parkedAt`/`parkedAskedAt` match `gtd-principles`; + parking a done task refused, parked tasks off the
-  Calendar) merged `6d2c695`. EAS Android build `6ff08605-3ad0-4ee9-a157-f6f61a1a866d` = versionCode 3 (1.0.0) from `6d2c695`.
+  Calendar) merged `6d2c695`. EAS Android build `6ff08605-3ad0-4ee9-a157-f6f61a1a866d` = versionCode 3 (1.0.0) from `6d2c695` (FINISHED; AAB copied to
+  `~/Downloads/nudge-1.0.0-3.aab` and handed to the Play-listing agent for the Internal + closed testing upload).
 - Android upload: `eas submit -p android` is NOT possible: EAS holds no Google service-account key (submissions or FCM V1)
   and the Firebase SA gets 403 "Google Play Android Developer API not enabled" on project 427240262615. Releases 2 and 3
   go up by hand in Play Console (download the `.aab` from the EAS build page). To automate: enable the API, create a

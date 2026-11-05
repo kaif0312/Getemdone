@@ -399,6 +399,7 @@ function useTasksState() {
    */
   const parkTask = useCallback(async (task: Task) => {
     if (task.recurrence) throw new Error('A repeating task cannot be parked.');
+    if (task.completed) throw new Error('It is already done.');
     await updateDoc(taskRef(task.id), { parkedAt: Date.now(), parkedAskedAt: deleteField(), focusDate: null, remindAt: deleteField(), remindFor: deleteField() });
   }, []);
 

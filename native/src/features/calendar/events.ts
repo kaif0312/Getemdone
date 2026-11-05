@@ -88,7 +88,7 @@ export function eventsInRange(tasks: Task[], tz: string, from: string, to: strin
   let undated = 0;
 
   for (const t of tasks) {
-    if (t.deleted) continue;
+    if (t.deleted || t.parkedAt) continue; // parked (Someday) tasks are off the calendar, like Today
     const text = (t.text || '').trim();
     if (!text) continue;
 

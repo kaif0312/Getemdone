@@ -105,6 +105,22 @@ export async function sendList(to: string, body: string, buttonLabel: string, ro
   });
 }
 
+/** One URL button under a message (Cloud API `cta_url`: no template, only inside the 24h window). Falls back to a plain
+ *  text with the link when Meta refuses the interactive message, so the person always gets a link. */
+export async function sendUrlButton(to: string, body: string, label: string, url: string): Promise<string | null> {
+  const id = await post('url_button', to, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'cta_url',
+      body: { text: String(body).slice(0, 1024) },
+      action: { name: 'cta_url', parameters: { display_text: clip(label, 20), url } },
+    },
+  });
+  // The body may say "tap <label>", so the fallback names the link with the same label.
+  return id ?? sendText(to, `${body}\n\n${clip(label, 20)}: ${url}`);
+}
+
 /** Template with body variables (and optional quick-reply button payloads). */
 export async function sendTemplate(to: string, name: string, variables: string[], opts?: { language?: string; buttonPayloads?: string[] }): Promise<string | null> {
   const components: Record<string, unknown>[] = [];
@@ -119,6 +135,22 @@ export async function sendTemplate(to: string, name: string, variables: string[]
     type: 'template',
     template: { name, language: { code: opts?.language || 'en' }, ...(components.length ? { components } : {}) },
   });
+}
+
+/** Like sendTemplate, but if Meta has no approved version in `opts.language` (or the send fails), the English one is sent.
+ *  Every language of a template has the same variables and buttons, so the fallback is safe. */
+export async function sendTemplateFallback(
+  to: string, name: string, variables: string[], opts?: { language?: string; buttonPayloads?: string[] },
+): Promise<string | null> {
+  const id = await sendTemplate(to, name, variables, opts);
+  if (id || !opts?.language || opts.language === 'en') return id;
+  return sendTemplate(to, name, variables, { ...opts, language: 'en' });
+}
+
+export async function sendTemplateLang(
+  to: string, name: string, variables: string[], lang: string, opts?: { buttonPayloads?: string[] },
+): Promise<string | null> {
+  return sendTemplateFallback(to, name, variables, { ...opts, language: lang });
 }
 
 /** The coach mascot's sticker poses, served from public/stickers/<name>.webp (512x512 WebP, transparent, < 100 KB). */

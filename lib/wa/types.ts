@@ -19,6 +19,8 @@ export interface InboundMessage {
   /** Media id for audio (voice note), image, document or video; fetch with lib/wa/send.ts fetchMedia(). `filename` is the
    *  original name of a document (WhatsApp only sends it for documents). */
   media?: { id: string; mimeType: string; filename?: string };
+  /** True when WhatsApp marks the message as forwarded (`context.forwarded` or `frequently_forwarded`). */
+  forwarded?: boolean;
   /** Error code Meta attached to the message (e.g. 131052 = the user's media file is over the 100 MB Cloud API limit). */
   errorCode?: number;
   /** Emoji reaction to one of our messages. */
@@ -59,7 +61,25 @@ export const BUTTON_IDS = {
   nudge: (friendUid: string) => `nudge:${friendUid}`,
   checkinStart: 'checkin:start',
   checkinSkip: 'checkin:skip',
+  /** Top-3 picker: "that's enough" row. */
+  focusDone: 'checkin:focusdone',
+  /** Stale-task nudge: the user wants to write the first small step. */
+  step: (taskId: string) => `step:${taskId}`,
+  /** Someday/Maybe: park a task, pick a parked one up again, or keep it parked after the yearly question. */
+  park: (taskId: string) => `park:${taskId}`,
+  unpark: (taskId: string) => `unpark:${taskId}`,
+  keep: (taskId: string) => `keep:${taskId}`,
+  /** A row of the Sunday review: opens the task with Done / Someday / Drop it. */
+  review: (taskId: string) => `rv:${taskId}`,
+  /** Medicine reminder taps (lib/server/meds.ts): taken / ask again in 30 min. `<x>` = a medDoses doc id. */
+  medTaken: (doseId: string) => `med:taken:${doseId}`,
+  medLater: (doseId: string) => `med:later:${doseId}`,
+  /** Language picker row (lib/bot/i18n.ts Lang). */
+  lang: (code: string) => `lang:${code}`,
 } as const;
+
+/** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */
+export type OnboardStep = 'welcome' | 'name' | 'tz' | 'tzconfirm' | 'morning' | 'recap' | 'goal';
 
 /** A linked WhatsApp user: doc `waLinks/{waId}`. */
 export interface WaLink {
@@ -82,6 +102,29 @@ export interface WaLink {
   learnId?: string;
   /** Unix ms when the one-time privacy notice was sent. */
   privacyNoticeAt?: number;
+  /** false = the user sent *learning off*: turns are not copied to learningLog. Missing = on. */
+  learning?: boolean;
+  /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
+  coach?: string;
+  /** false = the user sent *review off*: no stale-task nudges and no Sunday review. Missing = on. */
+  reviews?: boolean;
+  /** false = the user sent *memes off* (asked-for memes still work). Missing = on. */
+  memes?: boolean;
+  /** Meme budget for the local day memeDay (lib/bot/memes.ts allowMeme). */
+  memeDay?: string;
+  memeCount?: number;
+  memeAskedCount?: number;
+  /** Set while the WhatsApp setup chat runs (null/absent = finished). The scheduler sends nothing proactive meanwhile. */
+  onboarding?: { step: OnboardStep; tz?: string; nm?: string } | null;
+  /** What they said they mainly want the bot for (onboarding answer). */
+  interest?: 'tasks' | 'fitness' | 'both';
+  /** Language of every fixed reply: 'en' | 'hi' | 'ur' | 'ml' (lib/bot/i18n.ts). Missing = English. */
+  lang?: string;
+  /** true = they chose it (list / "language hindi" / set_language); script detection no longer changes it. */
+  langManual?: boolean;
+  /** A family member added by number only to receive medicine reminders (scripts/med_plan.mjs). Their messages go to
+   *  lib/bot/care.ts (taps + short replies), never to the to-do bot, and they never get check-ins or recaps. */
+  care?: boolean;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

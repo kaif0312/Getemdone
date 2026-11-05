@@ -23,6 +23,8 @@ export const TOOLS: FunctionDecl[] = [
               remind_before_min: { ...N, description: 'Only if the user asks to be reminded N minutes before the time ("remind me 30 min before"). A task with a clock time already gets a 15 min reminder by default.' },
               remind_at: { ...S, description: 'Only if the user names the reminder moment itself ("remind me at 5pm"): YYYY-MM-DDTHH:mm in the user local zone' },
               no_reminder: { type: 'BOOLEAN', description: 'true if the user says they do not want a reminder for this task' },
+              someday: { type: 'BOOLEAN', description: 'true if the user wants to KEEP this for later without doing it soon ("someday learn guitar", "maybe one day...", "park this", "idea:"): it goes to the Someday list, not today' },
+              already_done: { type: 'BOOLEAN', description: 'true only if the user says they ALREADY did it ("just called mom", "already paid the bill"): the task is logged and ticked off in one go' },
             },
             required: ['text'],
           },
@@ -32,13 +34,23 @@ export const TOOLS: FunctionDecl[] = [
     },
   },
   {
+    name: 'park_tasks',
+    description: 'Move existing tasks to the Someday list ("park it", "not now", "someday", "maybe later", "I do not want to see this every day"). Each ref is a list number or the task text. Not for repeating tasks.',
+    parameters: { type: 'OBJECT', properties: { refs: { type: 'ARRAY', items: S } }, required: ['refs'] },
+  },
+  {
+    name: 'show_someday',
+    description: 'Show the Someday list, or with pick=true suggest three parked tasks to try now (the user says they are bored, free, have time, or asks what they could do).',
+    parameters: { type: 'OBJECT', properties: { pick: { type: 'BOOLEAN' } } },
+  },
+  {
     name: 'complete_tasks',
     description: 'Mark tasks done. Each ref is a list number ("2") or the task text.',
     parameters: { type: 'OBJECT', properties: { refs: { type: 'ARRAY', items: S } }, required: ['refs'] },
   },
   {
     name: 'defer_task',
-    description: 'Move a task to another day (default tomorrow).',
+    description: 'Move a task to another day (default tomorrow). Only when the user explicitly asks to move or postpone it; never because they are skipping, tired or making an excuse.',
     parameters: {
       type: 'OBJECT',
       properties: { ref: S, to_date: { ...S, description: 'YYYY-MM-DD; omit for tomorrow' } },
@@ -136,6 +148,64 @@ export const TOOLS: FunctionDecl[] = [
     name: 'set_schedule',
     description: 'Set the daily check-in and/or evening recap time (local HH:mm, 24h). Use "off" to disable.',
     parameters: { type: 'OBJECT', properties: { checkin_time: S, recap_time: S } },
+  },
+  {
+    name: 'set_language',
+    description: 'Switch the language the bot answers in, when the user asks for it ("reply in Malayalam", "hindi mein bolo", "speak Urdu").',
+    parameters: {
+      type: 'OBJECT',
+      properties: { language: { ...S, enum: ['en', 'hi', 'ur', 'ml'], description: 'en English, hi Hindi, ur Urdu, ml Malayalam' } },
+      required: ['language'],
+    },
+  },
+  {
+    name: 'add_medication',
+    description:
+      'Set up a daily WhatsApp medicine reminder for a family member the user looks after (they get a message with a Taken button; the user is told if they do not confirm). ' +
+      'Only for people already set up; use it when the user says "remind Amma to take her BP tablet at 8am and 9pm".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        person: { ...S, description: 'Who, as the user calls them ("Amma", "Dad"). Omit if the user did not say.' },
+        medicine: { ...S, description: 'Medicine name or purpose, as said ("BP tablet", "thyroid")' },
+        times: { type: 'ARRAY', items: S, description: 'Daily times, 24h HH:mm in the user local zone, e.g. ["08:00","21:00"]' },
+      },
+      required: ['medicine', 'times'],
+    },
+  },
+  {
+    name: 'remove_medication',
+    description: 'Stop a daily medicine reminder for a family member.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { person: { ...S, description: 'Who, as the user calls them. Omit if not said.' }, medicine: S },
+      required: ['medicine'],
+    },
+  },
+  {
+    name: 'set_coach',
+    description: 'Switch the coach personality that talks to the user.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { coach: { ...S, enum: ['buddy', 'drill', 'hype', 'stoic', 'zen', 'analyst'] } },
+      required: ['coach'],
+    },
+  },
+  {
+    name: 'send_meme',
+    description:
+      "Send a meme, GIF or sticker in the coach's style along with your reply. Use when the user makes an excuse, says they are " +
+      'tired, brags, or asks for a meme/GIF/sticker. At most once per message; the app limits how many go out.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        moment: { ...S, enum: ['excuse', 'tired', 'brag', 'deferred', 'workout', 'all_done', 'random'] },
+        topic: { ...S, description: 'Short subject: the task, or what they asked for ("david goggins", "cat gym fail")' },
+        format: { ...S, enum: ['meme', 'gif', 'sticker'], description: 'Only if the user asked for a specific kind' },
+        asked: { type: 'BOOLEAN', description: 'true only if the user explicitly asked for a meme/GIF/sticker' },
+      },
+      required: ['moment'],
+    },
   },
   {
     name: 'reply',

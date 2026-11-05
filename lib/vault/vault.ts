@@ -19,6 +19,8 @@ export interface VaultDeps {
   now(): number;
   /** A fresh signed link to the console's upload page for files over WhatsApp's 100 MB limit. */
   link(wa: string, name: string): string;
+  /** The link as a one-tap "Upload to Drive" button (a plain-text link when the button cannot be sent). */
+  sendLink(to: string, body: string, url: string): Promise<unknown>;
 }
 
 export const VAULT_HELP = [
@@ -26,11 +28,17 @@ export const VAULT_HELP = [
   '',
   '• Add a caption (e.g. "Ahmed passport") and it goes into the file name.',
   '• For ID or visa scans, send them as *Document* (paperclip → Document) so WhatsApp does not shrink them.',
-  '• WhatsApp only carries files up to 100 MB. For bigger ones (long videos) use the upload link below.',
+  '• WhatsApp only carries files up to 100 MB. For bigger ones (long videos) tap *Upload to Drive* below.',
 ].join('\n');
 
-export const TOO_BIG =
-  'That file is too big for WhatsApp (the limit is 100 MB). Upload it with this link instead, it goes straight to Drive and shows progress:';
+export const TOO_BIG = [
+  'That file is too big for WhatsApp (the limit is 100 MB). Tap *Upload to Drive* and pick it again: it goes straight to Drive and shows progress.',
+  '',
+  'In the Iskaria app it keeps going in the background. In the browser, keep the page open until it says Saved.',
+].join('\n');
+
+export const LINK_ONLY = 'Upload big files straight to Drive (any size; the button works for 6 hours).';
+export const LINK_LABEL = 'Upload to Drive';
 
 /** True for text that just asks for the upload link. */
 export const wantsLink = (text: string | undefined) => /^\s*(link|upload|big|large|video)\b/i.test(text ?? '');
@@ -45,6 +53,39 @@ export function vaultUsers(env: string | undefined = process.env.NUDGE_VAULT_USE
     if (wa && name) out[wa] = name;
   }
   return out;
+}
+
+// ---- Registered users (anyone with a linked Nudge account), 2026-11-04.
+// The allowlist above hands a person's WHOLE chat to the vault. A registered user also uses the to-do bot, so the vault
+// only takes their files: documents and videos always, a photo only when its caption starts with "save" (plain photos
+// stay screenshots for the bot). Text and voice notes never reach the vault.
+// Also: a photo that WhatsApp marks as forwarded goes to the vault, and "/ref" works like "save" as a caption prefix.
+// The rest of the caption becomes the file name; for a document/video the same prefixes are stripped.
+export const SAVE_PREFIX = /^\s*(?:save|\/ref)\b[\s:,-]*/i;
+
+/** The message the vault should handle for a registered user, or null to leave it to the to-do bot. Pure, no IO. */
+export function registeredVaultMsg(msg: InboundMessage): InboundMessage | null {
+  if (msg.errorCode === 131052) return msg; // media over WhatsApp's 100 MB limit: reply with the upload link
+  if (!msg.media) return null;
+  const prefixed = !!msg.text && SAVE_PREFIX.test(msg.text);
+  const keep = msg.type === 'document' || msg.type === 'video' || (msg.type === 'image' && (prefixed || msg.forwarded === true));
+  if (!keep) return null;
+  return prefixed ? { ...msg, text: msg.text!.replace(SAVE_PREFIX, '').trim() || undefined } : msg;
+}
+
+/** A forwarded photo the user may have meant for the to-do bot (no "save" / "/ref" caption): they get FORWARD_NOTE once a day. */
+export function isPlainForward(msg: InboundMessage): boolean {
+  return msg.type === 'image' && msg.forwarded === true && !(msg.text && SAVE_PREFIX.test(msg.text));
+}
+
+export const FORWARD_NOTE = [
+  '📁 Saved to Drive: forwarded photos go to your files (/files lists them).',
+  'Wanted me to read it for tasks instead? Save the photo and send it from your gallery (not forwarded).',
+].join('\n');
+
+/** Drive folder for a registered user: "<display name> <last 4 digits>" so two Sams never share a folder. */
+export function registeredFolder(displayName: string | undefined, waId: string): string {
+  return `${cleanName(displayName ?? '', 40) || 'User'} ${waId.slice(-4)}`;
 }
 
 const MIME_EXT: Record<string, string> = {
@@ -96,18 +137,21 @@ export function fileNameFor(msg: InboundMessage, mimeType: string, tz: string): 
 const FILE_TYPES = new Set<InboundMessage['type']>(['image', 'document', 'video']);
 
 /** True when the message was handled by the vault (the caller must then not run the normal bot). */
-export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Record<string, string> = vaultUsers()): Promise<boolean> {
+export async function handleVault(
+  d: VaultDeps, msg: InboundMessage, users: Record<string, string> = vaultUsers(),
+  /** Called only after a successful save; a non-empty result is sent as a text after the ✅ reaction. */
+  savedNote?: () => Promise<string | null>,
+): Promise<boolean> {
   const who = users[msg.from];
   if (!who) return false;
   if (msg.type === 'reaction') return true;
 
   if (msg.errorCode === 131052) {
-    await d.sendText(msg.from, `${TOO_BIG}\n${d.link(msg.from, who)}`);
+    await d.sendLink(msg.from, TOO_BIG, d.link(msg.from, who));
     return true;
   }
   if (!FILE_TYPES.has(msg.type) || !msg.media) {
-    const link = d.link(msg.from, who);
-    await d.sendText(msg.from, wantsLink(msg.text) ? `Upload link (valid 6 hours, any size):\n${link}` : `${VAULT_HELP}\n\n${link}`);
+    await d.sendLink(msg.from, wantsLink(msg.text) ? LINK_ONLY : VAULT_HELP, d.link(msg.from, who));
     return true;
   }
   d.markRead(msg.id).catch(() => undefined);
@@ -124,6 +168,10 @@ export async function handleVault(d: VaultDeps, msg: InboundMessage, users: Reco
     await d.record({ wamid: msg.id, from: msg.from, who, name, driveId: saved.id, mime, bytes: m.data.length, caption: msg.text ?? null, at: d.now() })
       .catch((e) => console.error('[vault] audit write failed', e));
     await d.sendReaction(msg.from, msg.id, '✅').catch(() => undefined);
+    if (savedNote) {
+      const note = await savedNote().catch(() => null);
+      if (note) await d.sendText(msg.from, note).catch(() => undefined);
+    }
   } catch (e) {
     console.error('[vault] save failed', msg.id, e);
     await d.sendText(msg.from, `❌ Could not save ${name || 'that file'}. Please send it again. If it keeps failing, tell Ibrahim.`).catch(() => undefined);

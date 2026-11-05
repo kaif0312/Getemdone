@@ -29,6 +29,8 @@ export function parseForwarded(body: ForwardedEvent): { messages: InboundMessage
       timestamp: Number.isFinite(ts) && ts > 0 ? ts * 1000 : Date.now(),
       type: 'other',
     };
+    const cx = obj(r.context);
+    if (cx.forwarded === true || cx.frequently_forwarded === true) msg.forwarded = true;
     const pn = names.get(from);
     if (pn) msg.profileName = pn;
     const codes = (Array.isArray(r.errors) ? r.errors : []).map((e) => Number(obj(e).code)).filter(Number.isFinite);
@@ -113,6 +115,21 @@ export function parseForwarded(body: ForwardedEvent): { messages: InboundMessage
   }
 
   return { messages, statuses: Array.isArray(value.statuses) ? value.statuses : [] };
+}
+
+/** Senders whose upload Meta refused as too big. Meta reports an inbound media file over 100 MB NOT as a message but as a
+ *  status `failed` with error 131052 (measured 2026-11-04: recipient_id = the sender's wa id). `key` dedupes Meta retries. */
+export function tooBigSenders(statuses: unknown[]): { wa: string; key: string }[] {
+  const out: { wa: string; key: string }[] = [];
+  for (const s of statuses) {
+    const o = obj(s);
+    const errs = Array.isArray(o.errors) ? o.errors : [];
+    if (!errs.some((e) => Number(obj(e).code) === 131052)) continue;
+    const wa = str(o.recipient_id);
+    if (!wa) continue;
+    out.push({ wa, key: `${wa}:${str(o.id) ?? str(o.timestamp) ?? Date.now()}` });
+  }
+  return out;
 }
 
 /** Timing-safe HMAC-SHA256 hex check of the raw body. Accepts an optional "sha256=" prefix. */

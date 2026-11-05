@@ -1,13 +1,26 @@
 // Fast paths: button/list ids and exact text commands. No model involved.
 import type { InboundMessage } from '@/lib/wa/types';
+import { isLang, isLangCommand, parseLangName, type Lang } from './i18n';
 
 export type Fast =
   | { t: 'today' }
-  | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
+  | { t: 'addTask'; text: string }
+  | { t: 'files' }
+  | { t: 'sync'; arg: string }
+  | { t: 'calendar'; view: 'month' | 'week'; offset: number }
+  | { t: 'unknownCmd'; cmd: string }
+  | { t: 'done' | 'delete' | 'tomorrow' | 'park'; nums: number[] }
   | { t: 'undo'; id?: string }
-  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' }
-  | { t: 'privacy' | 'forgetAsk' | 'forgetYes' | 'forgetNo' }
-  | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
+  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'focusDone' | 'coachMenu' | 'reviewsOn' | 'reviewsOff' }
+  | { t: 'privacy' | 'forgetAsk' | 'forgetYes' | 'forgetNo' | 'learningOff' | 'learningOn' }
+  | { t: 'setCoach'; id: string }
+  | { t: 'lang'; code?: Lang }
+  | { t: 'meds' }
+  | { t: 'meme'; format?: 'meme' | 'gif' | 'sticker' }
+  | { t: 'memesOn' | 'memesOff' }
+  | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus' | 'step' | 'parkId' | 'unparkId' | 'keepParked' | 'reviewOpen'; id: string }
+  | { t: 'somedayList' | 'somedayPick' }
+  | { t: 'somedayAdd'; text: string }
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
   | { t: 'setTime'; time: string }
@@ -43,9 +56,20 @@ function fromReply(id: string): Fast | null {
     case 'del': return { t: 'delId', id: rest };
     case 'undo': return { t: 'undo', id: rest };
     case 'task': return { t: 'taskOpen', id: rest };
+    case 'cal': { // cal:month:0 / cal:week:-1 (offset from the current month / week)
+      const m = /^(month|week):(-?\d{1,3})$/.exec(rest);
+      return m ? { t: 'calendar', view: m[1] as 'month' | 'week', offset: Math.max(-24, Math.min(24, +m[2])) } : null;
+    }
     case 'focus': return { t: 'focus', id: rest };
+    case 'step': return { t: 'step', id: rest };
+    case 'park': return { t: 'parkId', id: rest };
+    case 'unpark': return { t: 'unparkId', id: rest };
+    case 'keep': return { t: 'keepParked', id: rest };
+    case 'rv': return { t: 'reviewOpen', id: rest };
     case 'nudge': return { t: 'nudge', uid: rest };
     case 'confirm': return { t: 'confirm', id: rest };
+    case 'coach': return { t: 'setCoach', id: rest };
+    case 'lang': return isLang(rest) ? { t: 'lang', code: rest } : null;
     case 'cancel': return { t: 'cancel', id: rest };
     case 'react': {
       const j = rest.indexOf(':');
@@ -59,7 +83,7 @@ function fromReply(id: string): Fast | null {
     case 'forget':
       return rest === 'yes' ? { t: 'forgetYes' } : rest === 'no' ? { t: 'forgetNo' } : null;
     case 'checkin':
-      return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : null;
+      return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : rest === 'focusdone' ? { t: 'focusDone' } : null;
     case 'settime': {
       const m = /^(\d{2}):(\d{2})$/.exec(rest);
       return m && +m[1] < 24 && +m[2] < 60 ? { t: 'setTime', time: rest } : null;
@@ -68,26 +92,100 @@ function fromReply(id: string): Fast | null {
   }
 }
 
+/** Commands that take the rest of the line as written (not lower-cased). */
+const ADD_CMDS = new Set(['task', 'add']);
+const FILE_CMDS = new Set(['files', 'vault']);
+const SOMEDAY_CMDS = new Set(['someday', 'park', 'maybe']);
+
+/** "/someday" -> list, "/someday pick" -> 3 ideas, "/someday 2" -> park item 2 of the list, "/someday learn guitar" -> park that. */
+export function somedayFast(arg: string): Fast {
+  const a = arg.trim();
+  if (!a) return { t: 'somedayList' };
+  if (/^(pick|suggest|surprise me|something)$/i.test(a)) return { t: 'somedayPick' };
+  const nums = parseNumbers(a);
+  if (nums) return { t: 'park', nums };
+  return { t: 'somedayAdd', text: a };
+}
+/** /sync: calendar sync (ICS link + Google Calendar). NOT /calendar, which shows the month/week image. */
+const SYNC_CMDS = new Set(['sync', 'gcal']);
+const CAL_CMDS = new Set(['calendar', 'cal', 'month', 'agenda', 'schedule']);
+
+/** "calendar", "cal week", "month next", "agenda", "calendar last month"... null = not a calendar request. */
+export function parseCalendar(cmd: string, arg: string): Fast | null {
+  const a = arg.toLowerCase().replace(/[.!]+$/g, '').trim();
+  const off = /(next|following)/.test(a) ? 1 : /(prev|previous|last|before)/.test(a) ? -1 : 0;
+  if (a && !/^((this|next|last|prev|previous|following)\s*)?(week|month)?$/.test(a)) return null;
+  const view: 'month' | 'week' = /week/.test(a) ? 'week' : /month/.test(a) ? 'month' : cmd === 'agenda' ? 'week' : 'month';
+  return { t: 'calendar', view, offset: off };
+}
+/** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
+const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
+  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines', 'review', 'reviews']);
+
+/**
+ * Slash commands (WhatsApp has no native slash menu, so these are typed). null = not a slash command (text starts with
+ * anything but "/" and a letter). `{ rest }` = a bare-word command with the slash removed, parsed by the normal rules.
+ * `{ fast }` = decided here. Every "/word" is handled without Gemini: unknown ones get a short hint.
+ */
+export function parseSlash(text: string): { rest: string } | { fast: Fast } | null {
+  const m = /^\s*\/([A-Za-z]+)(?:\s+([\s\S]*))?$/.exec(text);
+  if (!m) return null;
+  const cmd = m[1].toLowerCase();
+  const arg = (m[2] ?? '').trim();
+  if (ADD_CMDS.has(cmd)) return { fast: { t: 'addTask', text: arg } };
+  if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
+  if (SOMEDAY_CMDS.has(cmd)) return { fast: somedayFast(arg) };
+  if (SYNC_CMDS.has(cmd)) return { fast: { t: 'sync', arg: arg.toLowerCase() } };
+  if (CAL_CMDS.has(cmd)) return { fast: parseCalendar(cmd, arg) ?? { t: 'calendar', view: 'month', offset: 0 } };
+  if (BARE_CMDS.has(cmd)) return { rest: arg ? `${cmd} ${arg}` : cmd };
+  return { fast: { t: 'unknownCmd', cmd } };
+}
+
 export function parseFast(msg: InboundMessage): Fast | null {
   if (msg.reply) return fromReply(msg.reply.id);
   if (msg.type !== 'text' || !msg.text) return null;
-  const t = msg.text.trim().toLowerCase().replace(/[.!]+$/g, '').trim();
+  const slash = parseSlash(msg.text);
+  if (slash && 'fast' in slash) return slash.fast;
+  const some = /^someday(?:\s+maybe)?[\s:,-]*([\s\S]*)$/i.exec(msg.text.trim());
+  if (some && !slash) return somedayFast(some[1].replace(/[.!]+$/g, ''));
+  const t = (slash ? slash.rest : msg.text).trim().toLowerCase().replace(/[.!]+$/g, '').trim();
+  if (/^((i'?m|i am|im) (free|bored|idle|got time)|bored|got time|i have time|something to do)$/.test(t)) return { t: 'somedayPick' };
   if (/^(today|list|tasks|my tasks|todo|to do|show tasks)$/.test(t)) return { t: 'today' };
   if (t === 'undo') return { t: 'undo' };
   if (t === 'stop') return { t: 'mute' };
   if (t === 'start') return { t: 'unmute' };
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
+  if (/^(sync|sync calendar|calendar sync|connect (google )?calendar|sync (to )?google calendar|add (my tasks )?to (my |google )?calendar)$/.test(t)) return { t: 'sync', arg: '' };
   if (t === 'week') return { t: 'week' };
+  const cal = /^(?:show |open |see |my )?(calendar|cal|agenda|schedule|month)(?: view)?(?:\s+(.+))?$/.exec(t) ?? /^(week|next week|this week)\s+(?:calendar|agenda|schedule)$/.exec(t);
+  if (cal) return cal[2] === undefined && /^(week|next week|this week)$/.test(cal[1]) ? parseCalendar('calendar', cal[1]) : parseCalendar(cal[1], cal[2] ?? '');
+  if (/^(meds|medicine|medicines|my meds|medicine status)$/.test(t)) return { t: 'meds' };
+  if (isLangCommand(t)) return { t: 'lang' };
+  const lm = /^(?:language|lang)\s+(.+)$/.exec(t);
+  if (lm) { const code = parseLangName(lm[1]); return code ? { t: 'lang', code } : { t: 'lang' }; }
+  // A message that is only the name of Hindi / Urdu / Malayalam (any script) switches to it. English needs "language english".
+  const only = parseLangName(t);
+  if (only && only !== 'en') return { t: 'lang', code: only };
   if (t === 'friends') return { t: 'friends' };
   if (/^(privacy|my data|what do you (keep|save|store))\??$/.test(t)) return { t: 'privacy' };
   if (/^((delete|erase|remove|wipe)( all)? (my )?(data|chats?|history|everything)|forget me)$/.test(t)) return { t: 'forgetAsk' };
-  const m = /^(done|did|finished|complete|completed|del|delete|remove|tmrw|tomorrow)\s+(.+)$/.exec(t);
+  if (/^(learning off|stop learning|(don'?t|do not|stop) sav(e|ing) (my|our) (messages|chats?))$/.test(t)) return { t: 'learningOff' };
+  if (/^(learning on|start learning)$/.test(t)) return { t: 'learningOn' };
+  if (/^(reviews?|stale|nudges?) (off|stop|pause)$/.test(t)) return { t: 'reviewsOff' };
+  if (/^(reviews?|stale|nudges?) (on|start|resume)$/.test(t)) return { t: 'reviewsOn' };
+  if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };
+  if (/^(memes? off|no memes?|stop memes?)$/.test(t)) return { t: 'memesOff' };
+  if (/^(memes? on|start memes?)$/.test(t)) return { t: 'memesOn' };
+  if (/^(meme|memes|send (a |me a )?meme)$/.test(t)) return { t: 'meme', format: 'meme' };
+  if (/^(gif|send (a |me a )?gif)$/.test(t)) return { t: 'meme', format: 'gif' };
+  if (/^(sticker|send (a |me a )?sticker)$/.test(t)) return { t: 'meme', format: 'sticker' };
+  const m = /^(done|did|finished|complete|completed|del|delete|remove|tmrw|tomorrow|park)\s+(.+)$/.exec(t);
   if (m) {
     const nums = parseNumbers(m[2]);
     if (nums) {
       const k = m[1];
       const kind = ['done', 'did', 'finished', 'complete', 'completed'].includes(k) ? 'done'
-        : ['del', 'delete', 'remove'].includes(k) ? 'delete' : 'tomorrow';
+        : ['del', 'delete', 'remove'].includes(k) ? 'delete' : k === 'park' ? 'park' : 'tomorrow';
       return { t: kind, nums };
     }
   }

@@ -50,3 +50,5 @@ next-env.d.ts
 .cursorindexingignore
 .specstory/
 .env*
+.memes-preview/
+tmp-cal/

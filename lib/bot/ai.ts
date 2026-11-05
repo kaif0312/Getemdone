@@ -3,11 +3,14 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { Task } from '@/lib/types';
 import type { GeminiPart } from './types';
 import {
-  Ctx, addItems, completeByRefs, deferByRef, deleteByRef, describeWorkout, flush, friendsLines, logMetricAction,
+  Ctx, addItems, completeByRefs, deferByRef, deleteByRef, parkByRef, somedayList, somedayPick, describeWorkout, flush, friendsLines, logMetricAction,
   logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setReminderAction, setReminderChannelAction, setScheduleAction,
-  showToday, weekLines, type WorkoutArgs,
+  showToday, weekLines, type WorkoutArgs, addMedicationAction, removeMedicationAction, setLangAction,
 } from './actions';
-import { buildContext, SYSTEM } from './prompt';
+import { isLang } from './i18n';
+import { buildContext, systemFor } from './prompt';
+import { setCoachAction } from './actions';
+import { MOMENTS, type MemeFormat, type Moment } from './memes';
 import { TOOLS } from './tools';
 import { str } from './format';
 
@@ -16,6 +19,7 @@ const MAX_CALLS = 8;
 const MAX_LIST_MEMORY = 25;
 
 export const DIDNT_CATCH = "Hmm, I didn't catch that. Try *help* to see what I can do.";
+const didntCatch = (ctx: Ctx) => (ctx.lang === 'en' ? DIDNT_CATCH : ctx.t('didntCatch'));
 
 /** Keep the numbers the user already saw stable (done tasks leave a hole); append new open tasks after them. */
 function numberTasks(ctx: Ctx, open: Task[]): (Task | null)[] {
@@ -51,7 +55,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   ctx.rememberTasks(all);
   const numbered = numberTasks(ctx, all.filter((t) => !t.completed));
   const context = buildContext({
-    session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName,
+    session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName, lang: ctx.lang,
   });
 
   let user: GeminiPart[];
@@ -63,12 +67,13 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
     user = [{ text: `User message:\n${msg.text ?? msg.reply?.title ?? ''}\n\n${context}` }];
   }
 
-  const res = await ctx.d.gemini({ system: SYSTEM, user, tools: TOOLS });
+  const res = await ctx.d.gemini({ system: systemFor(ctx.link.coach), user, tools: TOOLS });
 
   const lead: string[] = [];
   if (res.text) lead.push(res.text);
   const lines: string[] = [];
   let showList = false;
+  let hasOwnReply = false;
   let proposal: WorkoutArgs | null = null;
 
   for (const call of res.calls.slice(0, MAX_CALLS)) {
@@ -84,6 +89,11 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         }
         case 'defer_task': { const r = str(a.ref) ?? String(a.ref ?? ''); lines.push(...await deferByRef(ctx, r, str(a.to_date))); break; }
         case 'delete_task': lines.push(...await deleteByRef(ctx, str(a.ref) ?? String(a.ref ?? ''))); break;
+        case 'park_tasks': {
+          for (const r of (Array.isArray(a.refs) ? a.refs : [a.refs]).map((x) => String(x ?? '')).filter(Boolean)) lines.push(...await parkByRef(ctx, r));
+          break;
+        }
+        case 'show_someday': if (a.pick === true) await somedayPick(ctx); else await somedayList(ctx); hasOwnReply = true; break;
         case 'list_today': showList = true; break;
         case 'log_workout': {
           const w = parseWorkout(a);
@@ -100,11 +110,21 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'set_reminder': lines.push(...await setReminderAction(ctx, a)); break;
         case 'set_reminder_channel': lines.push(...await setReminderChannelAction(ctx, str(a.channel))); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
+        case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
+        case 'set_language': if (isLang(a.language)) lines.push(...await setLangAction(ctx, a.language)); break;
+        case 'add_medication': lines.push(...await addMedicationAction(ctx, a)); break;
+        case 'remove_medication': lines.push(...await removeMedicationAction(ctx, a)); break;
+        case 'send_meme': {
+          const moment = MOMENTS.includes(a.moment as Moment) ? (a.moment as Moment) : 'random';
+          const format = ['meme', 'gif', 'sticker'].includes(String(a.format)) ? (a.format as MemeFormat) : undefined;
+          ctx.wantMeme({ moment, topic: str(a.topic), format, asked: a.asked === true, byModel: true });
+          break;
+        }
         default: break;
       }
     } catch (e) {
       console.error('[bot] tool failed', call.name, e);
-      lines.push('⚠️ One of those did not go through. Please try again.');
+      lines.push(ctx.t('toolFailed'));
     }
   }
 
@@ -112,7 +132,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (out.length) await flush(ctx, out);
   if (showList) await showToday(ctx);
   if (proposal) await sendProposal(ctx, proposal);
-  if (!out.length && !showList && !proposal) await ctx.text(DIDNT_CATCH);
+  if (!out.length && !showList && !proposal && !ctx.meme && !hasOwnReply) await ctx.text(didntCatch(ctx));
 }
 
 async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {
@@ -122,4 +142,38 @@ async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {
     { id: `confirm:${id}`, title: 'Log it ✅' },
     { id: `cancel:${id}`, title: 'Skip' },
   ]);
+}
+
+/** Anything that hints at a date, time, reminder or a list: only then is Gemini worth its cost for "/task". */
+const NEEDS_PARSING = /[\d,]|\b(today|tonight|tomorrow|tmrw|morning|afternoon|evening|noon|midnight|mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next|every|daily|weekly|remind\w*|by|at|and)\b/i;
+
+/**
+ * "/task <text>" (alias "/add"): always adds. Plain text is added as is (newline or ";" separates tasks), with no model
+ * call. Text with a date, time or list in it goes to Gemini with ONLY the add_tasks tool, so it cannot be read as anything
+ * else; if the model returns nothing usable the raw text is added.
+ */
+export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
+  let items: unknown[] = [];
+  if (NEEDS_PARSING.test(text)) {
+    try {
+      const all = await ctx.d.listToday(ctx.uid);
+      ctx.rememberTasks(all);
+      const numbered = numberTasks(ctx, all.filter((t) => !t.completed));
+      const context = buildContext({
+        session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName, lang: ctx.lang,
+      });
+      const res = await ctx.d.gemini({
+        system: systemFor(ctx.link.coach),
+        user: [{ text: `The user sent the /task command. Add the text below as task(s) with add_tasks (keep their wording; split only if it clearly lists several tasks; set due/when only if it states a date or time). Call nothing else.\n\nTask text:\n${text}\n\n${context}` }],
+        tools: TOOLS.filter((t) => t.name === 'add_tasks'),
+      });
+      const call = res.calls.find((c) => c.name === 'add_tasks');
+      if (call && Array.isArray(call.args?.items)) items = call.args.items as unknown[];
+    } catch (e) {
+      console.error('[bot] /task parse failed, adding raw text', e);
+    }
+  }
+  if (!items.length) items = text.split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => ({ text: s }));
+  const lines = await addItems(ctx, items);
+  await flush(ctx, lines.length ? lines : [didntCatch(ctx)]);
 }

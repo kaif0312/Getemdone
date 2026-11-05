@@ -1,8 +1,8 @@
 // File vault: parser, naming, allowlist and the save/ack/failure paths. No Firestore or network needed.
 //   npx tsx scripts/tests/test_vault.mts
 import assert from 'node:assert/strict';
-import { parseForwarded } from '../../lib/wa/inbound';
-import { cleanName, fileNameFor, handleVault, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
+import { parseForwarded, tooBigSenders } from '../../lib/wa/inbound';
+import { FORWARD_NOTE, cleanName, fileNameFor, handleVault, isPlainForward, registeredFolder, registeredVaultMsg, stamp, vaultUsers, wantsLink, type VaultDeps } from '../../lib/vault/vault';
 import { signUploadToken, verifyUploadToken } from '../../lib/vault/link';
 import type { InboundMessage } from '../../lib/wa/types';
 
@@ -44,7 +44,7 @@ assert.equal(fileNameFor({ ...base, media: { id: 'm', mimeType: 'application/x-w
 // ---- handleVault
 const users = { '971501234567': 'Fairooz' };
 function fakes(over: Partial<VaultDeps> = {}) {
-  const log = { saved: [] as { path: string[]; name: string; mime: string; bytes: number }[], texts: [] as string[], reactions: [] as string[], records: [] as Record<string, unknown>[] };
+  const log = { saved: [] as { path: string[]; name: string; mime: string; bytes: number }[], texts: [] as string[], reactions: [] as string[], records: [] as Record<string, unknown>[], links: [] as { body: string; url: string }[] };
   const d: VaultDeps = {
     fetchMedia: async () => ({ data: Buffer.from('pdf-bytes'), mimeType: 'application/pdf' }),
     save: async (path, name, mime, data) => { log.saved.push({ path, name, mime, bytes: data.length }); return { id: 'drive1', link: null }; },
@@ -54,6 +54,7 @@ function fakes(over: Partial<VaultDeps> = {}) {
     markRead: async () => undefined,
     now: () => 123,
     link: (wa, name) => `https://x.test/vault/${wa}-${name}`,
+    sendLink: async (_to, body, url) => { log.links.push({ body, url }); },
     ...over,
   };
   return { d, log };
@@ -80,7 +81,7 @@ function fakes(over: Partial<VaultDeps> = {}) {
   const { d, log } = fakes();
   assert.equal(await handleVault(d, { id: 't', from: '971501234567', timestamp: ts, type: 'text', text: 'hi' }, users), true);
   assert.equal(log.saved.length, 0);
-  assert.match(log.texts[0], /Document/);
+  assert.match(log.links[0].body, /Document/);
 }
 // Drive failure: no tick, a clear message, still handled (never falls through to the todo bot)
 {
@@ -117,18 +118,124 @@ assert.ok(wantsLink('  Link please') && wantsLink('big') && !wantsLink('hello') 
   assert.equal(m[0].errorCode, 131052);
   const { d, log } = fakes();
   assert.equal(await handleVault(d, m[0], users), true);
-  assert.match(log.texts[0], /too big/i);
-  assert.match(log.texts[0], /https:\/\/x\.test\/vault\/971501234567-Fairooz/);
+  assert.equal(log.texts.length, 0);
+  assert.match(log.links[0].body, /too big/i);
+  assert.equal(log.links[0].url, 'https://x.test/vault/971501234567-Fairooz');
   assert.equal(log.saved.length, 0);
 }
 // text from Fairooz now carries the link too; "link" alone sends only the link
 {
   const { d, log } = fakes();
   await handleVault(d, { id: 't1', from: '971501234567', timestamp: ts, type: 'text', text: 'hi' }, users);
-  assert.match(log.texts[0], /vault\/971501234567-Fairooz/);
-  assert.match(log.texts[0], /100 MB/);
+  assert.equal(log.links[0].url, 'https://x.test/vault/971501234567-Fairooz');
+  assert.match(log.links[0].body, /100 MB/);
   await handleVault(d, { id: 't2', from: '971501234567', timestamp: ts, type: 'text', text: 'link' }, users);
-  assert.match(log.texts[1], /^Upload link/);
+  assert.match(log.links[1].body, /^Upload big files/);
 }
+
+// ---- the URL button: cta_url payload
+{
+  process.env.NUDGE_WA_DRY_RUN = '1';
+  const send = await import('../../lib/wa/send');
+  const before = send.dryRunOutbox().length;
+  await send.sendUrlButton('971501234567', 'Body', 'Upload to Drive', 'https://app.iskaria.com/vault/t');
+  const out = send.dryRunOutbox().slice(before);
+  assert.equal(out.length, 1);
+  const p = out[0].payload as { type: string; interactive: { type: string; action: { name: string; parameters: { display_text: string; url: string } } } };
+  assert.equal(p.type, 'interactive');
+  assert.equal(p.interactive.type, 'cta_url');
+  assert.deepEqual(p.interactive.action, { name: 'cta_url', parameters: { display_text: 'Upload to Drive', url: 'https://app.iskaria.com/vault/t' } });
+}
+
+// ---- the real shape Meta uses for a >100 MB inbound file: a failed STATUS with 131052 (measured 2026-11-04)
+{
+  const { statuses } = parseForwarded({ tenant: 'nudge', receivedAt: 1, value: { statuses: [
+    { id: 'wamid.S1', status: 'failed', timestamp: '1793806000', recipient_id: '916238952660', errors: [{ code: 131052, title: 'Media download error' }] },
+    { id: 'wamid.S2', status: 'delivered', recipient_id: '916238952660' },
+    { id: 'wamid.S3', status: 'failed', recipient_id: '916238952660', errors: [{ code: 131047 }] },
+    { id: 'wamid.S4', status: 'failed', errors: [{ code: 131052 }] },
+  ] } });
+  assert.deepEqual(tooBigSenders(statuses), [{ wa: '916238952660', key: '916238952660:wamid.S1' }]);
+}
+
+// ---- registered users (linked Nudge accounts): the vault takes only files, the to-do bot keeps everything else
+{
+  const doc: InboundMessage = { id: 'r1', from: '919800000001', timestamp: ts, type: 'document', media: { id: 'm', mimeType: 'application/pdf', filename: 'visa.pdf' } };
+  const vid: InboundMessage = { ...doc, id: 'r2', type: 'video', media: { id: 'm', mimeType: 'video/mp4' } };
+  const img: InboundMessage = { ...doc, id: 'r3', type: 'image', media: { id: 'm', mimeType: 'image/jpeg' } };
+  assert.equal(registeredVaultMsg(doc), doc); // documents always
+  assert.equal(registeredVaultMsg(vid), vid); // videos always
+  assert.equal(registeredVaultMsg(img), null); // a plain photo is a screenshot for the to-do bot
+  assert.equal(registeredVaultMsg({ ...img, text: 'what is on my list?' }), null);
+  assert.equal(registeredVaultMsg({ ...img, text: 'saved from the web' }), null); // "save" must be a whole word
+  assert.equal(registeredVaultMsg({ ...img, text: 'save passport' })?.text, 'passport'); // captioned photo: prefix stripped
+  assert.equal(registeredVaultMsg({ ...img, text: 'Save: Ahmed visa' })?.text, 'Ahmed visa');
+  assert.equal(registeredVaultMsg({ ...img, text: 'SAVE' })?.text, undefined); // bare "save": no caption left
+  assert.equal(registeredVaultMsg({ id: 't', from: '919800000001', timestamp: ts, type: 'text', text: 'save the world' }), null); // text never
+  assert.equal(registeredVaultMsg({ id: 'a', from: '919800000001', timestamp: ts, type: 'audio' }), null); // voice notes never
+  const big: InboundMessage = { id: 'e', from: '919800000001', timestamp: ts, type: 'other', errorCode: 131052 };
+  assert.equal(registeredVaultMsg(big), big); // over 100 MB: the upload-link reply
+  assert.equal(registeredFolder('Sam Lee', '919800001617'), 'Sam Lee 1617');
+  assert.equal(registeredFolder('  ../Sam/ ', '919800001617'), 'Sam 1617');
+  assert.equal(registeredFolder(undefined, '919800001617'), 'User 1617');
+  // end to end through handleVault: lands in <root>/<name> <last4>/<yyyy-mm>/
+  const { d, log } = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg-bytes'), mimeType: 'image/jpeg' }) });
+  const m = registeredVaultMsg({ ...img, text: 'save passport' })!;
+  assert.equal(await handleVault(d, m, { '919800000001': registeredFolder('Sam', '919800000001') }), true);
+  assert.deepEqual(log.saved[0].path, ['Nudge Vault', 'Sam 0001', '2026-11']);
+  assert.equal(log.saved[0].name, '2026-11-05_0105_passport.jpg');
+  assert.deepEqual(log.reactions, ['✅']);
+}
+
+// ---- forwarded photos + /ref (owner flow: a linked user forwards references to the Nudge number)
+{
+  const fwd = parseForwarded({ tenant: 'nudge', receivedAt: 1, value: { messages: [
+    { id: 'wamid.F1', from: '916238952660', timestamp: '1793000000', type: 'image', image: { id: 'a', mime_type: 'image/jpeg' }, context: { forwarded: true } },
+    { id: 'wamid.F2', from: '916238952660', timestamp: '1793000001', type: 'image', image: { id: 'b', mime_type: 'image/jpeg' }, context: { frequently_forwarded: true } },
+    { id: 'wamid.F3', from: '916238952660', timestamp: '1793000002', type: 'image', image: { id: 'c', mime_type: 'image/jpeg' }, context: { from: '1', id: 'x' } },
+    { id: 'wamid.F4', from: '916238952660', timestamp: '1793000003', type: 'image', image: { id: 'd', mime_type: 'image/jpeg' } },
+  ] } }).messages;
+  assert.deepEqual(fwd.map((m) => m.forwarded), [true, true, undefined, undefined]);
+  assert.ok(registeredVaultMsg(fwd[0]), 'forwarded photo is filed');
+  assert.ok(registeredVaultMsg(fwd[1]), 'frequently forwarded photo is filed');
+  assert.equal(registeredVaultMsg(fwd[2]), null, 'a reply-to context is not a forward');
+  assert.equal(registeredVaultMsg(fwd[3]), null, 'plain uncaptioned photo stays with the to-do bot');
+  const img: InboundMessage = { id: 'p', from: '916238952660', timestamp: ts, type: 'image', media: { id: 'm', mimeType: 'image/jpeg' } };
+  assert.equal(registeredVaultMsg({ ...img, text: '/ref logo ideas' })?.text, 'logo ideas');
+  assert.equal(registeredVaultMsg({ ...img, text: '/REF: logo' })?.text, 'logo');
+  assert.equal(registeredVaultMsg({ ...img, text: '/ref' })?.text, undefined);
+  assert.equal(registeredVaultMsg({ ...img, text: '/reference' }), null);
+  assert.equal(registeredVaultMsg({ ...img, text: 'ref logo' }), null);
+  assert.equal(registeredVaultMsg({ ...img, forwarded: true, text: 'nice thumbnail' })?.text, 'nice thumbnail');
+  assert.equal(registeredVaultMsg({ ...img, type: 'video', text: '/ref intro cut' })?.text, 'intro cut');
+  assert.equal(registeredVaultMsg({ id: 't', from: '916238952660', timestamp: ts, type: 'text', text: '/ref hi', forwarded: true }), null, 'forwarded TEXT never');
+  const { d, log } = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(d, registeredVaultMsg({ ...img, text: '/ref logo ideas' })!, { '916238952660': registeredFolder('Ibrahim', '916238952660') });
+  assert.equal(log.saved[0].name, '2026-11-05_0105_logo ideas.jpg');
+  assert.deepEqual(log.saved[0].path, ['Nudge Vault', 'Ibrahim 2660', '2026-11']);
+  assert.deepEqual(log.texts, [], 'a /ref photo gets only the ✅ reaction');
+
+  // a forwarded screenshot: only a plain forward earns the "how to get it read" note, and only after a successful save
+  assert.equal(isPlainForward(fwd[0]), true);
+  assert.equal(isPlainForward({ ...fwd[0], text: '/ref logo' }), false);
+  assert.equal(isPlainForward(fwd[3]), false);
+  assert.equal(isPlainForward({ ...fwd[0], type: 'document' }), false);
+  const f = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(f.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => FORWARD_NOTE);
+  assert.deepEqual(f.log.reactions, ['✅']);
+  assert.deepEqual(f.log.texts, [FORWARD_NOTE]);
+  assert.match(FORWARD_NOTE, /Saved to Drive/);
+  assert.match(FORWARD_NOTE, /not forwarded/);
+  const g = fakes({ fetchMedia: async () => ({ data: Buffer.from('jpg'), mimeType: 'image/jpeg' }) });
+  await handleVault(g.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => null); // already told today
+  assert.deepEqual(g.log.texts, []);
+  const h = fakes({ save: async () => { throw new Error('drive down'); } });
+  let asked = false;
+  await handleVault(h.d, fwd[0], { '916238952660': 'Ibrahim 2660' }, async () => { asked = true; return FORWARD_NOTE; });
+  assert.equal(asked, false, 'no note when the save failed');
+  assert.equal(h.log.texts.length, 1);
+  assert.match(h.log.texts[0], /Could not save/);
+}
+
 
 console.log('test_vault: ok');

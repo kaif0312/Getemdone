@@ -1,6 +1,7 @@
 // OWNER: agent "social". Friends + social actions, writing the SAME docs as the PWA so in-app + push keep working.
 // Docs written: tasks/{id}.reactions[] / comments[] (transactions), notifications/{id} (same shape as hooks/useTasks.ts),
 // nudgeLimits/{from_to_date}, friendInvites/{id}, users/{uid}.friends (arrayUnion).
+import { langOf } from '../bot/i18n';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Comment, Reaction, Task } from '../../lib/types';
 import { canViewTask } from '../../utils/visibility';
@@ -12,7 +13,15 @@ import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 
 export interface FriendLite { uid: string; displayName: string; waLinked: boolean; }
-export interface FriendActivity { uid: string; displayName: string; doneToday: { taskId: string; text: string }[]; workoutsToday: string[]; streak: number; }
+export interface FriendActivity {
+  uid: string;
+  displayName: string;
+  doneToday: { taskId: string; text: string }[];
+  workoutsToday: string[];
+  streak: number;
+  /** The friend's "top 3 for today" (task.focusDate === today) that this viewer may see: how many are done. */
+  focus?: { done: number; total: number };
+}
 
 /** Injectable collaborators (real ones by default) so emulator tests can fake time, zones and sends. */
 export const deps = {
@@ -23,7 +32,7 @@ export const deps = {
   sendText: (to: string, text: string) => sendMod.sendText(to, text),
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
   sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string; buttonPayloads?: string[] }) =>
-    sendMod.sendTemplate(to, name, vars, opts),
+    sendMod.sendTemplateFallback(to, name, vars, opts),
 };
 
 const DEFAULT_TZ = 'Asia/Kolkata';
@@ -117,7 +126,7 @@ async function whatsappFriend(
       link.waId,
       'nudge_friend',
       [fromName, message?.trim() || 'Get things done today!'],
-      { language: 'en', buttonPayloads: [BUTTON_IDS.nudge(fromUid)] },
+      { language: langOf(link), buttonPayloads: [BUTTON_IDS.nudge(fromUid)] },
     );
     return true;
   } catch (e) {
@@ -291,13 +300,19 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
         db.doc(`fitness/${fid}/days/${today}`).get(),
       ]);
       const doneToday: { taskId: string; text: string }[] = [];
+      const focus = { done: 0, total: 0 };
       for (const d of tasksSnap.docs) {
         const t = { ...(d.data() as Task), id: d.id };
         if (t.deleted) continue;
         const doneNow = t.completed && t.completedAt != null && deps.localDate(tz, t.completedAt) === today;
         const doneRecurring = !!t.recurrence?.completedDates?.includes(today);
+        const visible = canViewTask(t, uid, false);
+        if (visible && t.focusDate === today) {
+          focus.total++;
+          if (doneNow || doneRecurring) focus.done++;
+        }
         if (!doneNow && !doneRecurring) continue;
-        if (!canViewTask(t, uid, false)) continue;
+        if (!visible) continue;
         doneToday.push({ taskId: t.id, text: plainText(t.text) || 'a task' });
       }
       const visibility = (goalsSnap.data() as { visibility?: string } | undefined)?.visibility ?? 'friends';
@@ -311,6 +326,7 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
         doneToday,
         workoutsToday: workouts,
         streak: friend.streakData?.currentStreak ?? 0,
+        ...(focus.total ? { focus } : {}),
       };
     }),
   );
@@ -322,7 +338,11 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
  * `byPhoneOrCode`: friendCode (6 chars, any case) or a phone number (digits, + and spaces ok) looked up in waLinks/{digits}.
  * If the invitee is WhatsApp-linked they get buttons `invite:accept:<id>` / `invite:decline:<id>`.
  */
-export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<{ ok: boolean; reason?: string }> {
+export async function inviteFriend(
+  uid: string,
+  byPhoneOrCode: string,
+  opts?: { toUid?: string },
+): Promise<{ ok: boolean; reason?: string; inviteId?: string }> {
   const me = await loadUser(uid);
   if (!me) return { ok: false, reason: 'no_user' };
   const raw = byPhoneOrCode.trim();
@@ -330,7 +350,9 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   const looksLikePhone = digits.length >= 8 && /^[\d\s+()-]+$/.test(raw);
   let toUid: string | null = null;
   const db = adminDb();
-  if (looksLikePhone) {
+  if (opts?.toUid) {
+    toUid = (await loadUser(opts.toUid)) ? opts.toUid : null;
+  } else if (looksLikePhone) {
     const l = await db.doc(`waLinks/${digits}`).get();
     toUid = l.exists ? ((l.data() as { uid?: string }).uid ?? null) : null;
   } else {
@@ -352,6 +374,26 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   const ref = db.collection('friendInvites').doc();
   await ref.set({ fromUid: uid, toUid, status: 'pending', createdAt: deps.now() });
 
+  // In-app inbox item + push (the notification Cloud Function sends FCM/Expo on create), so app-only users hear about it.
+  try {
+    const to = await loadUser(toUid);
+    if (to && to.notificationSettings?.enabled !== false) {
+      await createNotification({
+        userId: toUid,
+        type: 'announcement',
+        title: `🤝 ${nameOf(me)} wants to be your friend`,
+        message: 'Open Friends to accept or decline.',
+        fromUserId: uid,
+        fromUserName: nameOf(me),
+        fromUserPhotoURL: me.photoURL,
+        createdAt: deps.now(),
+        read: false,
+      });
+    }
+  } catch (e) {
+    console.error('[social] invite notification failed', e);
+  }
+
   try {
     const link = await deps.getLinkByUid(toUid);
     if (link && !link.muted && link.friendAlerts && deps.windowOpen(link.lastInboundAt, deps.now())) {
@@ -365,7 +407,12 @@ export async function inviteFriend(uid: string, byPhoneOrCode: string): Promise<
   } catch (e) {
     console.error('[social] invite whatsapp failed', e);
   }
-  return { ok: true };
+  return { ok: true, inviteId: ref.id };
+}
+
+/** Native app entry: invite by friend code or by uid (consent flow, same doc as the bot's invite). */
+export async function inviteFriendForApp(uid: string, target: { code: string } | { toUid: string }) {
+  return 'toUid' in target ? inviteFriend(uid, '', { toUid: target.toUid }) : inviteFriend(uid, target.code);
 }
 
 export async function answerInvite(uid: string, inviteId: string, accept: boolean): Promise<void> {

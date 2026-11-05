@@ -2,7 +2,7 @@
 // Run: NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_privacy.mts
 process.env.NUDGE_WA_DRY_RUN = '1';
 import assert from 'node:assert/strict';
-import { handleWith, PRIVACY, PRIVACY_NOTICE, FORGET_ASK, FORGOTTEN } from '../../lib/bot/core';
+import { handleWith, PRIVACY, PRIVACY_NOTICE, FORGET_ASK, FORGOTTEN, LEARNING_OFF } from '../../lib/bot/core';
 import { parseFast } from '../../lib/bot/fastpath';
 import { scrub } from '../../lib/bot/scrub';
 import type { InboundMessage } from '../../lib/wa/types';
@@ -83,6 +83,26 @@ await test('learning log: scrubbed copy under a random id kept on the link', asy
   assert.equal(rows[0].path, 'fast:today');
   assert.ok(!/918714467784|Kaif/.test(rows[0].bot), rows[0].bot);
   assert.ok(!JSON.stringify(rows).includes('9100'));
+});
+
+await test('learning off: opt-out stops the copy (that turn too), learning on resumes from the next turn', async () => {
+  assert.deepEqual(parseFast(text('Learning off')), { t: 'learningOff' });
+  assert.deepEqual(parseFast(text("don't save my messages")), { t: 'learningOff' });
+  assert.deepEqual(parseFast(text('learning on')), { t: 'learningOn' });
+  const f = makeFake({ tasks: [mkTask('t1', 'gym')] });
+  const { rows } = withLearning(f);
+  await handleWith(f.deps, text('learning off'));
+  assert.equal(f.getLink()!.learning, false);
+  assert.equal(f.sent.at(-1)!.body, LEARNING_OFF);
+  await handleWith(f.deps, text('today'));
+  assert.equal(rows.length, 0);
+  await handleWith(f.deps, text('learning on'));
+  assert.equal(f.getLink()!.learning, true);
+  assert.equal(rows.length, 0);
+  await handleWith(f.deps, text('today'));
+  assert.equal(rows.length, 1);
+  assert.match(PRIVACY, /learning off/);
+  assert.match(PRIVACY_NOTICE, /learning off/);
 });
 
 await test('learning log failure never breaks the reply', async () => {

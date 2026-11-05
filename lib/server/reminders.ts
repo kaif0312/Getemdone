@@ -8,7 +8,8 @@
 //   A task with remindAt never also fires from dueDate. task.remindSentFor = the fire time already sent (claimed in a
 //   transaction first, so a retried tick never double-sends).
 //
-// WHERE it goes (users/{uid}.reminderChannel): 'auto' (default) = app push if the user has the app (fcmToken), else
+// WHERE it goes (users/{uid}.reminderChannel): 'auto' (default) = app push if the user has the app (fcmToken or native
+// expoPushTokens), else
 // WhatsApp; 'app' = push only; 'whatsapp' = WhatsApp only; 'both'. A failed push falls back to WhatsApp when linked.
 //
 // COST (WhatsApp): inside the 24h window it is a plain interactive message (free). Outside it, the approved template
@@ -18,12 +19,14 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Task } from '@/lib/types';
 import { adminDb, adminMessaging } from './firebaseAdmin';
+import { expoTokensOf, sendExpoPush } from './expoPush';
 import { capDate, releaseTemplateSlot, reserveTemplateSlot } from './waCaps';
 import { localDate, localTime, DEFAULT_TIMEZONE } from './users';
 import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 import * as sessionsMod from '../wa/sessions';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
+import { langOf, t, type Lang } from '../bot/i18n';
 
 export type ReminderChannel = 'auto' | 'app' | 'whatsapp' | 'both';
 export const REMINDER_CHANNELS: ReminderChannel[] = ['auto', 'app', 'whatsapp', 'both'];
@@ -55,6 +58,8 @@ interface UserPrefs {
   tz: string;
   channel: ReminderChannel;
   fcmToken?: string;
+  /** Native app (Expo) push tokens. */
+  expoTokens: string[];
   focus: boolean;
   off: boolean;
   leadMin: number;
@@ -93,10 +98,16 @@ export const deps = {
       return 'error';
     }
   },
+  /** Native app push: 'ok' if at least one device accepted it, 'dead' if every token was unregistered. */
+  sendExpo: async (uid: string, title: string, body: string, taskId: string): Promise<'ok' | 'dead' | 'error'> => {
+    const r = await sendExpoPush(uid, { title, body, data: { type: 'task', taskId } });
+    if (r.sent > 0) return 'ok';
+    return r.dead.length > 0 && r.errors === 0 ? 'dead' : 'error';
+  },
   getLinkByUid: (uid: string) => linksMod.getLinkByUid(uid),
   windowOpen: (last: number, now?: number) => sendMod.windowOpen(last, now),
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
-  sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string }) => sendMod.sendTemplate(to, name, vars, opts),
+  sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string }) => sendMod.sendTemplateFallback(to, name, vars, opts),
   getSession: (waId: string) => sessionsMod.getSession(waId),
   saveSession: (waId: string, s: Awaited<ReturnType<typeof sessionsMod.getSession>>) => sessionsMod.saveSession(waId, s),
 };
@@ -107,8 +118,8 @@ function toTask(id: string, data: FirebaseFirestore.DocumentData): Task {
   return { id, ...(data as Omit<Task, 'id'>) };
 }
 
-function taskLabel(t: Task): string {
-  return !t.text || t.text.startsWith('e1:') ? 'a task' : t.text; // e1: = encrypted by the app, never readable here
+function taskLabel(task: Task, lang: Lang = 'en'): string {
+  return !task.text || task.text.startsWith('e1:') ? t(lang, 'aTask') : task.text; // e1: = encrypted by the app, never readable here
 }
 
 function clipOne(s: string, n: number): string {
@@ -123,11 +134,11 @@ function time12(hhmm: string): string {
 }
 
 /** "in 15 min" / "in 2 h" / "now" for the push / message. */
-export function untilLabel(eventAt: number, now: number): string {
+export function untilLabel(eventAt: number, now: number, lang: Lang = 'en'): string {
   const min = Math.round((eventAt - now) / 60_000);
-  if (min <= 1) return 'now';
-  if (min < 90) return `in ${min} min`;
-  return `in ${Math.round(min / 60)} h`;
+  if (min <= 1) return lang === 'en' ? 'now' : t(lang, 'untilNow');
+  if (min < 90) return t(lang, 'untilMin', { n: min });
+  return t(lang, 'untilHr', { n: Math.round(min / 60) });
 }
 
 /** The pure part: which fire time (if any) applies to this task right now. */
@@ -137,7 +148,7 @@ export function fireFor(
   leadMin: number,
   tz: string,
 ): { fireAt: number; eventAt: number } | null {
-  if (t.completed || t.deleted || t.recurrence) return null;
+  if (t.completed || t.deleted || t.recurrence || t.parkedAt) return null;
   if (t.remindAt) {
     const eventAt = t.remindFor ?? t.remindAt;
     if (t.remindAt > now) return null;
@@ -167,6 +178,7 @@ async function loadPrefs(uid: string, cache: Map<string, UserPrefs>): Promise<Us
     tz,
     channel: REMINDER_CHANNELS.includes(ch) ? ch : 'auto',
     fcmToken: typeof d.fcmToken === 'string' && d.fcmToken ? d.fcmToken : undefined,
+    expoTokens: expoTokensOf(d),
     focus: d.focusModeActive === true,
     off: ns.deadlineReminders === false,
     leadMin: typeof ns.deadlineMinutesBefore === 'number' && ns.deadlineMinutesBefore > 0 ? ns.deadlineMinutesBefore : 60,
@@ -182,7 +194,7 @@ async function claim(taskId: string, fireAt: number): Promise<boolean> {
   return adminDb().runTransaction(async (tx) => {
     const s = await tx.get(ref);
     const d = s.data();
-    if (!d || d.completed === true || d.deleted === true) return false;
+    if (!d || d.completed === true || d.deleted === true || d.parkedAt) return false;
     if (d.remindSentFor === fireAt) return false;
     tx.update(ref, { remindSentFor: fireAt });
     return true;
@@ -198,14 +210,16 @@ async function bumpUserDayTemplate(waId: string, day: string, by: 1 | -1): Promi
 }
 
 async function viaWhatsApp(c: Candidate, link: WaLink, prefs: UserPrefs, now: number): Promise<Outcome> {
-  const label = clipOne(taskLabel(c.task), 60);
+  const lang = langOf(link);
+  const label = clipOne(taskLabel(c.task, lang), 60);
   const at = time12(localTime(prefs.tz, c.eventAt));
   const eventToday = localDate(prefs.tz, c.eventAt) === localDate(prefs.tz, now);
   if (deps.windowOpen(link.lastInboundAt, now)) {
     const when = eventToday ? at : `${localDate(prefs.tz, c.eventAt)} ${at}`;
-    const id = await deps.sendButtons(link.waId, `⏰ ${label}\n${untilLabel(c.eventAt, now) === 'now' ? 'Now' : `${untilLabel(c.eventAt, now)}`} (${when})`, [
-      { id: BUTTON_IDS.done(c.task.id), title: 'Done ✅' },
-      { id: BUTTON_IDS.tomorrow(c.task.id), title: 'Tomorrow' },
+    const until = untilLabel(c.eventAt, now, lang);
+    const id = await deps.sendButtons(link.waId, `⏰ ${label}\n${until === 'now' ? 'Now' : until} (${when})`, [
+      { id: BUTTON_IDS.done(c.task.id), title: t(lang, 'btnDone') },
+      { id: BUTTON_IDS.tomorrow(c.task.id), title: t(lang, 'btnTomorrow') },
     ]);
     if (id) return 'wa_free';
     // The window was closed in Meta's view after all (131047): fall through to the template path.
@@ -217,7 +231,7 @@ async function viaWhatsApp(c: Candidate, link: WaLink, prefs: UserPrefs, now: nu
   const gday = capDate(now);
   if (!(await reserveTemplateSlot(gday))) return 'skipped_cost';
   await bumpUserDayTemplate(link.waId, day, 1);
-  const id = await deps.sendTemplate(link.waId, 'nudge_reminder', [label, at], { language: 'en' });
+  const id = await deps.sendTemplate(link.waId, 'nudge_reminder', [label, at], { language: lang });
   if (!id) {
     await releaseTemplateSlot(gday);
     await bumpUserDayTemplate(link.waId, day, -1);
@@ -237,7 +251,7 @@ async function deliver(c: Candidate, prefs: UserPrefs, now: number): Promise<Out
   if (prefs.off) return 'skipped_off';
   const link = await deps.getLinkByUid(c.uid);
   const waOk = !!link && !link.muted;
-  const hasApp = !!prefs.fcmToken;
+  const hasApp = !!prefs.fcmToken || prefs.expoTokens.length > 0;
   const wantPush = prefs.channel === 'app' || prefs.channel === 'both' || (prefs.channel === 'auto' && hasApp);
   const wantWa = prefs.channel === 'whatsapp' || prefs.channel === 'both' || (prefs.channel === 'auto' && !hasApp);
 
@@ -247,15 +261,17 @@ async function deliver(c: Candidate, prefs: UserPrefs, now: number): Promise<Out
     if (!hasApp) pushFailed = true;
     else if (prefs.focus) result = 'skipped_focus';
     else {
-      const label = taskLabel(c.task);
-      const when = untilLabel(c.eventAt, now);
-      const r = await deps.sendPush(
-        prefs.fcmToken!,
-        `⏰ ${clipOne(label, 80)}`,
-        `${when === 'now' ? 'Starting now' : `Starts ${when}`} (${time12(localTime(prefs.tz, c.eventAt))})`,
-        c.task.id,
-      );
-      if (r === 'ok') result = 'push';
+      const pl = langOf(link);
+      const label = taskLabel(c.task, pl);
+      const when = untilLabel(c.eventAt, now, pl);
+      const isNow = Math.round((c.eventAt - now) / 60_000) <= 1;
+      const title = `⏰ ${clipOne(label, 80)}`;
+      const body = `${isNow ? t(pl, 'pushStartsNow') : t(pl, 'pushStarts', { when })} (${time12(localTime(prefs.tz, c.eventAt))})`;
+      // Same title/body to every app the user has: the PWA (FCM) and the native app (Expo).
+      const rs: ('ok' | 'dead' | 'error')[] = [];
+      if (prefs.fcmToken) rs.push(await deps.sendPush(prefs.fcmToken, title, body, c.task.id));
+      if (prefs.expoTokens.length) rs.push(await deps.sendExpo(c.uid, title, body, c.task.id));
+      if (rs.includes('ok')) result = 'push';
       else pushFailed = true;
     }
   }

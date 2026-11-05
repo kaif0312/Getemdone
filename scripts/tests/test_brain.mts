@@ -8,6 +8,7 @@ import { zonedToMs } from '../../lib/bot/format';
 import type { InboundMessage } from '../../lib/wa/types';
 import type { GeminiResult } from '../../lib/bot/types';
 import { makeFake, mkTask } from './fakes';
+import { COACH_IDS, COACHES, coachOf } from '../../lib/bot/coaches';
 
 let n = 0;
 const text = (t: string): InboundMessage => ({ id: 'm' + ++n, from: '9100', timestamp: 1000 + n, type: 'text', text: t });
@@ -73,7 +74,7 @@ await test('today: list message, sets lastList; one task -> buttons', async () =
   const g = makeFake({ tasks: [mkTask('a', 'only')] });
   await handleWith(g.deps, text('list'));
   assert.equal(g.sent[0].kind, 'buttons');
-  assert.deepEqual(g.sent[0].buttons!.map((b) => b.id), ['done:a', 'tmrw:a', 'del:a']);
+  assert.deepEqual(g.sent[0].buttons!.map((b) => b.id), ['done:a', 'tmrw:a', 'park:a']);
 });
 
 await test('empty today', async () => {
@@ -128,7 +129,7 @@ await test('done works without a prior list (rebuilds it)', async () => {
 await test('buttons: task tap, tomorrow, delete + undo delete', async () => {
   const f = makeFake({ tasks: three() });
   await handleWith(f.deps, tap('task:t1'));
-  assert.deepEqual(f.sent[0].buttons!.map((b) => b.id), ['done:t1', 'tmrw:t1', 'del:t1']);
+  assert.deepEqual(f.sent[0].buttons!.map((b) => b.id), ['done:t1', 'tmrw:t1', 'park:t1']);
   await handleWith(f.deps, tap('tmrw:t2'));
   assert.ok(f.calls.includes('defer t2 2026-11-02'));
   await handleWith(f.deps, tap('del:t3'));
@@ -361,6 +362,131 @@ await test('callGemini: REST shape, fallback model on failure, key never in erro
   assert.ok((bodySeen as { tools: unknown[] }).tools);
   const bad = (async () => new Response('x', { status: 500 })) as unknown as typeof fetch;
   await assert.rejects(callGemini({ system: 'S', user: [], tools: [] }, { fetchImpl: bad, env: { GEMINI_API_KEY: 'KEY123' } }), (e: Error) => !e.message.includes('KEY123'));
+});
+
+await test('coach: menu lists every coach, a tap saves it and the next prompt uses its voice', async () => {
+  const f = makeFake({ gemini: async () => gem([{ name: 'reply', args: { text: 'ok' } }]) });
+  await handleWith(f.deps, text('coach'));
+  const menu = f.sent.at(-1)!;
+  assert.equal(menu.kind, 'list');
+  assert.deepEqual(menu.rows!.map((r) => r.id), COACH_IDS.map((id) => `coach:${id}`));
+  for (const id of COACH_IDS) { assert.ok(COACHES[id].title.length <= 24, id); assert.ok(COACHES[id].blurb.length <= 72, id); }
+  await handleWith(f.deps, tap('coach:drill'));
+  assert.equal(f.getLink()!.coach, 'drill');
+  assert.match(f.sent.at(-1)!.body, /Drill Sergeant/);
+  assert.deepEqual(f.stickers, ['blowing']);
+  await handleWith(f.deps, text('i skipped the gym again'));
+  assert.match(f.geminiReqs.at(-1)!.system, /no-excuses/);
+  assert.match(f.geminiReqs.at(-1)!.system, /Drop the act/);
+});
+
+await test('coach: Gemini set_coach switches; unknown ids are refused; default voice is the buddy', async () => {
+  const f = makeFake({ gemini: async () => gem([{ name: 'set_coach', args: { coach: 'zen' } }]) });
+  await handleWith(f.deps, text('go easy on me please'));
+  assert.match(f.geminiReqs[0].system, /Friendly accountability buddy/);
+  assert.equal(f.getLink()!.coach, 'zen');
+  assert.match(f.sent.at(-1)!.body, /Zen Guide/);
+  const g = makeFake();
+  await handleWith(g.deps, tap('coach:goggins'));
+  assert.equal(g.getLink()!.coach, undefined);
+  assert.match(g.sent.at(-1)!.body, /don't know that coach/);
+});
+
+await test('coach: scheduler lines per coach', async () => {
+  assert.match(coachOf('drill').morning('Ali', 3), /Ali.*3 tasks.*Hardest one first/);
+  assert.match(coachOf(undefined).recap(2, 1), /2 done, 1 still open/);
+  assert.match(coachOf('analyst').recap(3, 1), /75%/);
+  assert.match(coachOf('analyst').recap(0, 0), /0%/);
+});
+
+await test('slash commands: a leading / runs the bare command, no Gemini', async () => {
+  const f = makeFake({ tasks: three() });
+  assert.deepEqual(parseFast(text('/today')), { t: 'today' });
+  assert.deepEqual(parseFast(text('/list')), { t: 'today' });
+  assert.deepEqual(parseFast(text('/Done 2.')), { t: 'done', nums: [2] });
+  assert.deepEqual(parseFast(text('/done 1,3')), { t: 'done', nums: [1, 3] });
+  assert.deepEqual(parseFast(text('/undo')), { t: 'undo' });
+  assert.deepEqual(parseFast(text('/week')), { t: 'week' });
+  assert.deepEqual(parseFast(text('/help')), { t: 'help' });
+  assert.deepEqual(parseFast(text('/stop')), { t: 'mute' });
+  assert.deepEqual(parseFast(text('/files')), { t: 'files' });
+  assert.deepEqual(parseFast(text('/vault')), { t: 'files' });
+  assert.deepEqual(parseFast(text('/xyz')), { t: 'unknownCmd', cmd: 'xyz' });
+  assert.deepEqual(parseFast(text('/task Record Video')), { t: 'addTask', text: 'Record Video' });
+  assert.deepEqual(parseFast(text('/add\nbuy milk')), { t: 'addTask', text: 'buy milk' });
+  assert.deepEqual(parseFast(text('/task')), { t: 'addTask', text: '' });
+  assert.equal(parseFast(text('/ 5 apples')), null); // not a command word
+  assert.equal(parseFast(text('hello /task')), null);
+  await handleWith(f.deps, text('/today'));
+  assert.match(f.sent.at(-1)!.body, /gym|call mom/);
+  await handleWith(f.deps, text('/help'));
+  assert.match(f.sent.at(-1)!.body, /Slash commands/);
+  assert.match(f.sent.at(-1)!.body, /\/task <text>/);
+  await handleWith(f.deps, text('/done 2'));
+  assert.ok(f.calls.some((c) => c.startsWith('complete ')));
+  assert.equal(f.geminiReqs.length, 0);
+});
+
+await test('/xyz: short hint, no Gemini; bare /task: usage', async () => {
+  const f = makeFake();
+  await handleWith(f.deps, text('/xyz'));
+  assert.equal(f.sent.at(-1)!.body, 'Unknown command /xyz. Send /help to see what I can do.');
+  await handleWith(f.deps, text('/task'));
+  assert.match(f.sent.at(-1)!.body, /Add a task like this/);
+  assert.equal(f.geminiReqs.length, 0);
+  assert.ok(!f.calls.some((c) => c.startsWith('addTasks')));
+});
+
+await test('/task: plain text is added directly, no Gemini', async () => {
+  const f = makeFake();
+  await handleWith(f.deps, text('/task record video'));
+  const adds = f.calls.filter((c) => c.startsWith('addTasks')).map((c) => JSON.parse(c.slice(9)));
+  assert.deepEqual(adds.map((a) => a.text), ['record video']);
+  assert.match(f.sent.at(-1)!.body, /Added/);
+  await handleWith(f.deps, text('/add call the bank; send invoice'));
+  const adds2 = f.calls.filter((c) => c.startsWith('addTasks')).map((c) => JSON.parse(c.slice(9)));
+  assert.deepEqual(adds2.map((a) => a.text), ['record video', 'call the bank', 'send invoice']);
+  assert.equal(f.geminiReqs.length, 0);
+});
+
+await test('/task with a date goes to Gemini with ONLY add_tasks; never anything else', async () => {
+  const f = makeFake({
+    gemini: async () => gem([
+      { name: 'delete_task', args: { ref: '1' } },
+      { name: 'add_tasks', args: { items: [{ text: 'deck', due: '2026-11-06' }] } },
+    ]),
+  });
+  await handleWith(f.deps, text('/task deck by Friday'));
+  assert.deepEqual(f.geminiReqs[0].tools.map((t) => t.name), ['add_tasks']);
+  assert.ok(!f.calls.some((c) => c.startsWith('delete')));
+  const adds = f.calls.filter((c) => c.startsWith('addTasks')).map((c) => JSON.parse(c.slice(9)));
+  assert.equal(adds.length, 1);
+  assert.equal(adds[0].text, 'deck');
+});
+
+await test('/task: Gemini failure or no add_tasks call still adds the raw text', async () => {
+  for (const g of [async () => { throw new Error('boom'); }, async () => gem([{ name: 'reply', args: { text: 'sure!' } }])]) {
+    const f = makeFake({ gemini: g });
+    await handleWith(f.deps, text('/task call mom at 5'));
+    const adds = f.calls.filter((c) => c.startsWith('addTasks')).map((c) => JSON.parse(c.slice(9)));
+    assert.deepEqual(adds.map((a) => a.text), ['call mom at 5']);
+  }
+});
+
+await test('/files: last 5 vault items for the sender; bare "list" is still today', async () => {
+  const at = Date.parse('2026-11-01T08:30:00Z');
+  const vault = Array.from({ length: 7 }, (_, i) => ({ name: `2026-11-0${i + 1}_ref${i}.jpg`, bytes: 2 * 1048576, at: at - i * 86400000 }));
+  const f = makeFake({ vault, tasks: three() });
+  await handleWith(f.deps, text('/files'));
+  const body = f.sent.at(-1)!.body;
+  assert.ok(f.calls.includes('vaultFiles 9100 5'));
+  assert.equal(body.split('\n').filter((l) => l.startsWith('•')).length, 5);
+  assert.match(body, /ref0\.jpg \(2\.0 MB\) · 1 Nov/);
+  await handleWith(f.deps, text('list'));
+  assert.ok(!f.sent.at(-1)!.body.includes('Drive'));
+  const e = makeFake();
+  await handleWith(e.deps, text('/vault'));
+  assert.match(e.sent.at(-1)!.body, /Nothing in your Drive vault/);
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', SOME FAILED' : ''}`);

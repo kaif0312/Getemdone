@@ -56,7 +56,7 @@ const templates = [
   tpl('nudge_med_reminder', 'en', 'Medicine reminder from Nudge: {{1}}, it is time for {{2}} (scheduled for {{3}}). Please tap Taken below once you have taken it.', ['Amma', 'BP tablet', '8:00 AM'], ['Taken', 'Later']),
   tpl('nudge_med_reminder', 'hi', 'Nudge की ओर से दवा का रिमाइंडर: {{1}}, {{2}} लेने का समय हो गया है ({{3}})। दवा लेने के बाद नीचे "ले ली" बटन दबाएँ।', ['माँ', 'BP की गोली', '8:00 AM'], ['ले ली', 'बाद में']),
   tpl('nudge_med_reminder', 'ur', 'Nudge کی طرف سے دوا کی یاد دہانی: {{1}}، {{2}} لینے کا وقت ہو گیا ہے ({{3}})۔ دوا لینے کے بعد نیچے "لے لی" کا بٹن دبائیں۔', ['امی', 'BP کی گولی', '8:00 AM'], ['لے لی', 'بعد میں']),
-  tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്നുള്ള മരുന്ന് ഓർമ്മപ്പെടുത്തൽ: {{1}}, {{2}} കഴിക്കാനുള്ള സമയമായി ({{3}}). കഴിച്ചു കഴിഞ്ഞാൽ താഴെയുള്ള "കഴിച്ചു" എന്ന ബട്ടൺ അമർത്തുക.', ['അമ്മ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നീട്']),
+  tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്ന് മരുന്ന് ഓർമ്മ: {{1}}, {{2}} കഴിക്കാൻ സമയമായിട്ടോ ({{3}}). കഴിച്ചിട്ട് താഴെ "കഴിച്ചു" അമർത്തണേ.', ['അമ്മേ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നെ കഴിക്കാം']),
 
   // ---- to the family member when a dose is still not confirmed and their own window is closed (vars: person, medicines, time)
   tpl('nudge_med_alert', 'en', 'Medicine check from Nudge: {{1}} has not confirmed {{2}} due at {{3}}. Please check on them.', ['Amma', 'BP tablet', '8:00 AM']),

@@ -166,7 +166,7 @@ await test('care: the Taken button records it and thanks in Malayalam; no to-do 
   const f = makeFake({ link: parent, meds });
   await handleWith(f.deps, tap('med:taken:p_2026-11-01_0800'));
   assert.deepEqual(log, ['take p_2026-11-01_0800']);
-  assert.match(f.sent.at(-1)!.body, /നന്ദി അമ്മ/);
+  assert.match(f.sent.at(-1)!.body, /ശരി അമ്മ/);
   assert.equal(f.geminiReqs.length, 0);
 });
 

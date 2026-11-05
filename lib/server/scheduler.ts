@@ -14,6 +14,7 @@ import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
 import { coachOf } from '../bot/coaches';
+import { langOf, t, type Lang } from '../bot/i18n';
 import type { Task } from '../../lib/types';
 
 /** Extra minutes after the slot end during which a missed slot is still sent (idempotent, so safe). */
@@ -44,7 +45,7 @@ export const deps = {
     sendMod.sendList(to, body, label, rows, header),
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
   sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string; buttonPayloads?: string[] }) =>
-    sendMod.sendTemplate(to, name, vars, opts),
+    sendMod.sendTemplateFallback(to, name, vars, opts),
 };
 
 function toMinutes(hhmm: string): number | null {
@@ -89,8 +90,8 @@ function clip(s: string, n: number): string {
   return s.length <= n ? s : s.slice(0, n - 1) + '…';
 }
 
-function taskLabel(t: Task): string {
-  return !t.text || t.text.startsWith('e1:') ? 'a task' : t.text;
+function taskLabel(task: Task, lang: Lang = 'en'): string {
+  return !task.text || task.text.startsWith('e1:') ? t(lang, 'aTask') : task.text;
 }
 
 async function friendsLine(link: WaLink): Promise<string> {
@@ -111,23 +112,24 @@ async function userName(uid: string): Promise<string> {
 }
 
 async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, date: string): Promise<void> {
+  const lang = langOf(link);
   const [tasks, name] = await Promise.all([deps.listToday(link.uid), userName(link.uid)]);
   const open = tasks.filter((t) => !t.completed);
   if (deps.windowOpen(link.lastInboundAt, now)) {
     const friends = await friendsLine(link);
     if (open.length) {
       const body = clip(
-        coachOf(link.coach).morning(name, open.length) +
+        (lang === 'en' ? coachOf(link.coach).morning(name, open.length) : t(lang, 'morning', { name, n: open.length })) +
           (friends ? `\n\n${friends}` : ''),
         1000,
       );
-      const rows = open.slice(0, 10).map((t) => ({ id: BUTTON_IDS.focus(t.id), title: clip(taskLabel(t), 24) }));
-      await deps.sendList(link.waId, body, 'Pick focus', rows);
+      const rows = open.slice(0, 10).map((task) => ({ id: BUTTON_IDS.focus(task.id), title: clip(taskLabel(task, lang), 24) }));
+      await deps.sendList(link.waId, body, t(lang, 'pickFocus'), rows);
     } else {
-      const body = clip(coachOf(link.coach).morningEmpty(name) + (friends ? `\n\n${friends}` : ''), 1000);
+      const body = clip((lang === 'en' ? coachOf(link.coach).morningEmpty(name) : t(lang, 'morningEmpty', { name })) + (friends ? `\n\n${friends}` : ''), 1000);
       await deps.sendButtons(link.waId, body, [
-        { id: BUTTON_IDS.checkinStart, title: 'Plan my day' },
-        { id: BUTTON_IDS.checkinSkip, title: 'Skip today' },
+        { id: BUTTON_IDS.checkinStart, title: t(lang, 'btnPlan') },
+        { id: BUTTON_IDS.checkinSkip, title: t(lang, 'btnSkip') },
       ]);
     }
     counts.checkinFree++;
@@ -141,7 +143,7 @@ async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, da
   }
   try {
     await deps.sendTemplate(link.waId, 'nudge_checkin', [name, String(open.length)], {
-      language: 'en',
+      language: lang,
       buttonPayloads: [BUTTON_IDS.checkinStart, BUTTON_IDS.checkinSkip],
     });
   } catch (e) {
@@ -154,10 +156,13 @@ async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, da
 async function sendRecap(link: WaLink, counts: ScheduleCounts): Promise<boolean> {
   const s = await deps.daySummary(link.uid);
   if (!s.done.length && !s.open.length) return false;
-  const lines = [coachOf(link.coach).recap(s.done.length, s.open.length)];
-  if (s.done.length) lines.push('Done:\n' + s.done.slice(0, 5).map((t) => `- ${clip(taskLabel(t), 60)}`).join('\n'));
-  if (s.open.length) lines.push('Open:\n' + s.open.slice(0, 5).map((t) => `- ${clip(taskLabel(t), 60)}`).join('\n'));
-  lines.push(`Streak: ${s.streak} day${s.streak === 1 ? '' : 's'}` + (s.fitnessStreak ? `, fitness streak ${s.fitnessStreak}` : ''));
+  const lang = langOf(link);
+  const lines = [lang === 'en' ? coachOf(link.coach).recap(s.done.length, s.open.length) : t(lang, 'recapHead', { done: s.done.length, open: s.open.length })];
+  if (s.done.length) lines.push((lang === 'en' ? 'Done:' : t(lang, 'recapDone')) + '\n' + s.done.slice(0, 5).map((task) => `- ${clip(taskLabel(task, lang), 60)}`).join('\n'));
+  if (s.open.length) lines.push((lang === 'en' ? 'Open:' : t(lang, 'recapOpen')) + '\n' + s.open.slice(0, 5).map((task) => `- ${clip(taskLabel(task, lang), 60)}`).join('\n'));
+  lines.push(lang === 'en'
+    ? `Streak: ${s.streak} day${s.streak === 1 ? '' : 's'}` + (s.fitnessStreak ? `, fitness streak ${s.fitnessStreak}` : '')
+    : t(lang, 'recapStreak', { n: s.streak }));
   await deps.sendText(link.waId, clip(lines.join('\n\n'), 3500));
   counts.recaps++;
   return true;

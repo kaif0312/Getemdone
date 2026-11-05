@@ -1,6 +1,7 @@
 // Add a friend to the Nudge WhatsApp bot without the web app: creates a Firebase Auth user + users/{uid} + waLinks/{waId}.
 // Their first WhatsApp message starts the setup chat (name, city/timezone, check-in times, goal).
-// Usage: node scripts/add_friend.mjs "<Name>" <number with country code, digits only> [IANA timezone]
+// Usage: node scripts/add_friend.mjs "<Name>" <number with country code, digits only> [IANA timezone] [en|hi|ur|ml]
+// The optional last argument sets the language of the bot's replies (default English; Malayalam/Hindi/Urdu letters also switch it).
 // Example: node scripts/add_friend.mjs "Hassan" 821072080320 Asia/Seoul
 // Uses ~/.secrets/nudge/firebase-sa.json (PRODUCTION Firestore). Idempotent: an already linked number is left alone.
 import { readFileSync } from 'node:fs';
@@ -11,9 +12,9 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const [name, waId, tz = 'Asia/Kolkata'] = process.argv.slice(2);
+const [name, waId, tz = 'Asia/Kolkata', lang] = process.argv.slice(2);
 if (!name || !/^\d{8,15}$/.test(waId ?? '')) {
-  console.error('usage: node scripts/add_friend.mjs "<Name>" <digits with country code> [IANA timezone]');
+  console.error('usage: node scripts/add_friend.mjs "<Name>" <digits with country code> [IANA timezone] [en|hi|ur|ml]');
   process.exit(1);
 }
 new Intl.DateTimeFormat('en-US', { timeZone: tz }); // throws on a bad zone
@@ -42,6 +43,7 @@ await db.doc(`users/${uid}`).set(
 await db.doc(`waLinks/${waId}`).set({
   waId, uid, linkedAt: now, lastInboundAt: now, timezone: tz,
   checkinTime: '08:00', recapTime: '21:00', friendAlerts: true, muted: false,
+  ...(['en', 'hi', 'ur', 'ml'].includes(lang) ? { lang, langManual: true } : {}),
   onboarding: { step: 'welcome' }, // their first message starts the WhatsApp setup chat (lib/bot/onboarding.ts); needs that code deployed
 });
 console.log(`added ${name}: waId ${waId}, uid ${uid}, tz ${tz}`);

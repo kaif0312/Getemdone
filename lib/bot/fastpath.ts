@@ -1,5 +1,6 @@
 // Fast paths: button/list ids and exact text commands. No model involved.
 import type { InboundMessage } from '@/lib/wa/types';
+import { isLang, isLangCommand, parseLangName, type Lang } from './i18n';
 
 export type Fast =
   | { t: 'today' }
@@ -10,6 +11,8 @@ export type Fast =
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'coachMenu' }
   | { t: 'setCoach'; id: string }
+  | { t: 'lang'; code?: Lang }
+  | { t: 'meds' }
   | { t: 'meme'; format?: 'meme' | 'gif' | 'sticker' }
   | { t: 'memesOn' | 'memesOff' }
   | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
@@ -52,6 +55,7 @@ function fromReply(id: string): Fast | null {
     case 'nudge': return { t: 'nudge', uid: rest };
     case 'confirm': return { t: 'confirm', id: rest };
     case 'coach': return { t: 'setCoach', id: rest };
+    case 'lang': return isLang(rest) ? { t: 'lang', code: rest } : null;
     case 'cancel': return { t: 'cancel', id: rest };
     case 'react': {
       const j = rest.indexOf(':');
@@ -77,7 +81,7 @@ const ADD_CMDS = new Set(['task', 'add']);
 const FILE_CMDS = new Set(['files', 'vault']);
 /** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
 const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
-  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends']);
+  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines']);
 
 /**
  * Slash commands (WhatsApp has no native slash menu, so these are typed). null = not a slash command (text starts with
@@ -107,6 +111,13 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (t === 'start') return { t: 'unmute' };
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (t === 'week') return { t: 'week' };
+  if (/^(meds|medicine|medicines|my meds|medicine status)$/.test(t)) return { t: 'meds' };
+  if (isLangCommand(t)) return { t: 'lang' };
+  const lm = /^(?:language|lang)\s+(.+)$/.exec(t);
+  if (lm) { const code = parseLangName(lm[1]); return code ? { t: 'lang', code } : { t: 'lang' }; }
+  // A message that is only the name of Hindi / Urdu / Malayalam (any script) switches to it. English needs "language english".
+  const only = parseLangName(t);
+  if (only && only !== 'en') return { t: 'lang', code: only };
   if (t === 'friends') return { t: 'friends' };
   if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };
   if (/^(memes? off|no memes?|stop memes?)$/.test(t)) return { t: 'memesOff' };

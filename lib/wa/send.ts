@@ -137,6 +137,22 @@ export async function sendTemplate(to: string, name: string, variables: string[]
   });
 }
 
+/** Like sendTemplate, but if Meta has no approved version in `opts.language` (or the send fails), the English one is sent.
+ *  Every language of a template has the same variables and buttons, so the fallback is safe. */
+export async function sendTemplateFallback(
+  to: string, name: string, variables: string[], opts?: { language?: string; buttonPayloads?: string[] },
+): Promise<string | null> {
+  const id = await sendTemplate(to, name, variables, opts);
+  if (id || !opts?.language || opts.language === 'en') return id;
+  return sendTemplate(to, name, variables, { ...opts, language: 'en' });
+}
+
+export async function sendTemplateLang(
+  to: string, name: string, variables: string[], lang: string, opts?: { buttonPayloads?: string[] },
+): Promise<string | null> {
+  return sendTemplateFallback(to, name, variables, { ...opts, language: lang });
+}
+
 /** The coach mascot's sticker poses, served from public/stickers/<name>.webp (512x512 WebP, transparent, < 100 KB). */
 export const STICKERS = ['blowing', 'cheer', 'clipboard', 'disappointed', 'flex', 'proud', 'sleepy', 'waiting'] as const;
 export type StickerName = (typeof STICKERS)[number];

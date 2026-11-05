@@ -3,14 +3,17 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
-  Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
+  Ctx, HELP, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
   coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
+  langMenu, medsLines, setLangAction,
 } from './actions';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
 import { allowMeme, chooseRecipe, sendRecipe } from './memes';
 import { maybeOnboard } from './onboarding';
+import { handleCare } from './care';
+import { detectLang, langOf, t as tr, type Lang } from './i18n';
 
 export const APOLOGY = 'Sorry, something went wrong on my side. Please try again in a moment 🙏';
 export const NOT_LINKED =
@@ -31,21 +34,34 @@ export const WELCOME = [
 const MAX_TURNS = 12;
 
 export async function handleWith(d: BotDeps, msg: InboundMessage): Promise<void> {
+  const state = { lang: 'en' as Lang };
   try {
-    await run(d, msg);
+    await run(d, msg, state);
   } catch (e) {
     console.error('[bot] handleMessage failed', msg.id, e);
-    try { await d.sendText(msg.from, APOLOGY); } catch (e2) { console.error('[bot] apology failed', e2); }
+    try { await d.sendText(msg.from, tr(state.lang, 'apology')); } catch (e2) { console.error('[bot] apology failed', e2); }
   }
 }
 
-async function run(d: BotDeps, msg: InboundMessage): Promise<void> {
+async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Promise<void> {
   const link = await d.getLink(msg.from);
   if (!link) { await unlinked(d, msg); return; }
+  state.lang = langOf(link);
+  // A family member who only gets medicine reminders: taps and short replies, no to-do bot.
+  if (link.care) { await handleCare(d, link, msg); return; }
   if (await maybeOnboard(d, link, msg)) return; // mid-setup chat, or the user typed *setup*
   if (msg.type === 'reaction') return;
+  // Writing in Malayalam / Hindi / Urdu letters switches the language (until they pick one by hand).
+  if (!link.langManual && msg.type === 'text' && msg.text) {
+    const seen = detectLang(msg.text);
+    if (seen && seen !== state.lang) {
+      state.lang = seen;
+      link.lang = seen;
+      d.updateLink(msg.from, { lang: seen }).catch(() => undefined);
+    }
+  }
   if (msg.type === 'other' || msg.type === 'document' || msg.type === 'video') {
-    await d.sendText(msg.from, 'I can read text, voice notes and photos. Send *help* to see what I can do.');
+    await d.sendText(msg.from, tr(state.lang, 'unsupported'));
     return;
   }
 
@@ -171,15 +187,19 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'undo': await undoLast(ctx, f.id); return;
     case 'mute':
       await d.updateLink(ctx.waId, { muted: true });
-      await ctx.text("Paused. I won't message you first. Send *start* to resume.");
+      await ctx.text(ctx.t('muted'));
       ctx.sticker = 'disappointed';
       ctx.wantMeme({ moment: 'quit' });
       return;
     case 'unmute':
       await d.updateLink(ctx.waId, { muted: false });
-      await ctx.text("Welcome back! I'll check in again. Send *today* to see your list.");
+      await ctx.text(ctx.t('unmuted'));
       return;
-    case 'help': await ctx.text(HELP); return;
+    case 'help': await ctx.text(ctx.lang === 'en' ? HELP : ctx.t('help')); return;
+    case 'lang':
+      if (f.code) await flush(ctx, await setLangAction(ctx, f.code)); else await langMenu(ctx);
+      return;
+    case 'meds': await ctx.text((await medsLines(ctx)).join('\n')); return;
     case 'coachMenu': await coachMenu(ctx); return;
     case 'meme': ctx.wantMeme({ moment: 'random', format: f.format, asked: true }); return;
     case 'memesOff':
@@ -194,10 +214,10 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       return;
     case 'setCoach': await flush(ctx, await setCoachAction(ctx, f.id)); return;
     case 'addTask':
-      if (!f.text) await ctx.text(TASK_USAGE); else await addTaskCommand(ctx, f.text);
+      if (!f.text) await ctx.text(ctx.t('taskUsage')); else await addTaskCommand(ctx, f.text);
       return;
     case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
-    case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd)); return;
+    case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd, ctx.lang)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;
     case 'nudge': await ctx.text((await nudgeUid(ctx, f.uid)).join('\n')); return;
@@ -239,7 +259,7 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     }
     case 'setTime':
       await d.updateLink(ctx.waId, { checkinTime: f.time });
-      await ctx.text(`Done ✅ I'll check in at ${time12(f.time)} every day. Send *stop* any time to pause.`);
+      await ctx.text(ctx.t('checkinSet', { time: time12(f.time) }));
       return;
     case 'confirm': {
       const la = ctx.session.lastAction;

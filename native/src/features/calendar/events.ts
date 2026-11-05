@@ -1,4 +1,4 @@
-// COPY of lib/calendar/events.ts (the WhatsApp calendar images). Keep both in step: same mapping of tasks to days. Only the imports differ.
+// COPY of lib/calendar/events.ts (the WhatsApp calendar images). Keep both in step: same mapping of tasks to days. Only the imports and the parkedAt skip in eventsInRange differ (add that skip to the server copy once Someday is on main).
 // Pure calendar model: tasks -> events on days, and the month / week grids. No Firestore, no I/O, so tests and the
 // renderer share it. All dates are "YYYY-MM-DD" in the USER's zone; weeks start on Monday.
 import type { Task } from '@/lib/types';

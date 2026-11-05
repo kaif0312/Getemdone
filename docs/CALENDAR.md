@@ -26,10 +26,10 @@ Not shown: completed, deleted, recurring templates, tasks with no time, a bare d
 - Scope **`calendar.app.created`** (+ `openid email`): Nudge creates its OWN secondary calendar "Nudge" and can only touch
   that. It never sees the user's primary calendar. Consent text: "Make secondary Google calendars, and see, create, change,
   and delete events on them". `NUDGE_GCAL_SCOPE` overrides (debug only).
-- OAuth client = the one the PWA already uses (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, project of the PWA's
-  Calendar). **Owner step:** add `https://getemdone.vercel.app/api/cal/google/callback` to that client's Authorized redirect
-  URIs, and `calendar.app.created` to the consent screen's scopes. Publish the app (Testing mode kills refresh tokens after
-  7 days); unverified-with-sensitive-scope shows a warning screen and caps at 100 users, fine for the friends beta.
+- OAuth client = the published "Iskaria console" web client in project `dr-jefna-gbp` (the one the Drive vault uses: env `GDRIVE_CLIENT_ID`/`GDRIVE_CLIENT_SECRET`;
+  fallback: the PWA's `NEXT_PUBLIC_GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`, which is NOT set in Vercel production). Needs `https://getemdone.vercel.app/api/cal/google/callback`
+  in its Authorized redirect URIs (added 2026-11-05) and the `calendar.app.created` scope under Data Access. The app is published, so refresh tokens do not expire;
+  a sensitive scope that is not yet verified shows a warning screen and caps at 100 users, fine for the friends beta.
 - Flow: `startLink(uid, via)` = `/api/cal/google/start?s=<signed state, 20 min, HMAC NUDGE_FORWARD_SECRET>` -> Google ->
   `/api/cal/google/callback` (code -> refresh token, creates the calendar, saves `calendarLinks/{uid}.google`, first
   sync). `via:'wa'` ends on an HTML page + a WhatsApp confirmation; `via:'app'` redirects to `nudge://me/calendar?connected=1`

@@ -27,8 +27,16 @@ const STATE_TTL_MS = 20 * 60_000;
 
 export const scopes = (): string => (process.env.NUDGE_GCAL_SCOPE ? process.env.NUDGE_GCAL_SCOPE : DEFAULT_SCOPES.join(' '));
 export const redirectUri = (): string => `${origin()}/api/cal/google/callback`;
-const clientId = () => process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
-const clientSecret = () => process.env.GOOGLE_CLIENT_SECRET || '';
+// The OAuth client: the published "Iskaria" web client already used for the Drive vault (GDRIVE_*, project dr-jefna-gbp: verified,
+// refresh tokens do not expire). id and secret always come as a PAIR from the same source; the PWA's old NEXT_PUBLIC_GOOGLE_CLIENT_ID /
+// GOOGLE_CLIENT_SECRET pair is only the fallback.
+const pair = (): { id: string; secret: string } => {
+  const g = { id: process.env.GDRIVE_CLIENT_ID || '', secret: process.env.GDRIVE_CLIENT_SECRET || '' };
+  if (g.id && g.secret) return g;
+  return { id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '', secret: process.env.GOOGLE_CLIENT_SECRET || '' };
+};
+const clientId = () => pair().id;
+const clientSecret = () => pair().secret;
 export const googleConfigured = (): boolean => !!(clientId() && clientSecret() && process.env.NUDGE_FORWARD_SECRET);
 
 // ---------- signed state / start links (same HMAC scheme as lib/vault/link.ts) ----------

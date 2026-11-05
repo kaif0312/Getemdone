@@ -253,7 +253,9 @@ export default function CalendarScreen() {
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <Text variant="heading" style={{ flex: 1 }}>{dayTitle(selected, today)}</Text>
-          <Button label="Add" icon="plus" size="sm" variant="secondary" onPress={() => router.push('/add')} />
+          {selected >= today ? (
+            <Button label="Add" icon="plus" size="sm" variant="secondary" onPress={() => router.push({ pathname: '/add', params: { date: selected } })} />
+          ) : null}
         </View>
         {selectedDay && selectedDay.events.length ? (
           <Rows day={selectedDay} onToggle={onToggle} onOpen={onOpen} />

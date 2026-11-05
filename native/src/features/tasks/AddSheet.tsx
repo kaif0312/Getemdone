@@ -4,7 +4,7 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { usePush } from '@/hooks/usePush';
 import { useTasks, type NewTaskInput } from '@/hooks/useTasks';
@@ -27,9 +27,12 @@ export default function AddSheet() {
   const push = usePush();
   const { today } = useToday();
   const tomorrow = addDays(today, 1);
+  // Optional ?date=YYYY-MM-DD (the Calendar's Add for the selected day); never a past day.
+  const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
+  const initialDate = typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam > today ? dateParam : today;
 
   const [text, setText] = useState('');
-  const [date, setDate] = useState<string>(today);
+  const [date, setDate] = useState<string>(initialDate);
   const [time, setTime] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [vis, setVis] = useState<VisValue | null>(null);

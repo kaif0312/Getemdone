@@ -196,7 +196,7 @@ await test('care: a "no" is never a confirmation; other text is passed to the fa
     const f = makeFake({ link: parent, meds });
     await handleWith(f.deps, text(w));
     assert.deepEqual(log, ['forward ' + JSON.stringify({ text: w })], w);
-    assert.match(f.sent.at(-1)!.body, /കൈമാറിയിട്ടുണ്ട്/);
+    assert.match(f.sent.at(-1)!.body, /എത്തിച്ചിട്ടുണ്ട്/);
   }
 });
 

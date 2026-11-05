@@ -9,6 +9,8 @@ import * as send from '@/lib/wa/send';
 import * as media from '@/lib/wa/media';
 import { makeProviders } from '@/lib/memes/providers';
 import * as reminders from '@/lib/server/reminders';
+import * as learning from '@/lib/server/learning';
+import * as privacy from '@/lib/wa/privacy';
 import * as meds from '@/lib/server/meds';
 import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
@@ -59,6 +61,8 @@ export const defaultDeps: BotDeps = {
     syncNow: (uid) => gcal.syncUser(uid),
   },
   markRead: send.markRead,
+  logLearning: learning.logLearning,
+  forgetMe: privacy.forgetMe,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,
   setProfile: users.setProfile,

@@ -98,6 +98,12 @@ export interface WaLink {
   friendAlerts: boolean;
   /** User sent STOP: send nothing proactive. */
   muted: boolean;
+  /** Random id for the learning log (lib/server/learning.ts); deleted with this doc on "delete my data". */
+  learnId?: string;
+  /** Unix ms when the one-time privacy notice was sent. */
+  privacyNoticeAt?: number;
+  /** false = the user sent *learning off*: turns are not copied to learningLog. Missing = on. */
+  learning?: boolean;
   /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
   coach?: string;
   /** false = the user sent *review off*: no stale-task nudges and no Sunday review. Missing = on. */

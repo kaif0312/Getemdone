@@ -16,7 +16,8 @@ export function makeFake(opts: { linked?: boolean; link?: Partial<WaLink>; meds?
   let seq = 100;
   let link: WaLink | null = opts.linked === false ? null : {
     waId: '9100', uid: 'u1', linkedAt: 1, lastInboundAt: 0, timezone: 'Asia/Kolkata', checkinTime: null, recapTime: null, friendAlerts: true, muted: false,
-    ...opts.link,
+    // privacyNoticeAt set: existing tests see no one-time notice (test_privacy.mts covers it).
+    privacyNoticeAt: 1, ...opts.link,
   };
   let session: WaSession = { turns: [], lastList: [], updatedAt: 0 };
   const log = (s: string) => calls.push(s);

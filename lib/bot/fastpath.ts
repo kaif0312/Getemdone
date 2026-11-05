@@ -12,6 +12,7 @@ export type Fast =
   | { t: 'done' | 'delete' | 'tomorrow' | 'park'; nums: number[] }
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'focusDone' | 'coachMenu' | 'reviewsOn' | 'reviewsOff' }
+  | { t: 'privacy' | 'forgetAsk' | 'forgetYes' | 'forgetNo' | 'learningOff' | 'learningOn' }
   | { t: 'setCoach'; id: string }
   | { t: 'lang'; code?: Lang }
   | { t: 'meds' }
@@ -79,6 +80,8 @@ function fromReply(id: string): Fast | null {
       const m = /^(accept|decline):(.+)$/.exec(rest);
       return m ? { t: 'invite', id: m[2], accept: m[1] === 'accept' } : null;
     }
+    case 'forget':
+      return rest === 'yes' ? { t: 'forgetYes' } : rest === 'no' ? { t: 'forgetNo' } : null;
     case 'checkin':
       return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : rest === 'focusdone' ? { t: 'focusDone' } : null;
     case 'settime': {
@@ -164,6 +167,10 @@ export function parseFast(msg: InboundMessage): Fast | null {
   const only = parseLangName(t);
   if (only && only !== 'en') return { t: 'lang', code: only };
   if (t === 'friends') return { t: 'friends' };
+  if (/^(privacy|my data|what do you (keep|save|store))\??$/.test(t)) return { t: 'privacy' };
+  if (/^((delete|erase|remove|wipe)( all)? (my )?(data|chats?|history|everything)|forget me)$/.test(t)) return { t: 'forgetAsk' };
+  if (/^(learning off|stop learning|(don'?t|do not|stop) sav(e|ing) (my|our) (messages|chats?))$/.test(t)) return { t: 'learningOff' };
+  if (/^(learning on|start learning)$/.test(t)) return { t: 'learningOn' };
   if (/^(reviews?|stale|nudges?) (off|stop|pause)$/.test(t)) return { t: 'reviewsOff' };
   if (/^(reviews?|stale|nudges?) (on|start|resume)$/.test(t)) return { t: 'reviewsOn' };
   if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };

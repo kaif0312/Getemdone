@@ -121,6 +121,7 @@ export const STR = {
       '• Send a document or video and I file it in Drive (a photo: forward it, or caption it "save passport" or "/ref name")',
       '• *review off* stops the "this has been sitting" nudges and the Sunday review, *review on* brings them back',
       '• *stop* pauses my messages, *start* resumes',
+      '• *privacy* - what I keep, *learning off* - stop saving messages, *delete my data* - erase it',
       '',
       '*Slash commands* (a leading / works on the commands above)',
       '/task <text> add a task, /today, /done 2, /undo, /week',

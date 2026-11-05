@@ -214,6 +214,22 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   question is sent, so one task is asked about at most once a year and one task per Sunday. Parked tasks never expire otherwise.
 - Not done: the native app has no stale/review/Someday UI yet; the old PWA is retired. Friends' feeds in the clients must skip parked tasks.
 
+## Privacy + learning log (2026-11-06)
+- Owner decision (2026-11-04): keep people's messages for learning, **tell them, let them opt out**. Never call the bot "end-to-end
+  encrypted": the server reads every message (Meta Cloud API -> console relay -> this app -> Gemini).
+- Every bot turn is also written to `learningLog/{auto}` = `{lid, at, path, user, bot}` (`lib/server/learning.ts`), text run
+  through `lib/bot/scrub.ts` (e-mails, 8+ digit numbers, the person's display name; friends' names and the content itself
+  are NOT removed). `lid` is a random id stored only on `waLinks/{waId}.learnId`. Server-only in `firestore.rules` (a deny rule
+  equal to the default; no rules deploy needed). A failed write never breaks the reply. Care contacts (`link.care`), onboarding
+  turns and vault users never reach that code, so they are not logged.
+- One-time notice (`PRIVACY_NOTICE`, `waLinks.privacyNoticeAt`): new people right after the welcome, existing people after
+  their next reply. `privacy` shows `PRIVACY` (`lib/bot/core.ts`); change that text if what is kept changes. English only.
+- Opt-out: `learning off` / "don't save my messages" sets `waLinks.learning = false` (that turn is not logged); `learning on` resumes.
+- `delete my data` / `forget me` -> Delete / Keep buttons (`forget:yes|no`) -> `forgetMe` (`lib/wa/privacy.ts`): deletes
+  `waSessions/{waId}` and unlinks (the link doc holds `learnId`, so learning rows are no longer tied to the person). Tasks,
+  workouts and medicine plans they set up stay with the app account. Nothing is saved or logged on that turn.
+- Tests: `npx tsx scripts/tests/test_privacy.mts` (fakes), `scripts/tests/test_forget.mts` (emulator).
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

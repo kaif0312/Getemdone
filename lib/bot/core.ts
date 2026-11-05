@@ -1,5 +1,7 @@
 // handleWith(deps, msg): the whole inbound flow, with injectable dependencies (tests pass fakes).
-import type { InboundMessage } from '@/lib/wa/types';
+import { randomUUID } from 'node:crypto';
+import type { InboundMessage, WaLink } from '@/lib/wa/types';
+import { scrub } from './scrub';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
@@ -32,6 +34,26 @@ export const WELCOME = [
   '',
   'Send *help* any time.',
 ].join('\n');
+
+/** Sent once per person (waLinks.privacyNoticeAt): new people after WELCOME, existing ones after their next reply. */
+export const PRIVACY_NOTICE =
+  '🔒 Heads-up: I save our messages, with your name and number removed, to make Nudge better. Send *privacy* to see what I keep, *learning off* to stop it, or *delete my data* any time.';
+export const PRIVACY = [
+  '🔒 *What Nudge keeps*',
+  '• Nudge is run by Ibrahim. I read your messages to understand them, with help from Google Gemini.',
+  '• Your tasks and workouts are saved in your Nudge account, so reminders and streaks work.',
+  '• I remember our last few messages, so a reply like "done 2" makes sense.',
+  '• Our messages are also saved, with your name and phone number removed, to make Nudge better. Ibrahim can read them.',
+  '',
+  'Send *learning off* to stop saving them from now on (*learning on* to allow it again).',
+  'Send *delete my data* to erase our chat history and disconnect WhatsApp. The saved messages are then no longer linked to you. Your tasks stay in the app, where you can delete them.',
+].join('\n');
+export const FORGET_ASK =
+  'This erases our chat history and disconnects this WhatsApp number from Nudge. Your tasks stay in the app. Go ahead?';
+export const FORGOTTEN =
+  'Done. Our chat history is erased and WhatsApp is disconnected 👋 To come back, connect again from the app.';
+export const LEARNING_OFF = 'Okay, from now on I will not save our messages for learning 🔒 Send *learning on* to allow it again.';
+export const LEARNING_ON = 'Thanks! I will save our messages again (name and number removed) to make Nudge better.';
 
 const MAX_TURNS = 12;
 
@@ -76,6 +98,7 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   const ctx = new Ctx(d, msg.from, link, user, tz, session, d.localDate(tz, now), d.localTime(tz, now));
 
   const fast = parseFast(msg);
+  if (fast?.t === 'forgetYes') { await forget(d, msg.from); return; } // nothing saved or logged after this
   // "Next step" on a stale-task nudge waits for the user's next plain message; any button, command or other message ends the wait.
   if (fast && fast.t !== 'step' && ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined;
   if (fast) await runFast(ctx, fast);
@@ -83,13 +106,45 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   else await runGemini(ctx, msg);
   const memed = await runMeme(ctx);
   if (!memed && ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
+  if (!link.privacyNoticeAt) {
+    await d.sendText(msg.from, PRIVACY_NOTICE);
+    await d.updateLink(msg.from, { privacyNoticeAt: d.now() }).catch(() => undefined);
+  }
 
   const t = d.now();
-  session.turns.push({ role: 'user', text: transcriptOf(msg).slice(0, 500), at: msg.timestamp || t });
-  if (ctx.out.length) session.turns.push({ role: 'bot', text: ctx.out.join('\n').slice(0, 500), at: t });
+  const userText = transcriptOf(msg).slice(0, 500);
+  const botText = ctx.out.join('\n').slice(0, 500);
+  session.turns.push({ role: 'user', text: userText, at: msg.timestamp || t });
+  if (ctx.out.length) session.turns.push({ role: 'bot', text: botText, at: t });
   if (session.turns.length > MAX_TURNS) session.turns = session.turns.slice(-MAX_TURNS);
   session.updatedAt = t;
   await d.saveSession(msg.from, session);
+  // Opt-out: `learning off` sets link.learning = false (this turn included); the `learning on` turn itself is not logged either.
+  if (ctx.link.learning !== false && fast?.t !== 'learningOn') {
+    await learn(d, ctx.link, user?.displayName, { at: t, path: fast ? `fast:${fast.t}` : 'ai', user: userText, bot: botText });
+  }
+}
+
+/** The learning copy never breaks a reply. The random `learnId` lives on the link only (lib/server/learning.ts). */
+async function learn(d: BotDeps, link: WaLink, name: string | undefined, t: { at: number; path: string; user: string; bot: string }): Promise<void> {
+  if (!d.logLearning) return;
+  try {
+    let lid = link.learnId;
+    if (!lid) {
+      lid = randomUUID();
+      await d.updateLink(link.waId, { learnId: lid });
+    }
+    const names = name ? [name] : [];
+    await d.logLearning({ lid, at: t.at, path: t.path, user: scrub(t.user, names), bot: scrub(t.bot, names) });
+  } catch (e) {
+    console.error('[bot] learning log failed', e);
+  }
+}
+
+async function forget(d: BotDeps, waId: string): Promise<void> {
+  if (!d.forgetMe) { await d.sendText(waId, APOLOGY); return; }
+  await d.forgetMe(waId);
+  await d.sendText(waId, FORGOTTEN);
 }
 
 /** Send this turn's meme if the budget, dice and providers allow. Never throws. True if something went out. */
@@ -145,6 +200,8 @@ async function unlinked(d: BotDeps, msg: InboundMessage): Promise<void> {
     { id: 'settime:08:00', title: '8:00 AM' },
     { id: 'settime:09:00', title: '9:00 AM' },
   ]);
+  await d.sendText(msg.from, PRIVACY_NOTICE);
+  await d.updateLink(msg.from, { privacyNoticeAt: d.now() }).catch(() => undefined);
 }
 
 async function idsFromNums(ctx: Ctx, nums: number[]): Promise<{ ids: string[]; errs: string[] }> {
@@ -201,6 +258,26 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       await ctx.text(ctx.t('unmuted'));
       return;
     case 'help': await ctx.text(ctx.lang === 'en' ? HELP : ctx.t('help')); return;
+    case 'privacy': await ctx.text(PRIVACY); return;
+    case 'forgetAsk':
+      await d.sendButtons(ctx.waId, FORGET_ASK, [
+        { id: 'forget:yes', title: 'Delete my data' },
+        { id: 'forget:no', title: 'Keep it' },
+      ]);
+      ctx.out.push(FORGET_ASK);
+      return;
+    case 'forgetNo': await ctx.text('Okay, nothing deleted 👍'); return;
+    case 'forgetYes': return; // handled in run() before anything is saved
+    case 'learningOff':
+      ctx.link.learning = false;
+      await d.updateLink(ctx.waId, { learning: false });
+      await ctx.text(LEARNING_OFF);
+      return;
+    case 'learningOn':
+      ctx.link.learning = true;
+      await d.updateLink(ctx.waId, { learning: true });
+      await ctx.text(LEARNING_ON);
+      return;
     case 'lang':
       if (f.code) await flush(ctx, await setLangAction(ctx, f.code)); else await langMenu(ctx);
       return;

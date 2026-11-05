@@ -8,6 +8,8 @@ import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
 import type * as Send from '@/lib/wa/send';
 import type * as Meds from '@/lib/server/meds';
+import type * as Learning from '@/lib/server/learning';
+import type * as Privacy from '@/lib/wa/privacy';
 import type { MemeDeps } from './memes';
 
 export interface GeminiPart {
@@ -89,6 +91,10 @@ export interface BotDeps {
   /** Calendar sync: /sync on WhatsApp. Absent = the command says it is unavailable. */
   calSync?: CalendarBotDeps;
   markRead: typeof Send.markRead;
+  /** Optional so older test fakes keep compiling; when absent, nothing goes to the learning log. */
+  logLearning?: typeof Learning.logLearning;
+  /** "delete my data". Optional for older fakes; when absent the bot says it cannot do it right now. */
+  forgetMe?: typeof Privacy.forgetMe;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server
   getUserLite: typeof Users.getUserLite;

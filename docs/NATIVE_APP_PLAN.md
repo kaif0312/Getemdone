@@ -117,7 +117,10 @@ admin dashboard (stays web).
   `eas build -p ios --profile production --non-interactive` and `eas submit -p ios --latest --non-interactive` now
   work (eas.json `submit.production.ios` = ascAppId + appleTeamId, no secrets). First build: `ef3dea7c-1cde-4c9f-95ca-ca504c63aa6a`
   = 1.0.0 (3) from `633df8a`. TestFlight: internal group "Nudge friends" (owner ikaif0312@gmail.com, all builds),
-  external group "Nudge friends external", beta review details with the play.reviewer demo login. How-to replay:
+  external group "Nudge friends external", beta review details with the play.reviewer demo login. Build 3 processed
+  (ASC build `30cf9eaf-5e0d-429a-a232-89c5cd8ca718`, encryption exempt): internal = IN_BETA_TESTING (owner invited), external =
+  submitted to Beta App Review (WAITING_FOR_REVIEW). Public link `https://testflight.apple.com/join/AxP91AxU` (limit 100)
+  is enabled; it admits testers only after Beta App Review approves the build. How-to replay:
   `~/.claude/scripts/browser-flows/apple-asc-new-app-testflight.md`.
 - Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
   FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), friends' emails on the tester lists

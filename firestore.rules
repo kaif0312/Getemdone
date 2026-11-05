@@ -75,8 +75,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       
       // Users can only create their own profile with valid structure
+      // A deleted account (accountDeletions/{uid}, lib/server/accountDelete.ts) can never re-create its profile: an app still
+      // open with a valid ID token would otherwise write it back the moment the server deletes it.
       allow create: if isAuthenticated() && 
         isOwner(userId) &&
+        !exists(/databases/$(database)/documents/accountDeletions/$(userId)) &&
         request.resource.data.keys().hasAll(['id', 'displayName', 'email', 'friendCode', 'friends', 'createdAt']) &&
         request.resource.data.id is string &&
         request.resource.data.displayName is string &&
@@ -315,6 +318,7 @@ service cloud.firestore {
     match /waSeen/{id} { allow read, write: if false; }
     match /nudgeLimits/{id} { allow read, write: if false; }
     match /learningLog/{id} { allow read, write: if false; } // server-only (lib/server/learning.ts)
+    match /accountDeletions/{id} { allow read, write: if false; } // server-only (lib/server/accountDelete.ts)
     // Calendar connections: the Google refresh token lives here, so no client may read it. Feed token -> uid lookup too.
     match /calendarLinks/{id} { allow read, write: if false; }
     match /calendarFeeds/{id} { allow read, write: if false; }

@@ -1,5 +1,5 @@
 // Calendar tests: event mapping, month/week grids, command parsing, and the bot flow with a fake image sender.
-// Run: NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_calendar.mts
+// Run: NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_calendar_images.mts
 process.env.NUDGE_WA_DRY_RUN = '1';
 import assert from 'node:assert/strict';
 import { agendaText, buildMonth, buildWeek, eventsInRange } from '../../lib/calendar/events';

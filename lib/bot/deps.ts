@@ -9,6 +9,7 @@ import * as send from '@/lib/wa/send';
 import * as media from '@/lib/wa/media';
 import { makeProviders } from '@/lib/memes/providers';
 import * as reminders from '@/lib/server/reminders';
+import * as meds from '@/lib/server/meds';
 import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
 import type { BotDeps } from './types';
@@ -34,6 +35,15 @@ export const defaultDeps: BotDeps = {
     sendStickerId: media.sendStickerId,
   },
   calendar: { tasks: tasks.listCalendar, sendImage: sendCalendarImage },
+  meds: {
+    openDosesFor: meds.openDosesFor,
+    takeDose: meds.takeDose,
+    snoozeDose: meds.snoozeDose,
+    forwardToOwner: meds.forwardToOwner,
+    statusLines: meds.statusLines,
+    addMedication: meds.addMedication,
+    removeMedication: meds.removeMedication,
+  },
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,
   getUserLite: users.getUserLite,

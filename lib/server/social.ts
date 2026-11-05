@@ -1,6 +1,7 @@
 // OWNER: agent "social". Friends + social actions, writing the SAME docs as the PWA so in-app + push keep working.
 // Docs written: tasks/{id}.reactions[] / comments[] (transactions), notifications/{id} (same shape as hooks/useTasks.ts),
 // nudgeLimits/{from_to_date}, friendInvites/{id}, users/{uid}.friends (arrayUnion).
+import { langOf } from '../bot/i18n';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Comment, Reaction, Task } from '../../lib/types';
 import { canViewTask } from '../../utils/visibility';
@@ -23,7 +24,7 @@ export const deps = {
   sendText: (to: string, text: string) => sendMod.sendText(to, text),
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
   sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string; buttonPayloads?: string[] }) =>
-    sendMod.sendTemplate(to, name, vars, opts),
+    sendMod.sendTemplateFallback(to, name, vars, opts),
 };
 
 const DEFAULT_TZ = 'Asia/Kolkata';
@@ -117,7 +118,7 @@ async function whatsappFriend(
       link.waId,
       'nudge_friend',
       [fromName, message?.trim() || 'Get things done today!'],
-      { language: 'en', buttonPayloads: [BUTTON_IDS.nudge(fromUid)] },
+      { language: langOf(link), buttonPayloads: [BUTTON_IDS.nudge(fromUid)] },
     );
     return true;
   } catch (e) {

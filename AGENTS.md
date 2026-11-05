@@ -139,6 +139,42 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
   of the send half): comment / reaction / encouragement / announcement notifications, tap data `task` if a taskId, `friend` for encouragement, else
   `inbox`. Social nudges and bot notices only create `notifications` docs, so the function covers them. **Functions are deployed by hand**:
   `firebase deploy --only functions`. Tests: `test_expo_push.mts` (mock fetch), `test_reminders.mts` (cases 10).
+## Languages: English, Hindi, Urdu, Malayalam (2026-11-05)
+- `lib/bot/i18n.ts` (pure): `Lang`, `t(lang, key, params)` over the `STR` dictionary (every key has all four languages; `test_i18n.mts`
+  checks that the `{placeholders}` match and button titles stay <= 20 characters), `detectLang` (script based), `parseLangName`.
+- Language is `waLinks.lang` (`langManual` = chosen by hand). Auto: a text written in Malayalam / Devanagari / Urdu letters switches it
+  (Arabic is NOT Urdu: only Urdu-only letters count); Latin text never switches. By hand: `language` / `/lang` (list of four), `/lang ml`,
+  `language hindi`, a bare "മലയാളം" / "हिंदी" / "اردو", the `lang:xx` list row, or Gemini's `set_language` (voice: "reply in Malayalam").
+  `scripts/add_friend.mjs "<Name>" <wa> <tz> ml` sets it up front.
+- In use: all fixed replies in `lib/bot/actions.ts` / `core.ts` (via `ctx.t`), help, buttons, the morning check-in and evening recap
+  (`scheduler.ts`; English users keep the coach voice), task reminders (`reminders.ts`), push text, and the Gemini lead-in (the prompt
+  context carries `Reply language: ...`). Task text is stored as the user wrote it.
+- Still English only: coach lines, onboarding, fitness-metric labels, friend reactions/nudge body, undo labels, unlinked-user hello.
+- **Templates in other languages** (`scripts/create_wa_templates.mjs`, same names, `language` hi/ur/ml): `sendTemplateFallback`
+  (`lib/wa/send.ts`) sends the user's language and retries in English if Meta has no approved version, so nothing breaks while approval
+  is pending. `--commit` creates them on Meta: ask the owner first; run with `--lang hi` etc. or `--only <name>`, the English ones exist.
+  Translations were written by Claude: a native speaker should read them (the medicine ones first).
+
+## Medicine reminders for family (2026-11-05): `lib/server/meds.ts`, `lib/bot/care.ts`
+- A parent gets a WhatsApp message in THEIR language with **Taken / Later** buttons at each dose time; one tap confirms. Not confirmed
+  after 30 min: one reminder; after 90 min: status `missed` and the family member who set it up is told (their WhatsApp text inside the
+  24 h window, else app push, else template `nudge_med_alert`). A tap any time later still records it ("confirmed late" to the owner).
+  Owner also gets "took it" notes (`notifyTaken`, default on). A thumbs-up reaction on the reminder, or a short "kazhichu" / "കഴിച്ചു" /
+  "ले ली" / "taken" reply, confirms the newest open dose; anything with a "no" in it does not (`isConfirmation`).
+- Data: `medPlans/{ownerPrefix_patientWa}` and `medDoses/{planId_date_HHmm}` (see the header of `meds.ts`); both Admin-only (no client
+  rules = denied). The dose doc is created once (`create`), so the 15-min cron (`runMeds`, after reminders in `app/api/cron/nudge`)
+  never double-sends. A dose is still sent up to 3 h late (cron down); follow-ups are tracked for 8 h; groups medicines by time.
+- The parent is a **care contact**: `waLinks.care = true`, no check-in/recap, their messages go to `handleCare` (taps, short replies,
+  anything else is forwarded to the owner as a note; voice/photos as "sent a voice note"). No Gemini call, no to-do bot.
+- Cost: inside the parent's 24 h window it is free (a tap reopens it for 24 h, so one tap a day keeps every dose free). Window closed =
+  template `nudge_med_reminder` (their language, English fallback), at most `NUDGE_MAX_MED_TEMPLATES_PER_DAY` (default 6) per patient
+  per day, not counted in the global template cap. **The first message to a parent needs the template approved, or the parent must
+  message the Nudge number once ("hi")**; until then the owner is told "I couldn't reach ..." after the second failed try.
+- Setup: `node scripts/med_plan.mjs --owner <owner wa> --patient <parent wa> --name "അമ്മ" --label "Amma" --lang ml --meds "BP tablet@08:00,21:00"`
+  (`--dry` prints, production Firestore otherwise). The owner then manages it in chat: `/meds` (today's status), "remind Amma to take BP
+  tablet at 8am and 9pm" (`add_medication`), "stop Amma's BP tablet" (`remove_medication`). People must be set up with the script first.
+- Delivery time is the 15-min cron tick (GitHub Actions can run late), so a dose arrives up to ~15 min after its time.
+- Tests: `scripts/tests/test_i18n.mts` (no emulator; languages + the parent's chat), `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_meds.mts`.
 
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
@@ -181,4 +217,4 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
   fetched from the network by next/og at render time. Image heights are computed in `renderMonthPng` / `renderWeekPng`: re-check them if you
   change row sizes (`npx tsx scripts/try_calendar.mts` writes `tmp-cal/*.png`).
 - Sending: `lib/calendar/send.ts` renders, uploads (`uploadMedia`), sends `sendImageButtons`; any failure returns false and the bot sends a text
-  agenda instead. Tests: `scripts/tests/test_calendar.mts`.
+  agenda instead. Tests: `scripts/tests/test_calendar_images.mts`.

@@ -51,7 +51,7 @@ export default function TodayScreen() {
   const { profile } = useAuth();
   const { unread } = useNotificationsInbox();
   const { current } = useStreak();
-  const { toggleComplete, deferTask, deleteTask, skipFocus } = useTasks();
+  const { toggleComplete, deferTask, deleteTask, skipFocus, parkTask } = useTasks();
   const m = useTodayTasks();
   const { today } = m;
 
@@ -104,6 +104,13 @@ export default function TodayScreen() {
       void deferTask(t, addDays(today, 1)).then(() => toast.show('Moved to tomorrow.', { kind: 'info' })).catch(() => toast.show('Could not move it.', { kind: 'error' }));
     },
     [deferTask, today, toast],
+  );
+  const onSomeday = useCallback(
+    (t: Task) => {
+      haptic.select();
+      void parkTask(t).then(() => toast.show('Parked. Find it under ⋯ Someday.', { kind: 'info' })).catch((e) => toast.show(e instanceof Error ? e.message : 'Could not park it.', { kind: 'error' }));
+    },
+    [parkTask, toast],
   );
   const onDelete = useCallback(
     (t: Task) => {
@@ -334,6 +341,7 @@ export default function TodayScreen() {
               onToggle={onToggle}
               onOpen={onOpen}
               onTomorrow={onTomorrow}
+              onSomeday={onSomeday}
               onDelete={onDelete}
             />
           ))}
@@ -345,7 +353,7 @@ export default function TodayScreen() {
           <SectionHeader title="Done" count={doneSection.tasks.length} collapsed={!doneOpen} onToggle={() => setDoneOpen((v) => !v)} />
           {doneOpen
             ? doneSection.tasks.map((t) => (
-                <TaskRow key={t.id} task={t} today={today} animate={animateRows} onToggle={onToggle} onOpen={onOpen} onTomorrow={onTomorrow} onDelete={onDelete} />
+                <TaskRow key={t.id} task={t} today={today} animate={animateRows} onToggle={onToggle} onOpen={onOpen} onTomorrow={onTomorrow} onSomeday={onSomeday} onDelete={onDelete} />
               ))
             : null}
         </View>

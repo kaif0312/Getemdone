@@ -255,6 +255,12 @@ export interface Task {
   remindAt?: number | null;
   remindFor?: number | null;
   remindSentFor?: number | null;
+  /** Server only (the WhatsApp bot): when it last asked about this task for sitting untouched. */
+  staleNudgedAt?: number | null;
+  /** Someday/Maybe: when the task was parked. Present = parked: not in Today, no reminders, hidden from friends. Mirrors the bot (lib/server/tasks.ts parkTask). */
+  parkedAt?: number | null;
+  /** When the yearly "still want this?" question was last sent for a parked task (server only). */
+  parkedAskedAt?: number | null;
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted

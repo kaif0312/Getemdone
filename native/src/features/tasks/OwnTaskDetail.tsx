@@ -157,6 +157,22 @@ export default function OwnTaskDetail({ task }: { task: Task }) {
     }
   };
 
+  const onSomeday = async () => {
+    haptic.select();
+    try {
+      if (task.parkedAt) {
+        await t.unparkTask(task);
+        toast.show("On today's list.", { kind: 'success' });
+      } else {
+        await t.parkTask(task);
+        toast.show('Parked. Find it under ⋯ Someday.', { kind: 'info' });
+      }
+      router.back();
+    } catch (e) {
+      fail(e instanceof Error ? e.message : 'Could not do that.');
+    }
+  };
+
   const onDelete = async () => {
     haptic.warning();
     try {
@@ -322,6 +338,11 @@ export default function OwnTaskDetail({ task }: { task: Task }) {
             <CommentsThread taskId={task.id} comments={task.comments ?? []} onReply={setReply} />
           </View>
 
+          {task.parkedAt ? (
+            <Button label="Do it today" icon="arrowRight" onPress={onSomeday} style={{ alignSelf: 'center' }} />
+          ) : !task.recurrence && !task.completed ? (
+            <Button label="Move to Someday" variant="secondary" icon="archive" onPress={onSomeday} style={{ alignSelf: 'center' }} />
+          ) : null}
           <Button label="Delete task" variant="ghost" icon="trash" onPress={onDelete} style={{ alignSelf: 'center' }} />
         </ScrollView>
       </SheetScaffold>

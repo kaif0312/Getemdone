@@ -392,6 +392,21 @@ function useTasksState() {
     await updateDoc(taskRef(taskId), { order });
   }, []);
 
+  /**
+   * Someday/Maybe (same fields as the WhatsApp bot's parkTask/unparkTask). Parking takes a task out of Today, drops its focus and
+   * reminder, and hides it from friends; repeating tasks cannot be parked. Picking one up puts it on today and rests it from the
+   * bot's stale nudges for a week.
+   */
+  const parkTask = useCallback(async (task: Task) => {
+    if (task.recurrence) throw new Error('A repeating task cannot be parked.');
+    if (task.completed) throw new Error('It is already done.');
+    await updateDoc(taskRef(task.id), { parkedAt: Date.now(), parkedAskedAt: deleteField(), focusDate: null, remindAt: deleteField(), remindFor: deleteField() });
+  }, []);
+
+  const unparkTask = useCallback(async (task: Task) => {
+    await updateDoc(taskRef(task.id), { parkedAt: deleteField(), parkedAskedAt: deleteField(), deferredTo: todayStr(), staleNudgedAt: Date.now() });
+  }, []);
+
   /** Soft delete (recycle bin), like the PWA and the bot. */
   const deleteTask = useCallback(async (taskId: string) => {
     await updateDoc(taskRef(taskId), { deleted: true, deletedAt: Date.now() });
@@ -473,12 +488,13 @@ function useTasksState() {
       addTask, addTasks, toggleComplete, completeTask, uncompleteTask, deferTask,
       updateText, setDueDate, setRemindAt, setVisibility, setCommitted, setFocusDate, commitFocus, skipFocus,
       setTags, setRecurrence, setNotes, setSubtasks, setSkipRollover, reorder,
+      parkTask, unparkTask,
       deleteTask, restoreTask, permanentlyDeleteTask, fetchDeleted, emptyBin, addAttachment, removeAttachment,
     }),
     [
       tasks, loading, error, retry, addTask, addTasks, toggleComplete, completeTask, uncompleteTask, deferTask, updateText, setDueDate,
       setRemindAt, setVisibility, setCommitted, setFocusDate, commitFocus, skipFocus, setTags, setRecurrence, setNotes, setSubtasks,
-      setSkipRollover, reorder, deleteTask, restoreTask, permanentlyDeleteTask, fetchDeleted, emptyBin, addAttachment, removeAttachment,
+      setSkipRollover, reorder, parkTask, unparkTask, deleteTask, restoreTask, permanentlyDeleteTask, fetchDeleted, emptyBin, addAttachment, removeAttachment,
     ],
   );
 }

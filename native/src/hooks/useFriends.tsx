@@ -114,7 +114,7 @@ function useFriendsState() {
           const list = await Promise.all(
             snap.docs
               .map((d) => ({ id: d.id, ...d.data() }) as Task)
-              .filter((t) => t.deleted !== true && t.userId !== uid)
+              .filter((t) => t.deleted !== true && !t.parkedAt && t.userId !== uid)
               .map(async (t): Promise<FriendTask> => {
                 const canView = canViewTask(t, uid, false);
                 let text = '[Private Task]';

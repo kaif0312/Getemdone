@@ -52,6 +52,7 @@ function Navigator() {
           <Stack.Screen name="today/focus" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
           <Stack.Screen name="today/recap" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
           <Stack.Screen name="today/bin" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
+          <Stack.Screen name="today/someday" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
           {/* Friends (native/app/friends/*): sheets + the groups page */}
           <Stack.Screen name="friends/add" options={sheetOptions({ detents: [0.94] }, colors)} />
           <Stack.Screen name="friends/requests" options={sheetOptions({ detents: [0.6, 0.94] }, colors)} />

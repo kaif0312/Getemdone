@@ -1,9 +1,11 @@
-/** Today's header menu: evening recap, recycle bin, WhatsApp. Route: /today/more. */
+/** Today's header menu: Someday, evening recap, recycle bin, WhatsApp. Route: /today/more. */
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { haptic, Icon, radius, SheetScaffold, Text, useTheme, type IconName } from '@/ui';
+import { useTasks } from '@/hooks/useTasks';
 import { openCoachWhatsApp } from './copy';
+import { listParked } from './helpers';
 
 function Row({ icon, label, hint, onPress }: { icon: IconName; label: string; hint: string; onPress: () => void }) {
   const { colors } = useTheme();
@@ -30,9 +32,12 @@ function Row({ icon, label, hint, onPress }: { icon: IconName; label: string; hi
 
 export default function MoreSheet() {
   const router = useRouter();
+  const { tasks } = useTasks();
+  const parked = listParked(tasks).length;
   return (
     <SheetScaffold title="More">
       <View style={{ gap: 10 }}>
+        <Row icon="archive" label="Someday" hint={parked ? `${parked} parked. Ideas to keep, no nagging.` : 'Ideas to keep for later, no nagging.'} onPress={() => router.replace('/today/someday')} />
         <Row icon="moon" label="Evening recap" hint="What got done. Roll the rest." onPress={() => router.replace('/today/recap')} />
         <Row icon="trash" label="Recycle bin" hint="Restore deleted tasks. Kept 30 days." onPress={() => router.replace('/today/bin')} />
         <Row icon="whatsapp" label="Tell the coach on WhatsApp" hint="Fastest way to add tasks." onPress={openCoachWhatsApp} />

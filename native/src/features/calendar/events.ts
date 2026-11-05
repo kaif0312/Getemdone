@@ -1,4 +1,4 @@
-// COPY of lib/calendar/events.ts (the WhatsApp calendar images). Keep both in step: same mapping of tasks to days. Only the imports differ.
+// COPY of lib/calendar/events.ts (the WhatsApp calendar images). Keep both in step: same mapping of tasks to days. Only the imports and the parkedAt skip in eventsInRange differ (add that skip to the server copy once Someday is on main).
 // Pure calendar model: tasks -> events on days, and the month / week grids. No Firestore, no I/O, so tests and the
 // renderer share it. All dates are "YYYY-MM-DD" in the USER's zone; weeks start on Monday.
 import type { Task } from '@/lib/types';
@@ -88,7 +88,7 @@ export function eventsInRange(tasks: Task[], tz: string, from: string, to: strin
   let undated = 0;
 
   for (const t of tasks) {
-    if (t.deleted) continue;
+    if (t.deleted || t.parkedAt) continue; // parked (Someday) tasks are off the calendar, like Today
     const text = (t.text || '').trim();
     if (!text) continue;
 

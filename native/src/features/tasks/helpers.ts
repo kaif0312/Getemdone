@@ -238,3 +238,19 @@ export function tagValue(choice: { id: string }): string {
 export function sameTag(a: string, b: string): boolean {
   return a.split(':')[0] === b.split(':')[0];
 }
+
+/** Parked (Someday) tasks that are still open, most recently parked first. Repeating tasks cannot be parked. */
+export function listParked(tasks: Task[]): Task[] {
+  return tasks
+    .filter((t) => !!t.parkedAt && !t.completed && !t.deleted && !t.recurrence)
+    .sort((a, b) => (b.parkedAt ?? 0) - (a.parkedAt ?? 0));
+}
+
+/** COPY of pickSomeday in the bot (lib/bot/actions.ts): three parked tasks, the shortest first, rotated by day so it is not always the same three. */
+export function pickSomeday(parked: Task[], dayKey: string, n = 3): Task[] {
+  const small = [...parked].sort((a, b) => a.text.length - b.text.length).slice(0, Math.max(n * 2, n));
+  let h = 0;
+  for (const c of dayKey) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const start = small.length ? h % small.length : 0;
+  return [...small.slice(start), ...small.slice(0, start)].slice(0, n);
+}

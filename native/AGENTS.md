@@ -128,6 +128,12 @@ Never invent Firestore fields the PWA lacks. Timestamps are ms numbers. `expoPus
 - Recycle bin link: `BIN_ROUTE` in `features/settings/links.ts` (`/today/bin`; change there if Today names it differently). Bug report = PWA `bugReports` doc shape (+ optional screenshot, admin notifications).
 - List kit: `features/settings/ui.tsx` (`Group`, `Row`, `SwitchRow`, `OptionRow`, animated `Switch`, `SettingsPage`; icons come from `@/ui` Icon).
 
+## Someday (parked tasks, 2026-11-05) - mirrors the WhatsApp bot
+- `task.parkedAt` (set = parked; written by `useTasks().parkTask/unparkTask` and by the bot): out of Today (`shouldShowInTodayView` copy), no reminder/focus, never nagged, hidden from friends (`useFriends` filters it out). Repeating tasks cannot be parked. Picking one up puts it on today and sets `staleNudgedAt` so the bot's stale nudge rests for a week.
+- UI: Today's `⋯` menu -> **Someday** (`app/today/someday.tsx` -> `src/features/tasks/SomedaySheet.tsx`; list, *Do it today*, *Surprise me* = three small ones, same rule as the bot's `pickSomeday`); swipe-left **Someday** on a Today row; **Move to Someday / Do it today** in the task detail.
+- The bot asks once a year about each parked task (Sundays, WhatsApp only); parked tasks never expire. Stale-task nudges and the Sunday review are WhatsApp-only so far: nothing to port until the owner wants an in-app version.
+- Not visually checked in the simulator yet (tsc + `expo export` only): run the web recipe above and add `docs/screens/final-someday-*.png`.
+
 ## Status / known gaps (2026-11-05, after the polish + review pass)
 Verified: `tsc` clean, `npm run test:crypto` 138/138, `expo export` ios + android, the whole app on web against the emulators with the repo rules (seed script above): sign-in, Today (ritual writes `focusSessions/{date}` + `lastFocusSessionDate` exactly like the PWA, with `completedTaskIds: []`), Friends, Progress, Me, deep link `/friends/add?code=` prefills and looks up.
 - **Needs a device / build** (cannot be seen on web): push (permission, token write, tap routing; needs `eas init` projectId), Face ID lock, haptics, sheet detents and swipe gestures, Reduce Motion, camera/photo pickers, status bar, keyboard avoidance, OTA. Test these on the first TestFlight / Play internal build.

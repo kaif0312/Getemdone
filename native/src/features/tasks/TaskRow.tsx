@@ -15,6 +15,7 @@ export interface TaskRowProps {
   onToggle: (task: Task, next: boolean) => void;
   onOpen: (task: Task) => void;
   onTomorrow: (task: Task) => void;
+  onSomeday?: (task: Task) => void;
   onDelete: (task: Task) => void;
   /** Rolled-over rows show how many days they have been rolling. */
   showRolled?: boolean;
@@ -31,7 +32,7 @@ function MetaPill({ children, tone = 'neutral' }: { children: React.ReactNode; t
   );
 }
 
-function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDelete, showRolled, dim }: TaskRowProps) {
+function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onSomeday, onDelete, showRolled, dim }: TaskRowProps) {
   const { colors } = useTheme();
   const reduce = useReduceMotion();
   const sch = parseScheduled(task.deferredTo);
@@ -125,6 +126,7 @@ function TaskRowImpl({ task, today, animate, onToggle, onOpen, onTomorrow, onDel
         rightLabel={done ? 'Undo' : 'Done'}
         actions={[
           { key: 'tomorrow', label: 'Tomorrow', icon: 'arrowRight', tone: 'sun', onPress: () => onTomorrow(task) },
+          ...(onSomeday && !task.recurrence && !done ? [{ key: 'someday', label: 'Someday', icon: 'archive' as const, tone: 'sun' as const, onPress: () => onSomeday(task) }] : []),
           { key: 'delete', label: 'Delete', icon: 'trash', tone: 'danger', onPress: () => onDelete(task) },
         ]}
       >

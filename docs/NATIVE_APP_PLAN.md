@@ -91,8 +91,24 @@ admin dashboard (stays web).
   rollback); PR #7 (`app-api`) merged + live; Play app "Nudge" created (app 4973616446906867575), internal testing
   release `2 (1.0.0)` published to tester list "Nudge friends"; join link
   `https://play.google.com/apps/internaltest/4700437539470821663`.
+- 2026-11-06: PR #11 (Calendar, + fix: day card Add pre-fills that day via `/add?date=`) merged `b4ec8a7`; PR #15
+  (Someday; fields `parkedAt`/`parkedAskedAt` match `gtd-principles`; + parking a done task refused, parked tasks off the
+  Calendar) merged `6d2c695`. EAS Android build `6ff08605-3ad0-4ee9-a157-f6f61a1a866d` = versionCode 3 (1.0.0) from `6d2c695`.
+- Android upload: `eas submit -p android` is NOT possible: EAS holds no Google service-account key (submissions or FCM V1)
+  and the Firebase SA gets 403 "Google Play Android Developer API not enabled" on project 427240262615. Releases 2 and 3
+  go up by hand in Play Console (download the `.aab` from the EAS build page). To automate: enable the API, create a
+  Play-only SA, invite it in Play Console > Users and permissions (release to testing tracks), upload its key to EAS.
+- Live checks 2026-11-06: Firestore rules release (updated 2026-11-04 21:08Z) = main's rules minus the deny-all
+  `calendarLinks`/`calendarFeeds` matches (no wildcard match, so the same effect). Functions list: SA lacks
+  `cloudfunctions.functions.list`, so whether `sendPushNotification` is deployed is unverified.
+- iOS 2026-11-06: no iOS build ever; EAS has no iOS credentials for `com.iskaria.nudge` (bundle id is registered on EAS);
+  `eas build -p ios --profile production --non-interactive` fails "Credentials are not set up" (it bumped the remote
+  buildNumber to 2). The account has an ASC API key on EAS (`WBSNS9S9HR`, ADMIN, team BJ25ZY3GQ3) and an APNs key
+  (`NNQAXP52N2`), but no local `.p8` for the ASC key, so the first build + app record need the owner's Apple login:
+  in a real terminal, `cd native; npx eas-cli build -p ios --profile production` then `npx eas-cli submit -p ios --latest`.
 - Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
-  FCM V1 key on EAS, the iOS build + submit, friends' emails on the tester list. The list below is the original.
+  FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), iOS build + submit +
+  TestFlight group, friends' emails on the tester list. The list below is the original.
 - **Blocking a working beta (owner):** deploy `firestore.rules` (live rules are from 2026-02: no presence/fitness/
   focusSessions/friendInvites) and `functions` (`firebase deploy --only firestore:rules,functions:sendPushNotification`);
   merge `app-api` (Vercel deploy) so WhatsApp sign-in and friend invites work; upload the FCM V1 key to EAS

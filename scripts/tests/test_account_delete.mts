@@ -224,6 +224,28 @@ await del.deleteAccount('alice');
 assert.equal(await exists('betaWhitelist/shared@x.com'), true, 'alice2 still uses shared@x.com');
 console.log('ok 4: shared whitelist e-mail kept');
 
+// ---------- 4b. many tasks (more than two pages), each with attachments: all go, in parallel, nobody else's ----------
+await wipe();
+await seed();
+{
+  const N = 650;
+  for (let i = 0; i < N; i += 400) {
+    const b = db.batch();
+    for (let j = i; j < Math.min(N, i + 400); j++) b.set(db.doc(`tasks/many${j}`), { userId: 'alice', text: `t${j}`, completed: false, createdAt: j });
+    await b.commit();
+  }
+  for (let j = 0; j < N; j++) storage.add(`attachments/many${j}/f`);
+  storage.add('attachments/many1x/f'); // a task id that only shares a prefix (no such alice task): must survive
+  const rm = await del.deleteAccount('alice');
+  assert.equal(rm.deleted.tasks, N + 2);
+  assert.equal((await db.collection('tasks').where('userId', '==', 'alice').get()).size, 0);
+  assert.equal([...storage].filter((f) => f.startsWith('attachments/many') && f !== 'attachments/many1x/f').length, 0);
+  assert.equal(storage.has('attachments/many1x/f'), true);
+  await assertAliceGone();
+  await assertOthersIntact();
+}
+console.log('ok 4b: 650 tasks with attachments deleted across pages; prefix-sharing attachment folder kept');
+
 // ---------- 5. route: auth, recent sign-in, confirm ----------
 await wipe();
 await seed();

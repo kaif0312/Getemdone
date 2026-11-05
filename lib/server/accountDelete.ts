@@ -18,6 +18,7 @@ import { FieldPath, FieldValue, type DocumentReference, type Query } from 'fireb
 import { adminAuth, adminDb } from './firebaseAdmin';
 
 const PAGE = 300;
+const ONDOC_PARALLEL = 16;
 const HIGH = String.fromCharCode(0xf8ff);
 
 export interface DeleteDeps {
@@ -89,7 +90,13 @@ async function deleteQuery(q: Query, onDoc?: (ref: DocumentReference, data: Fire
   for (;;) {
     const snap = await q.limit(PAGE).get();
     if (snap.empty) return n;
-    if (onDoc) for (const d of snap.docs) await onDoc(d.ref, d.data());
+    // In parallel, ONDOC_PARALLEL at a time: one Storage listing per task, one by one, could pass maxDuration (60 s) for a
+    // person with hundreds of tasks, and a retry would restart the same page forever.
+    if (onDoc) {
+      for (let i = 0; i < snap.docs.length; i += ONDOC_PARALLEL) {
+        await Promise.all(snap.docs.slice(i, i + ONDOC_PARALLEL).map((d) => onDoc(d.ref, d.data())));
+      }
+    }
     const batch = db().batch();
     for (const d of snap.docs) batch.delete(d.ref);
     await batch.commit();

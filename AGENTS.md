@@ -249,6 +249,11 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   `users/{uid}` is gone still finds the WhatsApp data; when done it is `{ status:'done', doneAt }` only. The Auth user goes last.
   `firestore.rules` refuses `users/{uid}` create when that doc exists (an app still open would otherwise re-create the profile);
   the rule needs `npm run firebase:rules` to be live. Test: `FIRESTORE_PORT=8585 bash scripts/test-emulator.sh scripts/tests/test_account_delete.mts`.
+- Speed: `deleteQuery`'s per-doc callback (one Storage listing per task) runs 16 at a time; one by one, a person with hundreds of
+  tasks could pass the route's 60 s `maxDuration` and every retry would restart the same page (test case 4b: 650 tasks).
+- Known gaps (2026-11-06 review): the old PWA's Google Calendar tokens (`users.googleCalendarTokens`, encrypted on the client)
+  are deleted with the profile but cannot be revoked server-side; only `users/{uid}` create is guarded in the rules, so ANOTHER
+  device still open with a valid ID token (up to 1 h) could re-create `presence`/`userKeys` stubs after the final sweep.
 - The old admin-only callable `deleteUserAccount` (functions/) is untouched and covers fewer collections.
 
 ## Rules

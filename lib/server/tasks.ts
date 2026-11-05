@@ -22,6 +22,8 @@ export interface NewTaskInput {
   remindAt?: number;
   remindFor?: number;
   recurrenceText?: string; // e.g. "every monday" -> utils/recurrence.parseRecurrenceFromText
+  /** Someday/Maybe: created already parked (no day, no reminder). */
+  parked?: boolean;
 }
 
 const tasksCol = () => adminDb().collection('tasks');
@@ -71,6 +73,7 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
     }
 
     order += 1;
+    const parkedNow = item.parked === true && !recurrence;
     const doc = {
       userId: uid,
       text,
@@ -83,8 +86,9 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
       order,
       deleted: false,
       ...(item.dueDate ? { dueDate: item.dueDate } : {}),
-      ...(item.remindAt ? { remindAt: item.remindAt, ...(item.remindFor ? { remindFor: item.remindFor } : {}) } : {}),
-      ...(item.when ? { deferredTo: item.when } : {}),
+      ...(item.remindAt && !parkedNow ? { remindAt: item.remindAt, ...(item.remindFor ? { remindFor: item.remindFor } : {}) } : {}),
+      ...(item.when && !parkedNow ? { deferredTo: item.when } : {}),
+      ...(parkedNow ? { parkedAt: Date.now() } : {}),
       ...(recurrence ? { recurrence } : {}),
       ...(tags.length ? { tags } : {}),
     };
@@ -94,7 +98,7 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
   }
   await batch.commit();
   // Exact-time reminders (QStash). Best effort: the 15-min cron still catches anything that is not queued.
-  await Promise.all(created.filter((t) => t.remindAt).map((t) => scheduleFire(t.id, t.remindAt!)));
+  await Promise.all(created.filter((t) => t.remindAt && !t.parkedAt).map((t) => scheduleFire(t.id, t.remindAt!)));
   return created;
 }
 
@@ -298,7 +302,7 @@ export const REVIEW_STALE_DAYS = 7;
 export function staleTasks(tasks: Task[], today: string, now: number, days: number, renudgeDays?: number): Task[] {
   return tasks
     .filter((t) => {
-      if (t.deleted || t.completed || t.recurrence) return false;
+      if (t.deleted || t.completed || t.recurrence || t.parkedAt) return false;
       if (!t.text || t.text.startsWith('e1:')) return false;
       if (t.createdAt > now - days * DAY_MS) return false;
       if (t.deferredTo && t.deferredTo.slice(0, 10) > today) return false;
@@ -329,7 +333,7 @@ export async function markStaleNudged(uid: string, taskIds: string[], now = Date
   if (n) await batch.commit();
 }
 
-export interface WeekReview { done: number; open: number; stale: Task[]; staleTotal: number }
+export interface WeekReview { done: number; open: number; parked: number; stale: Task[]; staleTotal: number }
 
 /** Sunday review: finished in the last 7 days, still open, and the ones untouched for REVIEW_STALE_DAYS+ (oldest first, max `max`). */
 export async function weekReview(uid: string, now = Date.now(), max = 10): Promise<WeekReview> {
@@ -342,9 +346,10 @@ export async function weekReview(uid: string, now = Date.now(), max = 10): Promi
     if (t.recurrence) done += (t.recurrence.completedDates ?? []).filter((d) => d >= weekAgoDate && d <= today).length;
     else if (t.completed && t.completedAt && t.completedAt >= now - 7 * DAY_MS) done++;
   }
-  const open = all.filter((t) => !t.completed && !t.recurrence).length;
+  const open = all.filter((t) => !t.completed && !t.recurrence && !t.parkedAt).length;
+  const parked = all.filter((t) => !t.completed && !t.recurrence && t.parkedAt).length;
   const stale = staleTasks(all, today, now, REVIEW_STALE_DAYS);
-  return { done, open, stale: stale.slice(0, max), staleTotal: stale.length };
+  return { done, open, parked, stale: stale.slice(0, max), staleTotal: stale.length };
 }
 
 /** Replace a task's text (the stale-task flow turns a vague item into its first step). Returns the old text. */
@@ -357,4 +362,65 @@ export async function renameTask(uid: string, taskId: string, text: string): Pro
   const old = String(snap.data()?.text ?? '');
   await ref.update({ text: next });
   return { task: toTask(snap.id, { ...snap.data(), text: next }), old };
+}
+
+// ---------- Someday/Maybe (parked) ----------
+
+/** The yearly "still want this?" question for a parked task comes this many days after it was parked or last asked. */
+export const PARKED_ASK_DAYS = 365;
+
+/** Parked, open tasks whose yearly question is due, oldest first. Pure. */
+export function parkedDueForAsk(tasks: Task[], now: number, days = PARKED_ASK_DAYS): Task[] {
+  return tasks
+    .filter((t) => !t.deleted && !t.completed && !t.recurrence && !!t.parkedAt && !!t.text && !t.text.startsWith('e1:'))
+    .filter((t) => now - Math.max(t.parkedAt!, t.parkedAskedAt ?? 0) >= days * DAY_MS)
+    .sort((a, b) => Math.max(a.parkedAt!, a.parkedAskedAt ?? 0) - Math.max(b.parkedAt!, b.parkedAskedAt ?? 0));
+}
+
+/** Parked, open tasks, most recently parked first. */
+export async function listParked(uid: string, limit = 50): Promise<Task[]> {
+  return (await allTasks(uid))
+    .filter((t) => !t.completed && !t.recurrence && !!t.parkedAt)
+    .sort((a, b) => b.parkedAt! - a.parkedAt!)
+    .slice(0, limit);
+}
+
+export async function listParkedDue(uid: string, now = Date.now()): Promise<Task[]> {
+  return parkedDueForAsk(await allTasks(uid), now);
+}
+
+export async function markParkedAsked(uid: string, taskId: string, now = Date.now()): Promise<void> {
+  const ref = await ownedRef(uid, taskId);
+  await ref.update({ parkedAskedAt: now });
+}
+
+/**
+ * Put a task aside: it leaves Today, loses its reminder and today's focus, and is never nagged about. Returns the task as it
+ * was BEFORE (so an undo can restore its day). Repeating tasks cannot be parked.
+ */
+export async function parkTask(uid: string, taskId: string, now = Date.now()): Promise<Task> {
+  const ref = await ownedRef(uid, taskId);
+  return adminDb().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const before = toTask(snap.id, snap.data());
+    if (before.recurrence) throw new Error('recurring');
+    if (before.completed) throw new Error('completed');
+    tx.update(ref, { parkedAt: now, parkedAskedAt: FieldValue.delete(), focusDate: null, remindAt: FieldValue.delete(), remindFor: FieldValue.delete() });
+    return before;
+  });
+}
+
+/**
+ * Pick a parked task up again. By default it lands on today's list and rests from stale nudges for a week (it is old, but the
+ * user just chose it). `deferredTo` restores a specific day instead (undo of a park); null clears it.
+ */
+export async function unparkTask(uid: string, taskId: string, opts: { deferredTo?: string | null } = {}, now = Date.now()): Promise<Task> {
+  const ref = await ownedRef(uid, taskId);
+  const today = localDate(await getTimezone(uid), now);
+  const patch: Record<string, unknown> = { parkedAt: FieldValue.delete(), parkedAskedAt: FieldValue.delete() };
+  if (opts.deferredTo === undefined) Object.assign(patch, { deferredTo: today, staleNudgedAt: now });
+  else patch.deferredTo = opts.deferredTo === null ? FieldValue.delete() : opts.deferredTo;
+  await ref.update(patch);
+  const snap = await ref.get();
+  return toTask(snap.id, snap.data());
 }

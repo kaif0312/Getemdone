@@ -76,6 +76,11 @@ export interface BotDeps {
   setReminderChannel?: typeof Reminders.setReminderChannel;
   /** Optional so older test fakes keep compiling; the stale-task "first step" flow rewrites a task through it. */
   renameTask?: typeof Tasks.renameTask;
+  /** Optional so older test fakes keep compiling; Someday/Maybe (parked tasks). */
+  parkTask?: typeof Tasks.parkTask;
+  unparkTask?: typeof Tasks.unparkTask;
+  listParked?: typeof Tasks.listParked;
+  markParkedAsked?: typeof Tasks.markParkedAsked;
   daySummary: typeof Tasks.daySummary;
   logWorkout: typeof Fitness.logWorkout;
   logMetric: typeof Fitness.logMetric;
@@ -97,4 +102,6 @@ export type Undo =
   | { k: 'delete'; ids: string[]; label: string }
   | { k: 'defer'; ids: string[]; to: string; label: string }
   | { k: 'rename'; id: string; old: string; label: string }
+  | { k: 'park'; id: string; deferredTo?: string; label: string }
+  | { k: 'unpark'; id: string; label: string }
   | { k: 'workout'; label: string };

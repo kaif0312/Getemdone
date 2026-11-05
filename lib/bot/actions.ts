@@ -18,7 +18,8 @@ export const HELP = [
   '*What I can do* 👇',
   '• Add tasks: "gym 6pm, call mom, deck by Fri"',
   '• *today* - your list, then tap a task',
-  '• *done 2* or *done 1,3* - tick off',
+  '• *done 2* or *done 1,3* - tick off, *delete 2* - remove',
+  '• *someday* - ideas you are keeping for later: "someday learn guitar" parks one, *park 2* parks item 2, *bored* suggests three',
   '• *undo* - take back the last change',
   '• Log fitness: "ran 5k in 28 min", "82.4 kg"',
   '• *week* - fitness this week, *friends* - what friends did',
@@ -328,16 +329,18 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
         recurrenceText: str(o.recurrence),
         ...reminderFor(ctx, o, when, due),
         alreadyDone: o.already_done === true && !str(o.recurrence),
+        parked: o.someday === true && !str(o.recurrence) && o.already_done !== true,
       };
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
     .slice(0, 15);
   if (!items.length) return [];
-  const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor })));
+  const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked })));
   ctx.rememberTasks(created);
   // "I already called mom": the task is logged and ticked in one go (the two-minute rule), so the day's streak counts it.
   const finished = created.filter((_, i) => items[i]?.alreadyDone);
-  const pending = created.filter((_, i) => !items[i]?.alreadyDone);
+  const parkedNew = created.filter((_, i) => items[i]?.parked);
+  const pending = created.filter((_, i) => !items[i]?.alreadyDone && !items[i]?.parked);
   const lines = pending.length ? [pending.length === 1 ? '📝 Added:' : `📝 Added ${pending.length}:`] : [];
   for (const t of pending) {
     const forToday = !t.deferredTo || t.deferredTo.slice(0, 10) === ctx.today;
@@ -348,10 +351,11 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
     lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
   }
+  for (const t of parkedNew) lines.push(`💤 Parked: ${t.text} (find it with *someday*)`);
   if (finished.length) lines.push(...await completeByIds(ctx, finished.map((t) => t.id)));
   ctx.undos.push({ k: 'add', ids: created.map((t) => t.id), label: `added ${created.length === 1 ? clip(created[0].text, 30) : created.length + ' tasks'}` });
   // Two-minute rule: one plain task for today gets a "Done already" tap (a timed or recurring one is not "already").
-  const only = created.length === 1 && pending.length === 1 ? pending[0] : null;
+  const only = created.length === 1 && pending.length === 1 ? pending[0] : null; // a parked or finished task gets no tap
   if (only && (!only.deferredTo || only.deferredTo.slice(0, 10) === ctx.today) && !only.deferredTo?.includes('T') && !only.recurrence) ctx.doneAlready = only.id;
   return lines;
 }
@@ -385,20 +389,40 @@ export async function showToday(ctx: Ctx): Promise<void> {
   await ctx.list(body, 'Pick a task', rows);
 }
 
-export function taskButtons(id: string): WaButton[] {
+/**
+ * The three taps on a task. Default: Done / Tomorrow / Someday. `review` (a stale task, the Sunday list): Done / Someday /
+ * Drop it, because postponing a task that has already sat for a week only kicks the can. `parked`: Do it today / Done / Delete.
+ * Delete is always one text away (*delete 2*).
+ */
+export function taskButtons(id: string, variant: 'default' | 'review' | 'parked' = 'default'): WaButton[] {
+  if (variant === 'parked') {
+    return [
+      { id: BUTTON_IDS.unpark(id), title: 'Do it today' },
+      { id: BUTTON_IDS.done(id), title: 'Done ✅' },
+      { id: BUTTON_IDS.del(id), title: 'Delete' },
+    ];
+  }
+  if (variant === 'review') {
+    return [
+      { id: BUTTON_IDS.done(id), title: 'Done ✅' },
+      { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
+      { id: BUTTON_IDS.del(id), title: 'Drop it 🗑' },
+    ];
+  }
   return [
     { id: BUTTON_IDS.done(id), title: 'Done ✅' },
     { id: BUTTON_IDS.tomorrow(id), title: 'Tomorrow' },
-    { id: BUTTON_IDS.del(id), title: 'Delete' },
+    { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
   ];
 }
 
-export async function openTask(ctx: Ctx, id: string): Promise<void> {
+export async function openTask(ctx: Ctx, id: string, fromReview = false): Promise<void> {
   await ctx.loadKnown();
   const t = ctx.known.get(id);
   if (!t || t.deleted) { await ctx.text('That task is gone. Send *today* for your list.'); return; }
   const w = whenLabel(t.deferredTo, ctx.today);
-  await ctx.buttons(`*${clip(t.text, 200)}*${w ? `\n${w}` : ''}`, taskButtons(id));
+  const variant = t.parkedAt ? 'parked' : fromReview ? 'review' : 'default';
+  await ctx.buttons(`${t.parkedAt ? '💤 ' : ''}*${clip(t.text, 200)}*${w && !t.parkedAt ? `\n${w}` : ''}`, taskButtons(id, variant));
 }
 
 // ---------- top 3 for today (focus) ----------
@@ -446,6 +470,94 @@ export async function focusPick(ctx: Ctx, id: string): Promise<void> {
   ctx.session.lastAction = { id: 'focus', kind: 'focus', payload: { ids }, at: ctx.d.now() };
   if (ids.length >= MAX_FOCUS) await focusSummary(ctx, ids);
   else await focusPrompt(ctx, ids);
+}
+
+// ---------- Someday/Maybe: tasks you want to keep but not nag yourself with ----------
+
+const PARK_UNAVAILABLE = ['⚠️ Parking tasks is not available right now.'];
+
+export async function parkByIds(ctx: Ctx, ids: string[], errs: string[] = []): Promise<string[]> {
+  if (!ctx.d.parkTask) return PARK_UNAVAILABLE;
+  const lines: string[] = [];
+  let n = 0;
+  for (const id of [...new Set(ids)]) {
+    try {
+      const before = await ctx.d.parkTask(ctx.uid, id);
+      ctx.undos.push({ k: 'park', id, deferredTo: before.deferredTo, label: `parked ${clip(before.text, 30)}` });
+      lines.push(`💤 Parked: ${before.text}`);
+      n++;
+    } catch (e) {
+      const m = String((e as Error).message);
+      lines.push(m === 'recurring' ? '⚠️ A repeating task cannot be parked.' : m === 'completed' ? '⚠️ That one is already done.' : '⚠️ Could not park that task.');
+    }
+  }
+  if (n) lines.push('Find parked tasks any time with *someday*.');
+  return [...lines, ...errs];
+}
+
+export async function parkByRef(ctx: Ctx, ref: string): Promise<string[]> {
+  const r = await resolveRef(ctx, ref);
+  return 'err' in r ? [r.err] : parkByIds(ctx, [r.id]);
+}
+
+export async function unparkById(ctx: Ctx, id: string): Promise<string[]> {
+  if (!ctx.d.unparkTask) return PARK_UNAVAILABLE;
+  try {
+    const t = await ctx.d.unparkTask(ctx.uid, id);
+    ctx.undos.push({ k: 'unpark', id, label: `picked up ${clip(t.text, 30)}` });
+    return [`📌 On today's list: ${t.text}`];
+  } catch (e) {
+    console.error('[bot] unpark failed', id, e);
+    return ['⚠️ Could not pick that one up.'];
+  }
+}
+
+/** The yearly question's "keep it": the question was stamped when it was sent, so there is nothing more to write. */
+export async function keepParked(ctx: Ctx, id: string): Promise<void> {
+  try { await ctx.d.markParkedAsked?.(ctx.uid, id, ctx.d.now()); } catch { /* the stamp from sending the question stands */ }
+  await ctx.text('Okay, it stays parked. I will ask again in a year.');
+}
+
+export async function addParked(ctx: Ctx, text: string): Promise<void> {
+  const lines = await addItems(ctx, [{ text, someday: true }]);
+  await flush(ctx, lines.length ? lines : [TASK_USAGE]);
+}
+
+/** "someday": parked tasks, newest first, one tap each. */
+export async function somedayList(ctx: Ctx): Promise<void> {
+  const parked = (await ctx.d.listParked?.(ctx.uid, 30)) ?? [];
+  ctx.rememberTasks(parked);
+  if (!parked.length) {
+    await ctx.text('Nothing parked yet. Send *someday learn guitar* to keep an idea for later, or tap *Someday* on any task.');
+    return;
+  }
+  const shown = parked.slice(0, MAX_LIST);
+  ctx.session.lastList = shown.map((t) => t.id);
+  const body = [`💤 *Someday* · ${parked.length} parked`, ...shown.map((t, i) => `${i + 1}. ${t.text}`), parked.length > shown.length ? `+${parked.length - shown.length} more` : '', 'Tap one to do it today, or send *bored* for three ideas.']
+    .filter(Boolean).join('\n');
+  await ctx.list(body, 'Pick one', shown.map((t, i) => ({ id: BUTTON_IDS.task(t.id), title: clip(`${i + 1}. ${t.text}`, 24) })));
+}
+
+/** Three parked tasks to try, the shortest (smallest) ones first, rotated by day so it is not always the same three. */
+export function pickSomeday(parked: Task[], dayKey: string, n = 3): Task[] {
+  const small = [...parked].sort((a, b) => a.text.length - b.text.length).slice(0, Math.max(n * 2, n));
+  let h = 0;
+  for (const c of dayKey) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const start = small.length ? h % small.length : 0;
+  return [...small.slice(start), ...small.slice(0, start)].slice(0, n);
+}
+
+export async function somedayPick(ctx: Ctx): Promise<void> {
+  const parked = (await ctx.d.listParked?.(ctx.uid, 100)) ?? [];
+  if (!parked.length) { await ctx.text('Nothing parked yet, so nothing to suggest. Send *someday learn guitar* to keep an idea for later.'); return; }
+  const picks = pickSomeday(parked, ctx.today);
+  ctx.rememberTasks(picks);
+  ctx.session.lastList = picks.map((t) => t.id);
+  await ctx.list(
+    ['Got a few minutes? Here are some ideas you parked:', ...picks.map((t, i) => `${i + 1}. ${t.text}`)].join('\n'),
+    'Pick one',
+    picks.map((t, i) => ({ id: BUTTON_IDS.task(t.id), title: clip(`${i + 1}. ${t.text}`, 24) })),
+  );
 }
 
 // ---------- stale task: "what is the very first small step?" ----------
@@ -510,6 +622,8 @@ export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
       else if (u.k === 'delete') for (const id of u.ids) await ctx.d.restoreTask(ctx.uid, id);
       else if (u.k === 'defer') for (const id of u.ids) await ctx.d.deferTask(ctx.uid, id, u.to);
       else if (u.k === 'rename') await ctx.d.renameTask?.(ctx.uid, u.id, u.old);
+      else if (u.k === 'park') await ctx.d.unparkTask?.(ctx.uid, u.id, { deferredTo: u.deferredTo ?? null });
+      else if (u.k === 'unpark') await ctx.d.parkTask?.(ctx.uid, u.id);
       else if (u.k === 'workout') await ctx.d.undoLastWorkout(ctx.uid);
       labels.push(u.label);
     } catch (e) {

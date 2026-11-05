@@ -3,7 +3,7 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { Task } from '@/lib/types';
 import type { GeminiPart } from './types';
 import {
-  Ctx, addItems, completeByRefs, deferByRef, deleteByRef, describeWorkout, flush, friendsLines, logMetricAction,
+  Ctx, addItems, completeByRefs, deferByRef, deleteByRef, parkByRef, somedayList, somedayPick, describeWorkout, flush, friendsLines, logMetricAction,
   logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setReminderAction, setReminderChannelAction, setScheduleAction,
   showToday, weekLines, type WorkoutArgs,
 } from './actions';
@@ -71,6 +71,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (res.text) lead.push(res.text);
   const lines: string[] = [];
   let showList = false;
+  let hasOwnReply = false;
   let proposal: WorkoutArgs | null = null;
 
   for (const call of res.calls.slice(0, MAX_CALLS)) {
@@ -86,6 +87,11 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         }
         case 'defer_task': { const r = str(a.ref) ?? String(a.ref ?? ''); lines.push(...await deferByRef(ctx, r, str(a.to_date))); break; }
         case 'delete_task': lines.push(...await deleteByRef(ctx, str(a.ref) ?? String(a.ref ?? ''))); break;
+        case 'park_tasks': {
+          for (const r of (Array.isArray(a.refs) ? a.refs : [a.refs]).map((x) => String(x ?? '')).filter(Boolean)) lines.push(...await parkByRef(ctx, r));
+          break;
+        }
+        case 'show_someday': if (a.pick === true) await somedayPick(ctx); else await somedayList(ctx); hasOwnReply = true; break;
         case 'list_today': showList = true; break;
         case 'log_workout': {
           const w = parseWorkout(a);
@@ -121,7 +127,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (out.length) await flush(ctx, out);
   if (showList) await showToday(ctx);
   if (proposal) await sendProposal(ctx, proposal);
-  if (!out.length && !showList && !proposal && !ctx.meme) await ctx.text(DIDNT_CATCH);
+  if (!out.length && !showList && !proposal && !ctx.meme && !hasOwnReply) await ctx.text(DIDNT_CATCH);
 }
 
 async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {

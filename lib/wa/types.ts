@@ -65,6 +65,12 @@ export const BUTTON_IDS = {
   focusDone: 'checkin:focusdone',
   /** Stale-task nudge: the user wants to write the first small step. */
   step: (taskId: string) => `step:${taskId}`,
+  /** Someday/Maybe: park a task, pick a parked one up again, or keep it parked after the yearly question. */
+  park: (taskId: string) => `park:${taskId}`,
+  unpark: (taskId: string) => `unpark:${taskId}`,
+  keep: (taskId: string) => `keep:${taskId}`,
+  /** A row of the Sunday review: opens the task with Done / Someday / Drop it. */
+  review: (taskId: string) => `rv:${taskId}`,
 } as const;
 
 /** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */

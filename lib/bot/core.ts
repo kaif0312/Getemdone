@@ -6,6 +6,7 @@ import {
   Ctx, HELP, TASK_USAGE, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
   coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
   askNextStep, focusPick, focusPrompt, focusSummary, pickedFocus, takeStep,
+  addParked, keepParked, parkByIds, somedayList, somedayPick, unparkById,
 } from './actions';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
@@ -230,6 +231,18 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'focus': await focusPick(ctx, f.id); return;
     case 'focusDone': await focusSummary(ctx, pickedFocus(ctx)); return;
     case 'step': await askNextStep(ctx, f.id); return;
+    case 'park': {
+      const { ids, errs } = await idsFromNums(ctx, f.nums);
+      await flush(ctx, await parkByIds(ctx, ids, errs));
+      return;
+    }
+    case 'parkId': await flush(ctx, await parkByIds(ctx, [f.id])); return;
+    case 'unparkId': await flush(ctx, await unparkById(ctx, f.id)); return;
+    case 'keepParked': await keepParked(ctx, f.id); return;
+    case 'reviewOpen': await openTask(ctx, f.id, true); return;
+    case 'somedayList': await somedayList(ctx); return;
+    case 'somedayPick': await somedayPick(ctx); return;
+    case 'somedayAdd': await addParked(ctx, f.text); return;
     case 'reviewsOff':
       await d.updateLink(ctx.waId, { reviews: false });
       await ctx.text('Okay, no more "this has been sitting" nudges or Sunday reviews. Send *review on* to bring them back.');

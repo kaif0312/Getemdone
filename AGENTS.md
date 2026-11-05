@@ -165,7 +165,18 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
 - Tests: `npx tsx scripts/tests/test_gtd.mts` (bot, no emulator) and
   `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_gtd_server.mts` (stale picking, review, scheduler, friend focus).
   Run the emulator suites one per `test-emulator.sh` call: chained, they share state and `test_tasks` can fail.
-- Not done: the PWA has no stale/review UI; these are WhatsApp-only so far.
+- **Someday/Maybe (parked tasks):** `task.parkedAt` (set = parked). A parked task is out of Today (`shouldShowInTodayView`), has no reminder or
+  focus, is never a stale candidate, is not counted as open in the review, and must stay hidden from friends. Repeating tasks cannot
+  be parked. Domain: `parkTask` / `unparkTask` / `listParked` / `parkedDueForAsk` in `lib/server/tasks.ts` (`unparkTask` puts it on today and
+  rests it from stale nudges for a week; an undo of a park restores its old day). WhatsApp: the *Someday 💤* button (task detail and the
+  stale nudge: Next step / Someday / Drop it; the Sunday review rows `rv:<id>` open Done / Someday / Drop it), `someday` (list),
+  `someday <idea>` or `/someday <idea>` (add parked), `park 2` (numbers from the last list), `bored` / `/someday pick` (three ideas,
+  smallest first, rotated by day), Gemini `park_tasks` / `show_someday` / `add_tasks.someday`. Plain task detail is now
+  Done / Tomorrow / Someday (Delete is *delete 2* or the *Drop it* button on stale tasks).
+- **Yearly question:** Sundays after the review (`sendParkedAsk`, claim kind `parkedask`, free window only): the oldest parked task whose
+  `max(parkedAt, parkedAskedAt)` is 365+ days old gets *Do it today / Keep parked / Drop it*. `parkedAskedAt` is stamped when the
+  question is sent, so one task is asked about at most once a year and one task per Sunday. Parked tasks never expire otherwise.
+- Not done: the native app has no stale/review/Someday UI yet; the old PWA is retired. Friends' feeds in the clients must skip parked tasks.
 
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.

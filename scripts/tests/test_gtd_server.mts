@@ -124,7 +124,7 @@ const link = (over: Partial<WaLink> = {}): WaLink => ({
   const m = sent[0];
   assert.equal(m.kind, 'buttons');
   assert.match(m.a!, /taxes[\s\S]*12 days/);
-  assert.deepEqual((m.b as { id: string; title: string }[]).map((x) => x.id), ['step:a', 'tmrw:a', 'del:a']);
+  assert.deepEqual((m.b as { id: string; title: string }[]).map((x) => x.id), ['step:a', 'park:a', 'del:a']);
   assert.ok((m.b as { title: string }[]).every((x) => x.title.length <= 20));
   assert.equal((await db.doc('tasks/a').get()).data()!.staleNudgedAt, TUE);
   assert.equal((await db.doc('waSchedule/w1_2026-11-03_stale').get()).data()!.status, 'sent');
@@ -136,7 +136,7 @@ const link = (over: Partial<WaLink> = {}): WaLink => ({
   L[0] = link({ lastInboundAt: TUE + DAY - 3600_000 });
   c = await sched.runSchedule(TUE + DAY); // next day: taxes is resting for a week, so the next oldest comes up
   assert.equal(c.stale, 1);
-  assert.deepEqual((sent[0].b as { id: string }[]).map((x) => x.id), ['step:b', 'tmrw:b', 'del:b']);
+  assert.deepEqual((sent[0].b as { id: string }[]).map((x) => x.id), ['step:b', 'park:b', 'del:b']);
 
   // opt-out, closed window, onboarding, muted: nothing is sent
   sent = [];
@@ -185,7 +185,7 @@ const link = (over: Partial<WaLink> = {}): WaLink => ({
   assert.match(r.a!, /2 done · 📋 12 open · 🕸 12 untouched/);
   const rows = r.b as { id: string; title: string; description: string }[];
   assert.equal(rows.length, 10);
-  assert.equal(rows[0].id, 'task:s11', 'oldest first');
+  assert.equal(rows[0].id, 'rv:s11', 'oldest first');
   assert.match(rows[0].description, /19 days old/);
   assert.ok(rows.every((x) => x.title.length <= 24));
   assert.equal((await db.doc('tasks/s11').get()).data()!.staleNudgedAt, SUN);
@@ -230,6 +230,102 @@ const link = (over: Partial<WaLink> = {}): WaLink => ({
   await db.doc('tasks/f2').delete();
   assert.equal((await social.friendsActivity('alice')).find((a) => a.uid === 'bob')!.focus, undefined);
   console.log('friend focus ok');
+}
+
+// ---------- Someday/Maybe (parked) ----------
+{
+  await wipe();
+  await db.doc('users/u1').set({ displayName: 'Ind', friends: [], timezone: 'Asia/Kolkata' });
+  const YEAR = 365 * DAY;
+  await task('a', 'taxes', { createdAt: TUE - 12 * DAY, focusDate: '2026-11-03', remindAt: TUE + 3600_000, remindFor: TUE + 3600_000, deferredTo: '2026-11-03' });
+  await task('r', 'water plants', { recurrence: { frequency: 'daily', startDate: '2026-10-01' } as Task['recurrence'] });
+
+  // park: leaves Today, loses focus + reminder, not parkable if repeating; returns the task as it was
+  const before = await tasks.parkTask('u1', 'a', TUE);
+  assert.equal(before.deferredTo, '2026-11-03');
+  const a = (await db.doc('tasks/a').get()).data()!;
+  assert.equal(a.parkedAt, TUE);
+  assert.equal(a.focusDate, null);
+  assert.equal(a.remindAt, undefined);
+  await assert.rejects(tasks.parkTask('u1', 'r'), /recurring/);
+  await assert.rejects(tasks.parkTask('u2', 'a'), /not found/);
+  const { shouldShowInTodayView } = await import('../../utils/taskFilter');
+  assert.equal(shouldShowInTodayView({ ...(a as Task), id: 'a' }, '2026-11-03'), false, 'parked tasks never show in Today');
+  assert.deepEqual((await tasks.listStale('u1', TUE + 30 * DAY)).map((t) => t.id), [], 'a parked task is never a stale candidate');
+  assert.deepEqual((await tasks.listParked('u1')).map((t) => t.id), ['a']);
+
+  // created parked: no day, no reminder
+  const [made] = await tasks.addTasks('u1', [{ text: 'learn guitar', parked: true, when: '2026-11-05T18:00', remindAt: TUE + 5000, remindFor: TUE + 9000 }]);
+  const m = (await db.doc(`tasks/${made.id}`).get()).data()!;
+  assert.ok(m.parkedAt > 0);
+  await db.doc(`tasks/${made.id}`).update({ parkedAt: TUE + DAY }); // addTasks stamps the real clock; pin it for the year maths below
+  assert.equal(m.deferredTo, undefined);
+  assert.equal(m.remindAt, undefined);
+
+  // review counts parked separately and never as open
+  const rv = await tasks.weekReview('u1', TUE);
+  assert.equal(rv.parked, 2);
+  assert.equal(rv.open, 0);
+  assert.equal(rv.staleTotal, 0);
+
+  // unpark: back on today's list, resting from stale nudges; undo-style restore keeps the old day
+  const back = await tasks.unparkTask('u1', 'a', {}, TUE + DAY);
+  assert.equal(back.parkedAt, undefined);
+  assert.equal(back.deferredTo, '2026-11-04');
+  assert.equal(back.staleNudgedAt, TUE + DAY);
+  await tasks.parkTask('u1', 'a', TUE + 2 * DAY);
+  const restored = await tasks.unparkTask('u1', 'a', { deferredTo: '2026-11-03' });
+  assert.equal(restored.deferredTo, '2026-11-03');
+  await tasks.parkTask('u1', 'a', TUE);
+  assert.equal((await tasks.unparkTask('u1', 'a', { deferredTo: null })).deferredTo, undefined);
+  await tasks.parkTask('u1', 'a', TUE);
+
+  // yearly question: due a year after parking, then a year after the last question
+  const all = (await db.collection('tasks').get()).docs.map((d) => ({ id: d.id, ...d.data() }) as Task);
+  assert.deepEqual(tasks.parkedDueForAsk(all, TUE + YEAR - DAY).map((t) => t.id), []);
+  assert.deepEqual(tasks.parkedDueForAsk(all, TUE + YEAR + DAY / 2).map((t) => t.id), ['a'], 'only the one parked at TUE; the new one was parked later');
+  await tasks.markParkedAsked('u1', 'a', TUE + YEAR);
+  const all2 = (await db.collection('tasks').get()).docs.map((d) => ({ id: d.id, ...d.data() }) as Task);
+  assert.deepEqual(tasks.parkedDueForAsk(all2, TUE + YEAR + DAY / 2).map((t) => t.id), [], 'asked: not again for a year');
+  assert.deepEqual(tasks.parkedDueForAsk(all2, TUE + 2 * YEAR + DAY).map((t) => t.id).sort(), [made.id, 'a'].sort());
+  console.log('parked domain ok');
+}
+
+// ---------- scheduler: Sunday yearly question + parked count ----------
+{
+  await wipe();
+  await db.doc('users/u1').set({ displayName: 'Ind', friends: [], timezone: 'Asia/Kolkata' });
+  const parkedLongAgo = SUN - 400 * DAY;
+  await task('p1', 'learn guitar', { createdAt: parkedLongAgo - DAY, parkedAt: parkedLongAgo });
+  await task('p2', 'repaint shed', { createdAt: parkedLongAgo, parkedAt: SUN - 10 * DAY });
+  await task('f1', 'fresh', { createdAt: SUN - DAY });
+  sched.deps.listLinks = async () => [link({ lastInboundAt: SUN - 3600_000 })];
+  const c = await sched.runSchedule(SUN);
+  assert.equal(c.reviews, 1);
+  assert.equal(c.parkedAsks, 1);
+  assert.match(sent[0].a!, /1 open[\s\S]*💤 2 parked/);
+  const q = sent[1];
+  assert.equal(q.kind, 'buttons');
+  assert.match(q.a!, /learn guitar[\s\S]*a year ago\. Still want it\?/);
+  assert.deepEqual((q.b as { id: string }[]).map((x) => x.id), ['unpark:p1', 'keep:p1', 'del:p1']);
+  assert.ok((q.b as { title: string }[]).every((x) => x.title.length <= 20));
+  assert.equal((await db.doc('tasks/p1').get()).data()!.parkedAskedAt, SUN, 'stamped when sent');
+  await sched.runSchedule(SUN + 5 * 60_000);
+  assert.equal(sent.length, 2, 'once');
+  // the next Sunday: p1 was just asked, p2 is not a year old: no question
+  sent = [];
+  const c2 = await sched.runSchedule(SUN + 7 * DAY);
+  assert.equal(c2.parkedAsks, 0);
+  // window closed: no question, no template
+  await wipe();
+  await db.doc('users/u1').set({ displayName: 'Ind', friends: [], timezone: 'Asia/Kolkata' });
+  await task('p1', 'learn guitar', { createdAt: parkedLongAgo - DAY, parkedAt: parkedLongAgo });
+  sched.deps.listLinks = async () => [link({ lastInboundAt: SUN - 3 * DAY })];
+  const c3 = await sched.runSchedule(SUN);
+  assert.equal(c3.parkedAsks, 0);
+  assert.equal(sent.length, 0);
+  assert.equal((await db.doc('waSchedule/w1_2026-11-08_parkedask').get()).data()!.status, 'skipped_window_closed');
+  console.log('parked yearly question ok');
 }
 
 console.log('ALL GTD SERVER TESTS PASSED');

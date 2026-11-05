@@ -253,6 +253,10 @@ export interface Task {
   remindSentFor?: number | null;
   /** When the bot last asked about this task for sitting untouched (lib/server/tasks.ts listStale). Written by the server only. */
   staleNudgedAt?: number | null;
+  /** Someday/Maybe: when the task was parked. Present = parked: not in Today, no reminders, no stale nudges, hidden from friends. */
+  parkedAt?: number | null;
+  /** When the yearly "still want this?" question was last sent for a parked task. */
+  parkedAskedAt?: number | null;
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted

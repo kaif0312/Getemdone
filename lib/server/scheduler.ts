@@ -28,6 +28,7 @@ export interface ScheduleCounts {
   recaps: number;
   stale: number;
   reviews: number;
+  parkedAsks: number;
   skipped: number;
   capped: number;
   errors: number;
@@ -51,6 +52,8 @@ export const deps = {
   listStale: (uid: string, now: number) => tasksMod.listStale(uid, now),
   weekReview: (uid: string, now: number) => tasksMod.weekReview(uid, now),
   markStaleNudged: (uid: string, ids: string[], now: number) => tasksMod.markStaleNudged(uid, ids, now),
+  listParkedDue: (uid: string, now: number) => tasksMod.listParkedDue(uid, now),
+  markParkedAsked: (uid: string, id: string, now: number) => tasksMod.markParkedAsked(uid, id, now),
 };
 
 function toMinutes(hhmm: string): number | null {
@@ -71,7 +74,7 @@ export function inSlot(target: string | null, nowLocal: string, graceMin = SCHED
   return n >= slotStart && n < slotStart + SLOT_MIN + graceMin;
 }
 
-type Kind = 'checkin' | 'recap' | 'stale' | 'review';
+type Kind = 'checkin' | 'recap' | 'stale' | 'review' | 'parkedask';
 
 /** Local time of the daily "this has been sitting" nudge and of the Sunday review (env overrides, "HH:mm"). */
 export const staleTime = () => process.env.NUDGE_STALE_TIME || '13:00';
@@ -186,10 +189,10 @@ async function sendStale(link: WaLink, now: number, counts: ScheduleCounts): Pro
   const days = Math.max(1, Math.floor((now - t.createdAt) / DAY_MS));
   await deps.sendButtons(
     link.waId,
-    clip(`🧹 *${clipLine(taskLabel(t), 120)}* has been on your list for ${days} days.\n\nWhat is the very first small step? Or let it go.`, 1000),
+    clip(`🧹 *${clipLine(taskLabel(t), 120)}* has been on your list for ${days} days.\n\nWhat is the very first small step? Or park it for someday, or let it go.`, 1000),
     [
       { id: BUTTON_IDS.step(t.id), title: 'Next step ✍️' },
-      { id: BUTTON_IDS.tomorrow(t.id), title: 'Tomorrow' },
+      { id: BUTTON_IDS.park(t.id), title: 'Someday 💤' },
       { id: BUTTON_IDS.del(t.id), title: 'Drop it 🗑' },
     ],
   );
@@ -198,21 +201,46 @@ async function sendStale(link: WaLink, now: number, counts: ScheduleCounts): Pro
   return 'sent';
 }
 
+/**
+ * Once a year per parked task (Sundays, after the review, free window only): "still want this?". The question is stamped
+ * when it is sent, so a user who ignores it is asked again in a year, not next week.
+ */
+async function sendParkedAsk(link: WaLink, now: number, counts: ScheduleCounts): Promise<string> {
+  if (!deps.windowOpen(link.lastInboundAt, now)) return 'skipped_window_closed';
+  const due = await deps.listParkedDue(link.uid, now);
+  if (!due.length) return 'skipped_empty';
+  const t = due[0];
+  const since = Math.max(t.parkedAt ?? 0, t.parkedAskedAt ?? 0);
+  const months = Math.max(12, Math.round((now - (t.parkedAt ?? since)) / (30.4 * DAY_MS)));
+  await deps.sendButtons(
+    link.waId,
+    clip(`💤 You parked *${clipLine(taskLabel(t), 120)}* ${months >= 24 ? `${Math.round(months / 12)} years` : 'a year'} ago. Still want it?`, 1000),
+    [
+      { id: BUTTON_IDS.unpark(t.id), title: 'Do it today' },
+      { id: BUTTON_IDS.keep(t.id), title: 'Keep parked' },
+      { id: BUTTON_IDS.del(t.id), title: 'Drop it 🗑' },
+    ],
+  );
+  await deps.markParkedAsked(link.uid, t.id, now);
+  counts.parkedAsks++;
+  return 'sent';
+}
+
 /** Sunday, free-window only: the week in three numbers, then the oldest untouched tasks as a list (tap one: Done / Tomorrow / Delete). */
 async function sendReview(link: WaLink, now: number, counts: ScheduleCounts): Promise<string> {
   if (!deps.windowOpen(link.lastInboundAt, now)) return 'skipped_window_closed';
   const r = await deps.weekReview(link.uid, now);
   if (!r.done && !r.open) return 'skipped_empty';
-  const head = `*Your week* 🗓\n✅ ${r.done} done · 📋 ${r.open} open${r.staleTotal ? ` · 🕸 ${r.staleTotal} untouched for 7+ days` : ''}`;
+  const head = `*Your week* 🗓\n✅ ${r.done} done · 📋 ${r.open} open${r.staleTotal ? ` · 🕸 ${r.staleTotal} untouched for 7+ days` : ''}${r.parked ? ` · 💤 ${r.parked} parked` : ''}`;
   if (!r.stale.length) {
     await deps.sendText(link.waId, `${head}\n\nNothing is going stale. Have a good week ✨`);
   } else {
     const rows = r.stale.slice(0, 10).map((t) => ({
-      id: BUTTON_IDS.task(t.id),
+      id: BUTTON_IDS.review(t.id),
       title: clip(taskLabel(t), 24),
       description: `${Math.max(1, Math.floor((now - t.createdAt) / DAY_MS))} days old`,
     }));
-    await deps.sendList(link.waId, clip(`${head}\n\nDo it, move it or drop it. Tap one:`, 1000), 'Review', rows);
+    await deps.sendList(link.waId, clip(`${head}\n\nDo it, park it for someday or drop it. Tap one:`, 1000), 'Review', rows);
     await deps.markStaleNudged(link.uid, r.stale.slice(0, 10).map((t) => t.id), now);
   }
   counts.reviews++;
@@ -239,7 +267,7 @@ async function handleLink(link: WaLink, now: number, counts: ScheduleCounts): Pr
   if (link.reviews !== false && !link.onboarding) {
     const sunday = weekdayOf(date) === 'Sunday';
     const jobs: { kind: Kind; at: string; run: typeof sendStale }[] = sunday
-      ? [{ kind: 'review', at: reviewTime(), run: sendReview }]
+      ? [{ kind: 'review', at: reviewTime(), run: sendReview }, { kind: 'parkedask', at: reviewTime(), run: sendParkedAsk }]
       : [{ kind: 'stale', at: staleTime(), run: sendStale }];
     for (const j of jobs) {
       if (!inSlot(j.at, nowLocal) || !(await claim(link, date, j.kind, now))) continue;
@@ -272,7 +300,7 @@ async function handleLink(link: WaLink, now: number, counts: ScheduleCounts): Pr
 }
 
 export async function runSchedule(now: number): Promise<ScheduleCounts> {
-  const counts: ScheduleCounts = { checked: 0, checkinFree: 0, checkinTemplate: 0, recaps: 0, stale: 0, reviews: 0, skipped: 0, capped: 0, errors: 0 };
+  const counts: ScheduleCounts = { checked: 0, checkinFree: 0, checkinTemplate: 0, recaps: 0, stale: 0, reviews: 0, parkedAsks: 0, skipped: 0, capped: 0, errors: 0 };
   const links = await deps.listLinks();
   for (let i = 0; i < links.length; i += 10) {
     await Promise.all(

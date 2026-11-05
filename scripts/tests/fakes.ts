@@ -56,7 +56,7 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; vault?: Vault
       log(`addTasks ${JSON.stringify(it)}`);
       return t;
     }),
-    listToday: async () => [...tasks.values()].filter((t) => !t.deleted && (!t.deferredTo || t.deferredTo.slice(0, 10) <= '2026-11-01')),
+    listToday: async () => [...tasks.values()].filter((t) => !t.deleted && !t.parkedAt && (!t.deferredTo || t.deferredTo.slice(0, 10) <= '2026-11-01')),
     listOpen: async () => [...tasks.values()].filter((t) => !t.deleted && !t.completed),
     completeTask: async (_u, id) => { log(`complete ${id}`); const t = tasks.get(id)!; t.completed = true; return t; },
     uncompleteTask: async (_u, id) => { log(`uncomplete ${id}`); const t = tasks.get(id)!; t.completed = false; return t; },
@@ -69,6 +69,23 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; vault?: Vault
       log(`focus ${ids.join(',')}`);
       for (const t of tasks.values()) t.focusDate = ids.includes(t.id) ? '2026-11-01' : null;
     },
+    parkTask: async (_u, id) => {
+      log(`park ${id}`);
+      const t = tasks.get(id)!;
+      if (t.recurrence) throw new Error('recurring');
+      const before = { ...t };
+      t.parkedAt = 5; t.focusDate = null;
+      return before;
+    },
+    unparkTask: async (_u, id, o) => {
+      log(`unpark ${id}${o && 'deferredTo' in o ? ' restore ' + o.deferredTo : ''}`);
+      const t = tasks.get(id)!;
+      t.parkedAt = null;
+      t.deferredTo = o && 'deferredTo' in o ? (o.deferredTo ?? undefined) : '2026-11-01';
+      return t;
+    },
+    listParked: async (_u, n = 50) => [...tasks.values()].filter((t) => !t.deleted && !t.completed && t.parkedAt).sort((a, b) => b.parkedAt! - a.parkedAt!).slice(0, n),
+    markParkedAsked: async (_u, id) => { log(`parkedAsked ${id}`); },
     renameTask: async (_u, id, text) => { log(`rename ${id} ${text}`); const t = tasks.get(id)!; const old = t.text; t.text = text; return { task: t, old }; },
     daySummary: async () => ({ done: [], open: [], streak: 4, fitnessStreak: 0 }),
     logWorkout: async (_u, w) => { log(`logWorkout ${JSON.stringify(w)}`); workouts.push(w); return { date: '2026-11-01', workouts: [], updatedAt: 1 }; },

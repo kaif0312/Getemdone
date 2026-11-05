@@ -23,9 +23,9 @@ export async function openCoachChat(text?: string): Promise<boolean> {
 export const COACH_NUMBER_DISPLAY = '+965 6009 1617';
 
 /**
- * Account deletion (Google Play policy). There is no self-service delete backend yet: the `deleteUserAccount` callable is
- * admin-only and refuses self-deletion, and `firestore.rules` lets only admins delete `users/{uid}`. So the app sends a
- * deletion REQUEST to the same address and process as the public page (`app/delete-account` on the web, 30 days).
+ * Account deletion (Google Play policy). The app deletes in place via POST /api/app/account/delete (src/lib/accountApi.ts);
+ * these are only the FALLBACK when that call fails: a deletion REQUEST to the same address and process as the public page
+ * (`app/delete-account` on the web, 30 days).
  */
 export const ACCOUNT_DELETION_EMAIL = 'ibrahim@iskaria.com';
 export const DELETE_ACCOUNT_PAGE = `${API_BASE}/delete-account`;

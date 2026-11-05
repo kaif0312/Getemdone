@@ -124,6 +124,7 @@ export const STR = {
       '/task <text> add a task, /today, /done 2, /undo, /week',
       '/cal month calendar, /cal week agenda, /cal next',
       '/files your last 5 Drive files, /meds medicine reminders, /language, /help',
+      '/sync put your timed tasks in Google, Apple or Outlook calendar',
     ].join('\n'),
     [
       '*मैं क्या-क्या कर सकता हूँ* 👇',

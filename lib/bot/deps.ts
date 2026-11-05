@@ -12,6 +12,8 @@ import * as reminders from '@/lib/server/reminders';
 import * as meds from '@/lib/server/meds';
 import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
+import * as calLink from '@/lib/server/calendarLink';
+import * as gcal from '@/lib/server/googleCal';
 import type { BotDeps } from './types';
 import { sendCalendarImage } from '@/lib/calendar/send';
 
@@ -43,6 +45,18 @@ export const defaultDeps: BotDeps = {
     statusLines: meds.statusLines,
     addMedication: meds.addMedication,
     removeMedication: meds.removeMedication,
+  },
+  calSync: {
+    status: async (uid) => calLink.toPublicStatus(await calLink.getCalendarLink(uid)),
+    ensureFeed: async (uid, rotate) => {
+      const token = await calLink.ensureFeedToken(uid, rotate);
+      return { url: calLink.feedUrl(token), webcalUrl: calLink.webcalUrl(token) };
+    },
+    removeFeed: calLink.removeFeed,
+    googleAvailable: gcal.googleConfigured,
+    googleLink: (uid) => gcal.startLink(uid, 'wa'),
+    disconnectGoogle: (uid) => gcal.disconnect(uid),
+    syncNow: (uid) => gcal.syncUser(uid),
   },
   markRead: send.markRead,
   fetchMedia: send.fetchMedia,

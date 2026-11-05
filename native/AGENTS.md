@@ -25,6 +25,7 @@ app/                      expo-router screens (routes only; keep thin, logic in 
 src/ui/                   the kit (import from '@/ui')
 src/hooks/                data hooks (below)
 src/lib/                  firebase, crypto, keyring, dates, copied PWA helpers, push, loginApi
+src/features/calendar/     Calendar (route app/calendar.tsx, opened from the calendar button in the Today header): month grid + tapped-day list, week agenda. `events.ts` is a COPY of the server's lib/calendar/events.ts (WhatsApp /calendar images): change both together.
 src/features/{tasks,friends,progress,fitness,settings,inbox}/   empty: your feature components go here
 src/components/AppLock.tsx  Face ID gate (honours users.biometricEnabled)
 scripts/test_crypto_parity.mts

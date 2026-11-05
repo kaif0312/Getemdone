@@ -230,6 +230,32 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   workouts and medicine plans they set up stay with the app account. Nothing is saved or logged on that turn.
 - Tests: `npx tsx scripts/tests/test_privacy.mts` (fakes), `scripts/tests/test_forget.mts` (emulator).
 
+## Account deletion (2026-11-06): self-service, in the app
+- `POST /api/app/account/delete` (`app/api/app/account/delete/route.ts`) deletes the CALLER's account: Bearer = Firebase ID token
+  verified with `checkRevoked`, its `auth_time` must be < 5 min old (else 401 `reauth_required`: the app re-authenticates and calls
+  again), body `{ confirm: 'DELETE' }`. 200 `{ ok, deleted, updated, kept }`; 500 `failed` = safe to retry.
+- Logic: `lib/server/accountDelete.ts` `deleteAccount(uid)`. Deletes: `users`, `tasks` (+ Storage `attachments/<taskId>/`),
+  `notifications` (received and sent), `bugReports` (+ Storage `bugReports/<uid>/`), `pendingSignups`, `friendInvites` (both
+  directions), `nudgeLimits` (both), `userKeys`, `fitnessGoals`, `fitness/<uid>/**`, `focusSessions/<uid>/**`,
+  `calendarEvents/<uid>/**`, `calendarEventVisibility`, `migrationStatus`, `presence`, `calendarLinks` + `calendarFeeds` (Google
+  calendar deleted + token revoked via `googleCal.disconnect`), `medPlans` they own + their `medDoses`, `waLinkCodes`, `appLogins`,
+  Storage `profilePictures/<uid>`, `betaWhitelist/<email>` (only if no other user has that e-mail), then the Auth user. For each
+  WhatsApp number whose `waLinks` doc points at this uid: `waLinks`, `waSessions`, `waSchedule/<wa>_*`, `waReminderCaps/<wa>_*` and
+  `med_<wa>_*`, `waSeen/fwdnote:<wa>:*`, `vaultUploads` (audit docs) and `learningLog` rows with the link's `learnId`.
+  Others' docs are only updated: uid removed from `users.friends`, `userKeys.friendKeys.<uid>`, and this person's
+  comments/reactions on friends' tasks. Kept: vault files in the owner's Drive (listed in `kept`), med plans where they are only the
+  patient (another account's), stale uid references in friends' `friendGroups`/visibility lists.
+- Retry-safe: progress in `accountDeletions/{uid}` (server-only). While running it keeps email/waIds/learnIds, so a retry after
+  `users/{uid}` is gone still finds the WhatsApp data; when done it is `{ status:'done', doneAt }` only. The Auth user goes last.
+  `firestore.rules` refuses `users/{uid}` create when that doc exists (an app still open would otherwise re-create the profile);
+  the rule needs `npm run firebase:rules` to be live. Test: `FIRESTORE_PORT=8585 bash scripts/test-emulator.sh scripts/tests/test_account_delete.mts`.
+- Speed: `deleteQuery`'s per-doc callback (one Storage listing per task) runs 16 at a time; one by one, a person with hundreds of
+  tasks could pass the route's 60 s `maxDuration` and every retry would restart the same page (test case 4b: 650 tasks).
+- Known gaps (2026-11-06 review): the old PWA's Google Calendar tokens (`users.googleCalendarTokens`, encrypted on the client)
+  are deleted with the profile but cannot be revoked server-side; only `users/{uid}` create is guarded in the rules, so ANOTHER
+  device still open with a valid ID token (up to 1 h) could re-create `presence`/`userKeys` stubs after the final sweep.
+- The old admin-only callable `deleteUserAccount` (functions/) is untouched and covers fewer collections.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

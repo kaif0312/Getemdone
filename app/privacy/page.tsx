@@ -104,14 +104,15 @@ export default function PrivacyPage() {
       <H>How long we keep it</H>
       <p>
         We keep your account data while your account exists. Deleted tasks go to a recycle bin and are then removed.
-        WhatsApp conversation history used for context is kept until you delete it. When you delete your account, we
-        delete your account data within 30 days, except where we must keep something by law.
+        WhatsApp conversation history used for context is kept until you delete it. When you delete your account in the
+        app, your account data is deleted at once (by e-mail request: within 30 days), except where we must keep something by law.
       </p>
 
       <H>Deleting your data</H>
       <ul className="list-disc space-y-2 pl-5">
-        <li>Your whole account: e-mail <a className="underline" href={`mailto:${CONTACT}`}>{CONTACT}</a> from the address
-          or with the phone number on your account. We delete it within 30 days and confirm.</li>
+        <li>Your whole account: in the app, <b>Me &rarr; Privacy and security &rarr; Delete account</b>. It is deleted at
+          once and you are signed out. Without the app, e-mail <a className="underline" href={`mailto:${CONTACT}`}>{CONTACT}</a>{' '}
+          from the address or with the phone number on your account; we delete it within 30 days and confirm.</li>
         <li>Your WhatsApp chat history: send <b>delete my data</b> to the Nudge number (or in the app, <b>Me &rarr; Privacy
           and security &rarr; Delete my data</b>). This erases the coach&apos;s chat history and disconnects WhatsApp at
           once; your tasks stay in the app.</li>

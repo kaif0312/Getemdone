@@ -106,6 +106,16 @@ admin dashboard (stays web).
   app; calendar; Someday") + roll out, closed draft: remove 3, add 4, Save (no "Send changes for review": owner does IARC
   + reviewer password first). Data safety checked: account deletion URL = `/delete-account`, which already says
   "Delete your whole account in the app" (Me -> Privacy and security -> Delete account) with e-mail fallback; no change needed.
+- 2026-11-06 ~03:55 (cl-nudge-playsubmit): build 4 FINISHED; AAB at `~/Downloads/nudge-1.0.0-4.aab` (84.5 MB, sha256
+  98e9cf6c...). IARC content rating issued (All Other App Types; users interact, friends-only; no other content):
+  ESRB Everyone, PEGI 3, USK all ages, ClassInd all ages, IARC/Google Play 3+. Internal testing: `4 (1.0.0)` live
+  ("Available to internal testers", 03:54). Closed "Closed testing - Alpha": release 1 (bundle 3) was already rolled
+  out pending review and cannot be edited, so a new release `4 (1.0.0)` (bundle 4 only) was saved; Publishing overview
+  now lists the closed track as `4 (1.0.0)`. NOT sent for review: the "Reviewer account (email sign-in)" password is
+  still empty (agents do not type passwords) - owner pastes it from `~/.secrets/nudge/play-reviewer.env`, saves, then
+  Publishing overview -> "Send changes for review". Upload trick for AABs > 10 MB via Claude in Chrome: split into 9 MB
+  parts, `file_upload` each (one call at a time) into a helper `<input type=file>`, join to a `File` in page JS, set it
+  on Play's `.aab` input with `DataTransfer` + `change` (a localhost fetch hangs on Chrome's local-network prompt).
 - Live checks 2026-11-06: Firestore rules release (updated 2026-11-04 21:08Z) = main's rules minus the deny-all
   `calendarLinks`/`calendarFeeds` matches (no wildcard match, so the same effect). Functions list: SA lacks
   `cloudfunctions.functions.list`, so whether `sendPushNotification` is deployed is unverified.

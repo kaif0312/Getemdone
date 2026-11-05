@@ -279,3 +279,82 @@ export async function setReminder(uid: string, taskId: string, remindAt: number 
   const snap = await ref.get();
   return toTask(snap.id, snap.data());
 }
+
+// ---------- stale tasks + weekly review (GTD-style "what is the next action?") ----------
+
+const DAY_MS = 86_400_000;
+/** A task is "stale" when it has sat open this many days (env NUDGE_STALE_DAYS). */
+export const staleDays = () => Number(process.env.NUDGE_STALE_DAYS) || 5;
+/** The same task is not asked about again for this many days after a nudge. */
+export const RENUDGE_DAYS = 7;
+/** The weekly review lists tasks that have been open at least this long. */
+export const REVIEW_STALE_DAYS = 7;
+
+/**
+ * Open, non-recurring, readable tasks that have sat for `days`, oldest first. Pure (no I/O).
+ * Excluded: done/deleted, recurring templates, scheduled for a future day, today's focus, encrypted text, and (when
+ * `renudgeDays` is given) anything the bot already asked about inside that window.
+ */
+export function staleTasks(tasks: Task[], today: string, now: number, days: number, renudgeDays?: number): Task[] {
+  return tasks
+    .filter((t) => {
+      if (t.deleted || t.completed || t.recurrence) return false;
+      if (!t.text || t.text.startsWith('e1:')) return false;
+      if (t.createdAt > now - days * DAY_MS) return false;
+      if (t.deferredTo && t.deferredTo.slice(0, 10) > today) return false;
+      if (t.focusDate === today) return false;
+      if (renudgeDays != null && t.staleNudgedAt && now - t.staleNudgedAt < renudgeDays * DAY_MS) return false;
+      return true;
+    })
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Tasks to ask about, oldest first. */
+export async function listStale(uid: string, now = Date.now(), days = staleDays(), renudgeDays: number | undefined = RENUDGE_DAYS): Promise<Task[]> {
+  const today = localDate(await getTimezone(uid), now);
+  return staleTasks(await allTasks(uid), today, now, days, renudgeDays);
+}
+
+/** Remember that the bot asked about these, so the same ones are not raised again for RENUDGE_DAYS. */
+export async function markStaleNudged(uid: string, taskIds: string[], now = Date.now()): Promise<void> {
+  const batch = adminDb().batch();
+  let n = 0;
+  for (const id of new Set(taskIds)) {
+    const ref = tasksCol().doc(id);
+    const snap = await ref.get();
+    if (!snap.exists || snap.data()?.userId !== uid) continue;
+    batch.update(ref, { staleNudgedAt: now });
+    n++;
+  }
+  if (n) await batch.commit();
+}
+
+export interface WeekReview { done: number; open: number; stale: Task[]; staleTotal: number }
+
+/** Sunday review: finished in the last 7 days, still open, and the ones untouched for REVIEW_STALE_DAYS+ (oldest first, max `max`). */
+export async function weekReview(uid: string, now = Date.now(), max = 10): Promise<WeekReview> {
+  const tz = await getTimezone(uid);
+  const today = localDate(tz, now);
+  const weekAgoDate = addDays(today, -6);
+  const all = await allTasks(uid);
+  let done = 0;
+  for (const t of all) {
+    if (t.recurrence) done += (t.recurrence.completedDates ?? []).filter((d) => d >= weekAgoDate && d <= today).length;
+    else if (t.completed && t.completedAt && t.completedAt >= now - 7 * DAY_MS) done++;
+  }
+  const open = all.filter((t) => !t.completed && !t.recurrence).length;
+  const stale = staleTasks(all, today, now, REVIEW_STALE_DAYS);
+  return { done, open, stale: stale.slice(0, max), staleTotal: stale.length };
+}
+
+/** Replace a task's text (the stale-task flow turns a vague item into its first step). Returns the old text. */
+export async function renameTask(uid: string, taskId: string, text: string): Promise<{ task: Task; old: string }> {
+  const next = (text || '').trim();
+  if (!next) throw new Error('Task text is empty');
+  if (next.length > 2000) throw new Error('Task text is too long (max 2000 characters)');
+  const ref = await ownedRef(uid, taskId);
+  const snap = await ref.get();
+  const old = String(snap.data()?.text ?? '');
+  await ref.update({ text: next });
+  return { task: toTask(snap.id, { ...snap.data(), text: next }), old };
+}

@@ -8,11 +8,11 @@ export type Fast =
   | { t: 'unknownCmd'; cmd: string }
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
-  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'coachMenu' }
+  | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'focusDone' | 'coachMenu' | 'reviewsOn' | 'reviewsOff' }
   | { t: 'setCoach'; id: string }
   | { t: 'meme'; format?: 'meme' | 'gif' | 'sticker' }
   | { t: 'memesOn' | 'memesOff' }
-  | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus'; id: string }
+  | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus' | 'step'; id: string }
   | { t: 'react'; taskId: string; emoji: string }
   | { t: 'nudge'; uid: string }
   | { t: 'setTime'; time: string }
@@ -49,6 +49,7 @@ function fromReply(id: string): Fast | null {
     case 'undo': return { t: 'undo', id: rest };
     case 'task': return { t: 'taskOpen', id: rest };
     case 'focus': return { t: 'focus', id: rest };
+    case 'step': return { t: 'step', id: rest };
     case 'nudge': return { t: 'nudge', uid: rest };
     case 'confirm': return { t: 'confirm', id: rest };
     case 'coach': return { t: 'setCoach', id: rest };
@@ -63,7 +64,7 @@ function fromReply(id: string): Fast | null {
       return m ? { t: 'invite', id: m[2], accept: m[1] === 'accept' } : null;
     }
     case 'checkin':
-      return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : null;
+      return rest === 'start' ? { t: 'checkinStart' } : rest === 'skip' ? { t: 'checkinSkip' } : rest === 'focusdone' ? { t: 'focusDone' } : null;
     case 'settime': {
       const m = /^(\d{2}):(\d{2})$/.exec(rest);
       return m && +m[1] < 24 && +m[2] < 60 ? { t: 'setTime', time: rest } : null;
@@ -77,7 +78,7 @@ const ADD_CMDS = new Set(['task', 'add']);
 const FILE_CMDS = new Set(['files', 'vault']);
 /** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
 const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
-  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends']);
+  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'review', 'reviews']);
 
 /**
  * Slash commands (WhatsApp has no native slash menu, so these are typed). null = not a slash command (text starts with
@@ -108,6 +109,8 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (t === 'week') return { t: 'week' };
   if (t === 'friends') return { t: 'friends' };
+  if (/^(reviews?|stale|nudges?) (off|stop|pause)$/.test(t)) return { t: 'reviewsOff' };
+  if (/^(reviews?|stale|nudges?) (on|start|resume)$/.test(t)) return { t: 'reviewsOn' };
   if (/^(coach|coaches|change coach|switch coach|personality)$/.test(t)) return { t: 'coachMenu' };
   if (/^(memes? off|no memes?|stop memes?)$/.test(t)) return { t: 'memesOff' };
   if (/^(memes? on|start memes?)$/.test(t)) return { t: 'memesOn' };

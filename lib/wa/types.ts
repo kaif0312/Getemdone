@@ -61,6 +61,10 @@ export const BUTTON_IDS = {
   nudge: (friendUid: string) => `nudge:${friendUid}`,
   checkinStart: 'checkin:start',
   checkinSkip: 'checkin:skip',
+  /** Top-3 picker: "that's enough" row. */
+  focusDone: 'checkin:focusdone',
+  /** Stale-task nudge: the user wants to write the first small step. */
+  step: (taskId: string) => `step:${taskId}`,
 } as const;
 
 /** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */
@@ -85,6 +89,8 @@ export interface WaLink {
   muted: boolean;
   /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
   coach?: string;
+  /** false = the user sent *review off*: no stale-task nudges and no Sunday review. Missing = on. */
+  reviews?: boolean;
   /** false = the user sent *memes off* (asked-for memes still work). Missing = on. */
   memes?: boolean;
   /** Meme budget for the local day memeDay (lib/bot/memes.ts allowMeme). */

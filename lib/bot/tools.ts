@@ -23,6 +23,7 @@ export const TOOLS: FunctionDecl[] = [
               remind_before_min: { ...N, description: 'Only if the user asks to be reminded N minutes before the time ("remind me 30 min before"). A task with a clock time already gets a 15 min reminder by default.' },
               remind_at: { ...S, description: 'Only if the user names the reminder moment itself ("remind me at 5pm"): YYYY-MM-DDTHH:mm in the user local zone' },
               no_reminder: { type: 'BOOLEAN', description: 'true if the user says they do not want a reminder for this task' },
+              already_done: { type: 'BOOLEAN', description: 'true only if the user says they ALREADY did it ("just called mom", "already paid the bill"): the task is logged and ticked off in one go' },
             },
             required: ['text'],
           },

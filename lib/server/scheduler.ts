@@ -14,6 +14,7 @@ import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
 import { coachOf } from '../bot/coaches';
+import { clip as clipLine, weekdayOf } from '../bot/format';
 import type { Task } from '../../lib/types';
 
 /** Extra minutes after the slot end during which a missed slot is still sent (idempotent, so safe). */
@@ -25,6 +26,8 @@ export interface ScheduleCounts {
   checkinFree: number;
   checkinTemplate: number;
   recaps: number;
+  stale: number;
+  reviews: number;
   skipped: number;
   capped: number;
   errors: number;
@@ -45,6 +48,9 @@ export const deps = {
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
   sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string; buttonPayloads?: string[] }) =>
     sendMod.sendTemplate(to, name, vars, opts),
+  listStale: (uid: string, now: number) => tasksMod.listStale(uid, now),
+  weekReview: (uid: string, now: number) => tasksMod.weekReview(uid, now),
+  markStaleNudged: (uid: string, ids: string[], now: number) => tasksMod.markStaleNudged(uid, ids, now),
 };
 
 function toMinutes(hhmm: string): number | null {
@@ -65,7 +71,12 @@ export function inSlot(target: string | null, nowLocal: string, graceMin = SCHED
   return n >= slotStart && n < slotStart + SLOT_MIN + graceMin;
 }
 
-type Kind = 'checkin' | 'recap';
+type Kind = 'checkin' | 'recap' | 'stale' | 'review';
+
+/** Local time of the daily "this has been sitting" nudge and of the Sunday review (env overrides, "HH:mm"). */
+export const staleTime = () => process.env.NUDGE_STALE_TIME || '13:00';
+export const reviewTime = () => process.env.NUDGE_REVIEW_TIME || '17:00';
+const DAY_MS = 86_400_000;
 
 function schedRef(link: WaLink, date: string, kind: Kind) {
   return adminDb().doc(`waSchedule/${link.waId}_${date}_${kind}`);
@@ -163,6 +174,51 @@ async function sendRecap(link: WaLink, counts: ScheduleCounts): Promise<boolean>
   return true;
 }
 
+/**
+ * Daily, free-window only (no template, no cost): the oldest task that has sat untouched, with three taps. Asks for the
+ * very first small step (GTD "next action"), or lets the user move or drop it. Returns the status stored on the claim.
+ */
+async function sendStale(link: WaLink, now: number, counts: ScheduleCounts): Promise<string> {
+  if (!deps.windowOpen(link.lastInboundAt, now)) return 'skipped_window_closed';
+  const stale = await deps.listStale(link.uid, now);
+  if (!stale.length) return 'skipped_empty';
+  const t = stale[0];
+  const days = Math.max(1, Math.floor((now - t.createdAt) / DAY_MS));
+  await deps.sendButtons(
+    link.waId,
+    clip(`🧹 *${clipLine(taskLabel(t), 120)}* has been on your list for ${days} days.\n\nWhat is the very first small step? Or let it go.`, 1000),
+    [
+      { id: BUTTON_IDS.step(t.id), title: 'Next step ✍️' },
+      { id: BUTTON_IDS.tomorrow(t.id), title: 'Tomorrow' },
+      { id: BUTTON_IDS.del(t.id), title: 'Drop it 🗑' },
+    ],
+  );
+  await deps.markStaleNudged(link.uid, [t.id], now);
+  counts.stale++;
+  return 'sent';
+}
+
+/** Sunday, free-window only: the week in three numbers, then the oldest untouched tasks as a list (tap one: Done / Tomorrow / Delete). */
+async function sendReview(link: WaLink, now: number, counts: ScheduleCounts): Promise<string> {
+  if (!deps.windowOpen(link.lastInboundAt, now)) return 'skipped_window_closed';
+  const r = await deps.weekReview(link.uid, now);
+  if (!r.done && !r.open) return 'skipped_empty';
+  const head = `*Your week* 🗓\n✅ ${r.done} done · 📋 ${r.open} open${r.staleTotal ? ` · 🕸 ${r.staleTotal} untouched for 7+ days` : ''}`;
+  if (!r.stale.length) {
+    await deps.sendText(link.waId, `${head}\n\nNothing is going stale. Have a good week ✨`);
+  } else {
+    const rows = r.stale.slice(0, 10).map((t) => ({
+      id: BUTTON_IDS.task(t.id),
+      title: clip(taskLabel(t), 24),
+      description: `${Math.max(1, Math.floor((now - t.createdAt) / DAY_MS))} days old`,
+    }));
+    await deps.sendList(link.waId, clip(`${head}\n\nDo it, move it or drop it. Tap one:`, 1000), 'Review', rows);
+    await deps.markStaleNudged(link.uid, r.stale.slice(0, 10).map((t) => t.id), now);
+  }
+  counts.reviews++;
+  return 'sent';
+}
+
 async function handleLink(link: WaLink, now: number, counts: ScheduleCounts): Promise<void> {
   if (link.muted) return;
   const tz = link.timezone || 'Asia/Kolkata';
@@ -177,6 +233,24 @@ async function handleLink(link: WaLink, now: number, counts: ScheduleCounts): Pr
     } catch (e) {
       await schedRef(link, date, 'checkin').delete(); // retry on the next tick inside the grace window
       throw e;
+    }
+  }
+
+  if (link.reviews !== false && !link.onboarding) {
+    const sunday = weekdayOf(date) === 'Sunday';
+    const jobs: { kind: Kind; at: string; run: typeof sendStale }[] = sunday
+      ? [{ kind: 'review', at: reviewTime(), run: sendReview }]
+      : [{ kind: 'stale', at: staleTime(), run: sendStale }];
+    for (const j of jobs) {
+      if (!inSlot(j.at, nowLocal) || !(await claim(link, date, j.kind, now))) continue;
+      try {
+        const status = await j.run(link, now, counts);
+        await mark(link, date, j.kind, status);
+        if (status !== 'sent') counts.skipped++;
+      } catch (e) {
+        await schedRef(link, date, j.kind).delete(); // retry on the next tick inside the grace window
+        throw e;
+      }
     }
   }
 
@@ -198,7 +272,7 @@ async function handleLink(link: WaLink, now: number, counts: ScheduleCounts): Pr
 }
 
 export async function runSchedule(now: number): Promise<ScheduleCounts> {
-  const counts: ScheduleCounts = { checked: 0, checkinFree: 0, checkinTemplate: 0, recaps: 0, skipped: 0, capped: 0, errors: 0 };
+  const counts: ScheduleCounts = { checked: 0, checkinFree: 0, checkinTemplate: 0, recaps: 0, stale: 0, reviews: 0, skipped: 0, capped: 0, errors: 0 };
   const links = await deps.listLinks();
   for (let i = 0; i < links.length; i += 10) {
     await Promise.all(

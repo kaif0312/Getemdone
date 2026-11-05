@@ -74,6 +74,8 @@ export interface BotDeps {
   /** Optional so older test fakes keep compiling; when absent, reminders are simply not set. */
   setReminder?: typeof Tasks.setReminder;
   setReminderChannel?: typeof Reminders.setReminderChannel;
+  /** Optional so older test fakes keep compiling; the stale-task "first step" flow rewrites a task through it. */
+  renameTask?: typeof Tasks.renameTask;
   daySummary: typeof Tasks.daySummary;
   logWorkout: typeof Fitness.logWorkout;
   logMetric: typeof Fitness.logMetric;
@@ -94,4 +96,5 @@ export type Undo =
   | { k: 'complete'; ids: string[]; label: string }
   | { k: 'delete'; ids: string[]; label: string }
   | { k: 'defer'; ids: string[]; to: string; label: string }
+  | { k: 'rename'; id: string; old: string; label: string }
   | { k: 'workout'; label: string };

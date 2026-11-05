@@ -27,6 +27,7 @@ export const HELP = [
   '• *meme* - a meme from your coach, *memes off* to stop them',
   '• Voice notes and screenshots work too',
   '• Send a document or video and I file it in Drive (a photo: forward it, or caption it "save passport" or "/ref name")',
+  '• *review off* stops the "this has been sitting" nudges and the Sunday review, *review on* brings them back',
   '• *stop* pauses my messages, *start* resumes',
   '',
   '*Slash commands* (a leading / works on the commands above)',
@@ -61,6 +62,8 @@ export class Ctx {
   sticker?: StickerName;
   /** A meme moment raised this turn (lib/bot/memes.ts). */
   meme?: MemeRequest;
+  /** One plain task just added for today: flush() offers a "Done already" tap next to Undo (the two-minute rule). */
+  doneAlready?: string;
   private loaded = false;
 
   wantMeme(r: MemeRequest): void { this.meme = raise(this.meme, r); }
@@ -119,8 +122,12 @@ export async function flush(ctx: Ctx, lines: string[]): Promise<void> {
   if (ctx.undos.length) {
     const id = newActionId(ctx.d.now());
     ctx.session.lastAction = { id, kind: 'batch', payload: { undos: [...ctx.undos] }, at: ctx.d.now() };
+    const btns: WaButton[] = [];
+    if (ctx.doneAlready && !ctx.undos.some((u) => u.k === 'complete')) btns.push({ id: BUTTON_IDS.done(ctx.doneAlready), title: 'Done already ✅' });
+    btns.push({ id: BUTTON_IDS.undo(id), title: 'Undo ↩️' });
+    ctx.doneAlready = undefined;
     ctx.undos.length = 0;
-    await ctx.buttons(text, [{ id: BUTTON_IDS.undo(id), title: 'Undo ↩️' }]);
+    await ctx.buttons(text, btns);
   } else {
     await ctx.text(text);
   }
@@ -185,6 +192,11 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
       } else {
         lines.push(`${left.length} left today`);
         ctx.wantMeme({ moment: 'done', topic: names[0] });
+      }
+      // The top 3 for today (task.focusDate): say so when the last of them is ticked.
+      const focus = [...ctx.known.values()].filter((t) => t.focusDate === ctx.today && !t.deleted);
+      if (focus.length && focus.every((t) => t.completed) && focus.some((t) => doneIds.includes(t.id))) {
+        lines.push(focus.length === 1 ? '⭐ Your focus task is done' : `⭐ All ${focus.length} focus tasks done`);
       }
     } catch (e) {
       console.error('[bot] left count failed', e);
@@ -315,15 +327,19 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
         dueDate: due ? zonedToMs(due, ctx.tz) ?? undefined : undefined,
         recurrenceText: str(o.recurrence),
         ...reminderFor(ctx, o, when, due),
+        alreadyDone: o.already_done === true && !str(o.recurrence),
       };
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
     .slice(0, 15);
   if (!items.length) return [];
-  const created = await ctx.d.addTasks(ctx.uid, items);
+  const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor })));
   ctx.rememberTasks(created);
-  const lines = [created.length === 1 ? '📝 Added:' : `📝 Added ${created.length}:`];
-  for (const t of created) {
+  // "I already called mom": the task is logged and ticked in one go (the two-minute rule), so the day's streak counts it.
+  const finished = created.filter((_, i) => items[i]?.alreadyDone);
+  const pending = created.filter((_, i) => !items[i]?.alreadyDone);
+  const lines = pending.length ? [pending.length === 1 ? '📝 Added:' : `📝 Added ${pending.length}:`] : [];
+  for (const t of pending) {
     const forToday = !t.deferredTo || t.deferredTo.slice(0, 10) === ctx.today;
     if (forToday && !ctx.session.lastList.includes(t.id)) ctx.session.lastList.push(t.id);
     const n = ctx.session.lastList.indexOf(t.id) + 1;
@@ -332,7 +348,11 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
     lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
   }
+  if (finished.length) lines.push(...await completeByIds(ctx, finished.map((t) => t.id)));
   ctx.undos.push({ k: 'add', ids: created.map((t) => t.id), label: `added ${created.length === 1 ? clip(created[0].text, 30) : created.length + ' tasks'}` });
+  // Two-minute rule: one plain task for today gets a "Done already" tap (a timed or recurring one is not "already").
+  const only = created.length === 1 && pending.length === 1 ? pending[0] : null;
+  if (only && (!only.deferredTo || only.deferredTo.slice(0, 10) === ctx.today) && !only.deferredTo?.includes('T') && !only.recurrence) ctx.doneAlready = only.id;
   return lines;
 }
 
@@ -340,7 +360,9 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
 export async function showToday(ctx: Ctx): Promise<void> {
   const all = await ctx.d.listToday(ctx.uid);
   ctx.rememberTasks(all);
-  const open = all.filter((t) => !t.completed);
+  const isFocus = (t: Task) => t.focusDate === ctx.today;
+  // Today's top 3 first (stable: the rest keep the app's order).
+  const open = [...all.filter((t) => !t.completed && isFocus(t)), ...all.filter((t) => !t.completed && !isFocus(t))];
   const done = all.length - open.length;
   if (!open.length) {
     ctx.session.lastList = [];
@@ -350,7 +372,7 @@ export async function showToday(ctx: Ctx): Promise<void> {
   const shown = open.slice(0, MAX_LIST);
   ctx.session.lastList = shown.map((t) => t.id);
   const head = `*Today* · ${open.length} open${done ? `, ${done} done` : ''}`;
-  const body = [head, ...shown.map((t, i) => taskLine(i + 1, t, ctx.today)), open.length > shown.length ? `+${open.length - shown.length} more (ask me for them)` : ''].filter(Boolean).join('\n');
+  const body = [head, ...shown.map((t, i) => (isFocus(t) ? taskLine(i + 1, t, ctx.today).replace(/^(\d+\.) /, '$1 ⭐ ') : taskLine(i + 1, t, ctx.today))), open.length > shown.length ? `+${open.length - shown.length} more (ask me for them)` : ''].filter(Boolean).join('\n');
   if (shown.length === 1) {
     await ctx.buttons(body, taskButtons(shown[0].id));
     return;
@@ -379,6 +401,97 @@ export async function openTask(ctx: Ctx, id: string): Promise<void> {
   await ctx.buttons(`*${clip(t.text, 200)}*${w ? `\n${w}` : ''}`, taskButtons(id));
 }
 
+// ---------- top 3 for today (focus) ----------
+
+export const MAX_FOCUS = 3;
+
+/** The focus ids picked so far this session (session.lastAction kind 'focus'). */
+export function pickedFocus(ctx: Ctx): string[] {
+  const la = ctx.session.lastAction;
+  return la?.kind === 'focus' ? ((la.payload as { ids?: string[] }).ids ?? []) : [];
+}
+
+/** After a pick: the rest of today's open tasks as one-tap rows, plus "That's enough" once something is picked. */
+export async function focusPrompt(ctx: Ctx, picked: string[]): Promise<void> {
+  const open = (await ctx.d.listToday(ctx.uid)).filter((t) => !t.completed);
+  ctx.rememberTasks(open);
+  const rest = open.filter((t) => !picked.includes(t.id));
+  if (!rest.length) { await focusSummary(ctx, picked); return; }
+  const shown = rest.slice(0, picked.length ? MAX_LIST - 1 : MAX_LIST);
+  ctx.session.lastList = shown.map((t) => t.id);
+  const rows: WaListRow[] = shown.map((t, i) => ({ id: BUTTON_IDS.focus(t.id), title: clip(`${i + 1}. ${t.text}`, 24) }));
+  if (picked.length) rows.push({ id: BUTTON_IDS.focusDone, title: "That's enough" });
+  await ctx.list(
+    [
+      picked.length ? `⭐ ${picked.length}/${MAX_FOCUS} picked. Next one?` : `Pick up to ${MAX_FOCUS} to focus on today:`,
+      ...shown.map((t, i) => `${i + 1}. ${t.text}`),
+    ].join('\n'),
+    'Pick a task',
+    rows,
+  );
+}
+
+/** The chosen top tasks as a numbered list, so "done 1" ticks the first one. */
+export async function focusSummary(ctx: Ctx, ids: string[]): Promise<void> {
+  if (!ids.length) { await ctx.text('No focus picked. Send *today* any time to see your list.'); return; }
+  for (const id of ids) await ctx.titleOf(id); // loads the known tasks once
+  ctx.session.lastList = [...ids];
+  const lines = ids.map((id, i) => `${i + 1}. ⭐ ${ctx.known.get(id)?.text ?? 'task'}`);
+  await ctx.text([`*Your ${ids.length === 1 ? 'focus' : ids.length + ' for today'}*`, ...lines, '', 'Send *done 1* as you finish them. Your friends can see how you get on.'].join('\n'));
+}
+
+export async function focusPick(ctx: Ctx, id: string): Promise<void> {
+  const ids = [...new Set([...pickedFocus(ctx), id])].slice(-MAX_FOCUS);
+  await ctx.d.setFocus(ctx.uid, ids);
+  ctx.session.lastAction = { id: 'focus', kind: 'focus', payload: { ids }, at: ctx.d.now() };
+  if (ids.length >= MAX_FOCUS) await focusSummary(ctx, ids);
+  else await focusPrompt(ctx, ids);
+}
+
+// ---------- stale task: "what is the very first small step?" ----------
+
+const STEP_TTL_MS = 20 * 60_000;
+const SKIP_STEP = /^(skip|cancel|no|nope|later|never ?mind)$/i;
+
+/** The user tapped "Next step" on a stale-task nudge: ask for the first action and wait for their next message. */
+export async function askNextStep(ctx: Ctx, id: string): Promise<void> {
+  if (!ctx.d.renameTask) { await ctx.text('That is not available right now.'); return; }
+  await ctx.loadKnown();
+  const t = ctx.known.get(id);
+  if (!t || t.deleted || t.completed) { await ctx.text('That task is already gone or done. Send *today* for your list.'); return; }
+  ctx.session.lastAction = { id: 'step', kind: 'pending_step', payload: { taskId: id }, at: ctx.d.now() };
+  await ctx.text(`✍️ *${clip(t.text, 120)}*\nWhat is the very first small step? Reply with it (e.g. "Call the bank and ask for the form"), or send *skip*.`);
+}
+
+export function hasPendingStep(ctx: Ctx): string | null {
+  const la = ctx.session.lastAction;
+  if (la?.kind !== 'pending_step' || ctx.d.now() - la.at > STEP_TTL_MS) return null;
+  return String((la.payload as { taskId?: string }).taskId ?? '') || null;
+}
+
+/**
+ * The reply after "Next step". Only a short single-line text counts as the step; anything else (a list of new tasks, a
+ * command, a voice note) just ends the wait and is handled normally. Returns true when the message was consumed.
+ */
+export async function takeStep(ctx: Ctx, text: string | undefined): Promise<boolean> {
+  const taskId = hasPendingStep(ctx);
+  if (!taskId) { if (ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined; return false; }
+  const t = (text ?? '').trim();
+  if (!t || t.length > 200 || /[\n;]/.test(t) || (t.match(/,/g)?.length ?? 0) > 1) { ctx.session.lastAction = undefined; return false; }
+  ctx.session.lastAction = undefined;
+  if (SKIP_STEP.test(t)) { await ctx.text('Okay, I left it as it is.'); return true; }
+  try {
+    const { old, task } = await ctx.d.renameTask!(ctx.uid, taskId, t);
+    ctx.undos.push({ k: 'rename', id: taskId, old, label: `rewrote ${clip(old, 30)}` });
+    ctx.rememberTasks([task]);
+    await flush(ctx, [`✏️ Now: *${clip(task.text, 150)}*`, `Was: ${clip(old, 80)}`]);
+  } catch (e) {
+    console.error('[bot] rename failed', taskId, e);
+    await ctx.text('⚠️ I could not change that task.');
+  }
+  return true;
+}
+
 // ---------- undo ----------
 
 export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
@@ -396,6 +509,7 @@ export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
       else if (u.k === 'complete') for (const id of u.ids) await ctx.d.uncompleteTask(ctx.uid, id);
       else if (u.k === 'delete') for (const id of u.ids) await ctx.d.restoreTask(ctx.uid, id);
       else if (u.k === 'defer') for (const id of u.ids) await ctx.d.deferTask(ctx.uid, id, u.to);
+      else if (u.k === 'rename') await ctx.d.renameTask?.(ctx.uid, u.id, u.old);
       else if (u.k === 'workout') await ctx.d.undoLastWorkout(ctx.uid);
       labels.push(u.label);
     } catch (e) {
@@ -497,6 +611,7 @@ export async function friendsLines(ctx: Ctx): Promise<string[]> {
     const bits: string[] = [];
     if (a.doneToday.length) bits.push(`✅ ${a.doneToday.length} done`);
     if (a.workoutsToday.length) bits.push(`🏃 ${a.workoutsToday.join(', ')}`);
+    if (a.focus?.total) bits.push(`⭐ ${a.focus.done}/${a.focus.total} focus`);
     if (a.streak > 1) bits.push(`🔥 ${a.streak}`);
     lines.push(`• ${a.displayName}: ${bits.join(' · ') || 'quiet so far'}`);
   }

@@ -51,6 +51,7 @@ export const defaultDeps: BotDeps = {
   listVaultFiles,
   setReminder: tasks.setReminder,
   setReminderChannel: reminders.setReminderChannel,
+  renameTask: tasks.renameTask,
   daySummary: tasks.daySummary,
   logWorkout: fitness.logWorkout,
   logMetric: fitness.logMetric,

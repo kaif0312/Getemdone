@@ -251,6 +251,8 @@ export interface Task {
   remindAt?: number | null;
   remindFor?: number | null;
   remindSentFor?: number | null;
+  /** When the bot last asked about this task for sitting untouched (lib/server/tasks.ts listStale). Written by the server only. */
+  staleNudgedAt?: number | null;
   order?: number; // For drag-and-drop ordering
   deleted?: boolean; // Soft delete flag
   deletedAt?: number | null; // Timestamp when deleted

@@ -65,7 +65,11 @@ export function makeFake(opts: { linked?: boolean; tasks?: Task[]; vault?: Vault
     restoreTask: async (_u, id) => { log(`restore ${id}`); tasks.get(id)!.deleted = false; },
     findTask: async (_u, q) => [...tasks.values()].find((t) => !t.completed && !t.deleted && t.text.toLowerCase().includes(q.toLowerCase())) ?? null,
     listVaultFiles: async (wa, n) => { log(`vaultFiles ${wa} ${n}`); return (opts.vault ?? []).slice(0, n); },
-    setFocus: async (_u, ids) => { log(`focus ${ids.join(',')}`); },
+    setFocus: async (_u, ids) => {
+      log(`focus ${ids.join(',')}`);
+      for (const t of tasks.values()) t.focusDate = ids.includes(t.id) ? '2026-11-01' : null;
+    },
+    renameTask: async (_u, id, text) => { log(`rename ${id} ${text}`); const t = tasks.get(id)!; const old = t.text; t.text = text; return { task: t, old }; },
     daySummary: async () => ({ done: [], open: [], streak: 4, fitnessStreak: 0 }),
     logWorkout: async (_u, w) => { log(`logWorkout ${JSON.stringify(w)}`); workouts.push(w); return { date: '2026-11-01', workouts: [], updatedAt: 1 }; },
     logMetric: async (_u, m, v, date) => { log(`logMetric ${m} ${v} ${date ?? ''}`); return { date: '2026-11-01', workouts: [], updatedAt: 1 }; },

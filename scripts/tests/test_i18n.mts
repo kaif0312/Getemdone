@@ -222,7 +222,7 @@ await test('care: nothing due -> a short Malayalam line, nothing forwarded', asy
   const f = makeFake({ link: parent, meds });
   await handleWith(f.deps, text('കഴിച്ചു'));
   assert.deepEqual(log, []);
-  assert.match(f.sent.at(-1)!.body, /ഇപ്പോൾ കഴിക്കേണ്ട/);
+  assert.match(f.sent.at(-1)!.body, /ഇപ്പോൾ കഴിക്കാൻ/);
 });
 
 // ---------- the family member's side

@@ -154,6 +154,7 @@ export function MeScreen() {
       </Group>
       <Group>
         <Row icon="logout" destructive title="Sign out" onPress={() => router.push('/me/sign-out')} />
+        <Row icon="trash" destructive title="Delete account" onPress={() => router.push('/me/delete-account')} />
       </Group>
     </Screen>
   );

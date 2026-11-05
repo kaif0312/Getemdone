@@ -18,6 +18,13 @@ import type { UserDoc } from '@/lib/types-extra';
 
 const FRIEND_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alikes, same as the PWA
 
+/** Set while the account is being deleted (app/me/delete-account.tsx): the profile listener must not re-create users/{uid}
+ *  when the server deletes it. firestore.rules refuse that too once accountDeletions/{uid} exists. */
+let accountDeleting = false;
+export function markAccountDeleting(on: boolean): void {
+  accountDeleting = on;
+}
+
 export function generateFriendCode(): string {
   let code = '';
   for (let i = 0; i < 6; i++) code += FRIEND_CODE_CHARS.charAt(Math.floor(Math.random() * FRIEND_CODE_CHARS.length));
@@ -135,6 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else if (!cancelled) {
             setProfile({ ...data, id: snap.id });
           }
+        } else if (accountDeleting) {
+          // deleted on the server: keep the last profile on screen until signOut, never write it back
         } else {
           // A cached "missing" can be stale: confirm on the server before creating (never overwrite a real profile).
           try {

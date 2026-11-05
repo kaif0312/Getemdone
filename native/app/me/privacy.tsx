@@ -1,5 +1,5 @@
 // Me > Privacy and security: Face ID lock (users.biometricEnabled, verified before enabling), default task visibility,
-// who sees fitness, what Nudge keeps, delete my data.
+// who sees fitness, what Nudge keeps, erase the WhatsApp chat memory, delete account.
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -84,7 +84,8 @@ export default function Privacy() {
       </Card>
       <Group title="Account">
         <Row icon="mail" tone="primary" title="Reset password" subtitle="We email you a link" onPress={() => void resetPassword()} />
-        <Row icon="trash" destructive title="Delete my data" subtitle="Ask the coach to erase everything" onPress={() => router.push('/me/delete-data')} />
+        <Row icon="trash" destructive title="Erase WhatsApp chat" subtitle="The coach forgets your chats. Tasks stay." onPress={() => router.push('/me/delete-data')} />
+        <Row icon="trash" destructive title="Delete account" subtitle="Your account and all its data" onPress={() => router.push('/me/delete-account')} />
       </Group>
     </SettingsPage>
   );

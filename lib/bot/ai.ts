@@ -5,8 +5,9 @@ import type { GeminiPart } from './types';
 import {
   Ctx, addItems, completeByRefs, deferByRef, deleteByRef, parkByRef, somedayList, somedayPick, describeWorkout, flush, friendsLines, logMetricAction,
   logWorkoutAction, newActionId, nudgeAction, parseWorkout, reactAction, setGoalAction, setReminderAction, setReminderChannelAction, setScheduleAction,
-  showToday, weekLines, type WorkoutArgs,
+  showToday, weekLines, type WorkoutArgs, addMedicationAction, removeMedicationAction, setLangAction,
 } from './actions';
+import { isLang } from './i18n';
 import { buildContext, systemFor } from './prompt';
 import { setCoachAction } from './actions';
 import { MOMENTS, type MemeFormat, type Moment } from './memes';
@@ -18,6 +19,7 @@ const MAX_CALLS = 8;
 const MAX_LIST_MEMORY = 25;
 
 export const DIDNT_CATCH = "Hmm, I didn't catch that. Try *help* to see what I can do.";
+const didntCatch = (ctx: Ctx) => (ctx.lang === 'en' ? DIDNT_CATCH : ctx.t('didntCatch'));
 
 /** Keep the numbers the user already saw stable (done tasks leave a hole); append new open tasks after them. */
 function numberTasks(ctx: Ctx, open: Task[]): (Task | null)[] {
@@ -53,7 +55,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   ctx.rememberTasks(all);
   const numbered = numberTasks(ctx, all.filter((t) => !t.completed));
   const context = buildContext({
-    session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName,
+    session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName, lang: ctx.lang,
   });
 
   let user: GeminiPart[];
@@ -109,6 +111,9 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'set_reminder_channel': lines.push(...await setReminderChannelAction(ctx, str(a.channel))); break;
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
         case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
+        case 'set_language': if (isLang(a.language)) lines.push(...await setLangAction(ctx, a.language)); break;
+        case 'add_medication': lines.push(...await addMedicationAction(ctx, a)); break;
+        case 'remove_medication': lines.push(...await removeMedicationAction(ctx, a)); break;
         case 'send_meme': {
           const moment = MOMENTS.includes(a.moment as Moment) ? (a.moment as Moment) : 'random';
           const format = ['meme', 'gif', 'sticker'].includes(String(a.format)) ? (a.format as MemeFormat) : undefined;
@@ -119,7 +124,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
       }
     } catch (e) {
       console.error('[bot] tool failed', call.name, e);
-      lines.push('⚠️ One of those did not go through. Please try again.');
+      lines.push(ctx.t('toolFailed'));
     }
   }
 
@@ -127,7 +132,7 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
   if (out.length) await flush(ctx, out);
   if (showList) await showToday(ctx);
   if (proposal) await sendProposal(ctx, proposal);
-  if (!out.length && !showList && !proposal && !ctx.meme && !hasOwnReply) await ctx.text(DIDNT_CATCH);
+  if (!out.length && !showList && !proposal && !ctx.meme && !hasOwnReply) await ctx.text(didntCatch(ctx));
 }
 
 async function sendProposal(ctx: Ctx, w: WorkoutArgs): Promise<void> {
@@ -155,7 +160,7 @@ export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
       ctx.rememberTasks(all);
       const numbered = numberTasks(ctx, all.filter((t) => !t.completed));
       const context = buildContext({
-        session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName,
+        session: ctx.session, numbered, today: ctx.today, time: ctx.time, tz: ctx.tz, displayName: ctx.user?.displayName, lang: ctx.lang,
       });
       const res = await ctx.d.gemini({
         system: systemFor(ctx.link.coach),
@@ -170,5 +175,5 @@ export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
   }
   if (!items.length) items = text.split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => ({ text: s }));
   const lines = await addItems(ctx, items);
-  await flush(ctx, lines.length ? lines : [DIDNT_CATCH]);
+  await flush(ctx, lines.length ? lines : [didntCatch(ctx)]);
 }

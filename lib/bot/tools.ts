@@ -150,6 +150,39 @@ export const TOOLS: FunctionDecl[] = [
     parameters: { type: 'OBJECT', properties: { checkin_time: S, recap_time: S } },
   },
   {
+    name: 'set_language',
+    description: 'Switch the language the bot answers in, when the user asks for it ("reply in Malayalam", "hindi mein bolo", "speak Urdu").',
+    parameters: {
+      type: 'OBJECT',
+      properties: { language: { ...S, enum: ['en', 'hi', 'ur', 'ml'], description: 'en English, hi Hindi, ur Urdu, ml Malayalam' } },
+      required: ['language'],
+    },
+  },
+  {
+    name: 'add_medication',
+    description:
+      'Set up a daily WhatsApp medicine reminder for a family member the user looks after (they get a message with a Taken button; the user is told if they do not confirm). ' +
+      'Only for people already set up; use it when the user says "remind Amma to take her BP tablet at 8am and 9pm".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        person: { ...S, description: 'Who, as the user calls them ("Amma", "Dad"). Omit if the user did not say.' },
+        medicine: { ...S, description: 'Medicine name or purpose, as said ("BP tablet", "thyroid")' },
+        times: { type: 'ARRAY', items: S, description: 'Daily times, 24h HH:mm in the user local zone, e.g. ["08:00","21:00"]' },
+      },
+      required: ['medicine', 'times'],
+    },
+  },
+  {
+    name: 'remove_medication',
+    description: 'Stop a daily medicine reminder for a family member.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { person: { ...S, description: 'Who, as the user calls them. Omit if not said.' }, medicine: S },
+      required: ['medicine'],
+    },
+  },
+  {
     name: 'set_coach',
     description: 'Switch the coach personality that talks to the user.',
     parameters: {

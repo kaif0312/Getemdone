@@ -3,6 +3,7 @@ import type { Task } from '@/lib/types';
 import type { WaSession } from '@/lib/wa/types';
 import { taskLine, weekdayOf } from './format';
 import { coachOf, coachPrompt } from './coaches';
+import { LANG_PROMPT, type Lang } from './i18n';
 
 export const SYSTEM = `You are Nudge, an accountability coach inside WhatsApp. You manage the user's todo list, fitness log and friend interactions by calling tools. Always answer by calling one or more tools.
 
@@ -22,6 +23,8 @@ Rules:
 - set_schedule times are 24h HH:mm in the user's zone.
 - The user can switch coach personality: "be harder on me" / "go easy" / "switch coach" -> set_coach (drill = hardcore no-excuses, hype = energetic cheerleader, stoic = calm philosophical mentor, zen = gentle, analyst = numbers, buddy = default friendly). If they ask for a specific real person (e.g. a famous athlete), pick the closest archetype and say you coach in that style but are not that person.
 - Someday list: ideas the user wants to keep without doing soon go to add_tasks with someday=true; an existing task they no longer want to see daily goes to park_tasks (never delete_task for "not now"). "What can I do / I'm bored" -> show_someday with pick=true.
+- Languages: the "Reply language" line near the end is the user's setting (English, Hindi, Urdu or Malayalam). Write every reply and lead-in in it (Hindi/Urdu/Malayalam in their own script, not Latin letters), even when the user types Hinglish or Manglish. If they clearly ask for another language ("reply in Malayalam", "hindi mein bolo"), call set_language. Task text stays in the words the user used.
+- Medicine for family: when the user wants someone they look after reminded to take a medicine ("remind Amma to take her BP tablet at 8am and 9pm"), call add_medication (person as they call them, medicine, times as HH:mm). "stop reminding Amma about the BP tablet" = remove_medication. These are WhatsApp messages to that person, not tasks.
 - Memes: call send_meme (once) when the user makes an excuse, says they are tired or lazy, brags, or asks for a meme/GIF/sticker (then asked=true, topic = what they asked for). Still reply in words too.`;
 
 /** SYSTEM plus the user's coach block. Static per coach, so the prefix still caches. */
@@ -43,14 +46,16 @@ export function buildContext(opts: {
   time: string;
   tz: string;
   displayName?: string;
+  lang?: Lang;
 }): string {
   const lines = opts.numbered.length
-    ? opts.numbered.map((t, i) => (t ? taskLine(i + 1, t, opts.today) : `${i + 1}. (done/removed)`)).join('\n')
+    ? opts.numbered.map((t, i) => (t ? taskLine(i + 1, t, opts.today, opts.lang) : `${i + 1}. (done/removed)`)).join('\n')
     : '(none)';
   return [
     formatTurns(opts.session),
     `Today's tasks (numbers as the user sees them):\n${lines}`,
     opts.displayName ? `User name: ${opts.displayName}` : '',
+    `Reply language: ${LANG_PROMPT[opts.lang ?? 'en']}.`,
     `Now: ${weekdayOf(opts.today)} ${opts.today} ${opts.time}, timezone ${opts.tz}.`,
   ].filter(Boolean).join('\n\n');
 }

@@ -71,6 +71,11 @@ export const BUTTON_IDS = {
   keep: (taskId: string) => `keep:${taskId}`,
   /** A row of the Sunday review: opens the task with Done / Someday / Drop it. */
   review: (taskId: string) => `rv:${taskId}`,
+  /** Medicine reminder taps (lib/server/meds.ts): taken / ask again in 30 min. `<x>` = a medDoses doc id. */
+  medTaken: (doseId: string) => `med:taken:${doseId}`,
+  medLater: (doseId: string) => `med:later:${doseId}`,
+  /** Language picker row (lib/bot/i18n.ts Lang). */
+  lang: (code: string) => `lang:${code}`,
 } as const;
 
 /** Steps of the WhatsApp onboarding (lib/bot/onboarding.ts). */
@@ -107,6 +112,13 @@ export interface WaLink {
   onboarding?: { step: OnboardStep; tz?: string; nm?: string } | null;
   /** What they said they mainly want the bot for (onboarding answer). */
   interest?: 'tasks' | 'fitness' | 'both';
+  /** Language of every fixed reply: 'en' | 'hi' | 'ur' | 'ml' (lib/bot/i18n.ts). Missing = English. */
+  lang?: string;
+  /** true = they chose it (list / "language hindi" / set_language); script detection no longer changes it. */
+  langManual?: boolean;
+  /** A family member added by number only to receive medicine reminders (scripts/med_plan.mjs). Their messages go to
+   *  lib/bot/care.ts (taps + short replies), never to the to-do bot, and they never get check-ins or recaps. */
+  care?: boolean;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

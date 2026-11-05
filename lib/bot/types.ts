@@ -7,6 +7,7 @@ import type * as Users from '@/lib/server/users';
 import type * as Links from '@/lib/wa/links';
 import type * as Sessions from '@/lib/wa/sessions';
 import type * as Send from '@/lib/wa/send';
+import type * as Meds from '@/lib/server/meds';
 import type { MemeDeps } from './memes';
 
 export interface GeminiPart {
@@ -32,8 +33,39 @@ export interface GeminiResult {
   model?: string;
 }
 
+/** The slice of lib/server/meds.ts the bot needs: patient taps (care.ts) and the family member's /meds + tools. */
+export interface MedBotDeps {
+  openDosesFor: typeof Meds.openDosesFor;
+  takeDose: typeof Meds.takeDose;
+  snoozeDose: typeof Meds.snoozeDose;
+  forwardToOwner: typeof Meds.forwardToOwner;
+  statusLines: typeof Meds.statusLines;
+  addMedication: typeof Meds.addMedication;
+  removeMedication: typeof Meds.removeMedication;
+}
+
+/** Calendar sync (lib/server/calendarLink.ts, googleCal.ts). Optional so older test fakes keep compiling. */
+export interface CalendarBotDeps {
+  status(uid: string): Promise<{ feed: { url: string; webcalUrl: string } | null; google: { connected: boolean; email?: string; lastSyncAt?: number; error?: string; needsReconnect?: boolean } }>;
+  /** Create (or with rotate, replace) the personal ICS feed; returns its URLs. */
+  ensureFeed(uid: string, rotate?: boolean): Promise<{ url: string; webcalUrl: string }>;
+  removeFeed(uid: string): Promise<void>;
+  googleAvailable(): boolean;
+  /** Signed link that starts the Google consent screen. */
+  googleLink(uid: string): string;
+  disconnectGoogle(uid: string): Promise<void>;
+  syncNow(uid: string): Promise<{ status: string; created: number; updated: number; deleted: number }>;
+}
+
 /** One file in the user's Drive vault (from the `vaultUploads` audit collection). */
 export interface VaultItem { name: string; bytes: number; at: number }
+
+/** Calendar images (/calendar, /cal week). Optional so older test fakes keep compiling; absent = a text agenda only. */
+export interface CalendarDeps {
+  tasks(uid: string): Promise<import('@/lib/types').Task[]>;
+  /** Render, upload and send the PNG with the caption and buttons. false = could not send an image (caller falls back to text). */
+  sendImage(to: string, view: 'month' | 'week', model: import('@/lib/calendar/events').MonthModel | import('@/lib/calendar/events').WeekModel, caption: string, buttons: { id: string; title: string }[]): Promise<boolean>;
+}
 
 export interface BotDeps {
   now(): number;
@@ -49,8 +81,13 @@ export interface BotDeps {
   sendList: typeof Send.sendList;
   /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
   sendSticker?: typeof Send.sendSticker;
+  calendar?: CalendarDeps;
   /** Meme/GIF/sticker sending; absent = no memes (tests that do not care, or no providers). */
   memes?: MemeDeps;
+  /** Medicine reminders (lib/server/meds.ts). Optional so older test fakes keep compiling. */
+  meds?: MedBotDeps;
+  /** Calendar sync: /sync on WhatsApp. Absent = the command says it is unavailable. */
+  calSync?: CalendarBotDeps;
   markRead: typeof Send.markRead;
   fetchMedia: typeof Send.fetchMedia;
   // lib/server

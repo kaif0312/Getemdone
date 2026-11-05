@@ -124,6 +124,11 @@ export async function listToday(uid: string): Promise<Task[]> {
   return shown.sort((a, b) => Number(a.completed) - Number(b.completed) || (a.order ?? 0) - (b.order ?? 0) || a.createdAt - b.createdAt);
 }
 
+/** Every live task the user has (open and done), for the calendar images. One query; the grids pick what they need. */
+export async function listCalendar(uid: string): Promise<Task[]> {
+  return allTasks(uid);
+}
+
 /** Open (not completed, not deleted) tasks, newest first, max `limit`. */
 export async function listOpen(uid: string, limit = 50): Promise<Task[]> {
   return (await allTasks(uid))

@@ -26,6 +26,7 @@ import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 import * as sessionsMod from '../wa/sessions';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
+import { langOf, t, type Lang } from '../bot/i18n';
 
 export type ReminderChannel = 'auto' | 'app' | 'whatsapp' | 'both';
 export const REMINDER_CHANNELS: ReminderChannel[] = ['auto', 'app', 'whatsapp', 'both'];
@@ -106,7 +107,7 @@ export const deps = {
   getLinkByUid: (uid: string) => linksMod.getLinkByUid(uid),
   windowOpen: (last: number, now?: number) => sendMod.windowOpen(last, now),
   sendButtons: (to: string, body: string, buttons: { id: string; title: string }[]) => sendMod.sendButtons(to, body, buttons),
-  sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string }) => sendMod.sendTemplate(to, name, vars, opts),
+  sendTemplate: (to: string, name: string, vars: string[], opts?: { language?: string }) => sendMod.sendTemplateFallback(to, name, vars, opts),
   getSession: (waId: string) => sessionsMod.getSession(waId),
   saveSession: (waId: string, s: Awaited<ReturnType<typeof sessionsMod.getSession>>) => sessionsMod.saveSession(waId, s),
 };
@@ -117,8 +118,8 @@ function toTask(id: string, data: FirebaseFirestore.DocumentData): Task {
   return { id, ...(data as Omit<Task, 'id'>) };
 }
 
-function taskLabel(t: Task): string {
-  return !t.text || t.text.startsWith('e1:') ? 'a task' : t.text; // e1: = encrypted by the app, never readable here
+function taskLabel(task: Task, lang: Lang = 'en'): string {
+  return !task.text || task.text.startsWith('e1:') ? t(lang, 'aTask') : task.text; // e1: = encrypted by the app, never readable here
 }
 
 function clipOne(s: string, n: number): string {
@@ -133,11 +134,11 @@ function time12(hhmm: string): string {
 }
 
 /** "in 15 min" / "in 2 h" / "now" for the push / message. */
-export function untilLabel(eventAt: number, now: number): string {
+export function untilLabel(eventAt: number, now: number, lang: Lang = 'en'): string {
   const min = Math.round((eventAt - now) / 60_000);
-  if (min <= 1) return 'now';
-  if (min < 90) return `in ${min} min`;
-  return `in ${Math.round(min / 60)} h`;
+  if (min <= 1) return lang === 'en' ? 'now' : t(lang, 'untilNow');
+  if (min < 90) return t(lang, 'untilMin', { n: min });
+  return t(lang, 'untilHr', { n: Math.round(min / 60) });
 }
 
 /** The pure part: which fire time (if any) applies to this task right now. */
@@ -209,14 +210,16 @@ async function bumpUserDayTemplate(waId: string, day: string, by: 1 | -1): Promi
 }
 
 async function viaWhatsApp(c: Candidate, link: WaLink, prefs: UserPrefs, now: number): Promise<Outcome> {
-  const label = clipOne(taskLabel(c.task), 60);
+  const lang = langOf(link);
+  const label = clipOne(taskLabel(c.task, lang), 60);
   const at = time12(localTime(prefs.tz, c.eventAt));
   const eventToday = localDate(prefs.tz, c.eventAt) === localDate(prefs.tz, now);
   if (deps.windowOpen(link.lastInboundAt, now)) {
     const when = eventToday ? at : `${localDate(prefs.tz, c.eventAt)} ${at}`;
-    const id = await deps.sendButtons(link.waId, `⏰ ${label}\n${untilLabel(c.eventAt, now) === 'now' ? 'Now' : `${untilLabel(c.eventAt, now)}`} (${when})`, [
-      { id: BUTTON_IDS.done(c.task.id), title: 'Done ✅' },
-      { id: BUTTON_IDS.tomorrow(c.task.id), title: 'Tomorrow' },
+    const until = untilLabel(c.eventAt, now, lang);
+    const id = await deps.sendButtons(link.waId, `⏰ ${label}\n${until === 'now' ? 'Now' : until} (${when})`, [
+      { id: BUTTON_IDS.done(c.task.id), title: t(lang, 'btnDone') },
+      { id: BUTTON_IDS.tomorrow(c.task.id), title: t(lang, 'btnTomorrow') },
     ]);
     if (id) return 'wa_free';
     // The window was closed in Meta's view after all (131047): fall through to the template path.
@@ -228,7 +231,7 @@ async function viaWhatsApp(c: Candidate, link: WaLink, prefs: UserPrefs, now: nu
   const gday = capDate(now);
   if (!(await reserveTemplateSlot(gday))) return 'skipped_cost';
   await bumpUserDayTemplate(link.waId, day, 1);
-  const id = await deps.sendTemplate(link.waId, 'nudge_reminder', [label, at], { language: 'en' });
+  const id = await deps.sendTemplate(link.waId, 'nudge_reminder', [label, at], { language: lang });
   if (!id) {
     await releaseTemplateSlot(gday);
     await bumpUserDayTemplate(link.waId, day, -1);
@@ -258,10 +261,12 @@ async function deliver(c: Candidate, prefs: UserPrefs, now: number): Promise<Out
     if (!hasApp) pushFailed = true;
     else if (prefs.focus) result = 'skipped_focus';
     else {
-      const label = taskLabel(c.task);
-      const when = untilLabel(c.eventAt, now);
+      const pl = langOf(link);
+      const label = taskLabel(c.task, pl);
+      const when = untilLabel(c.eventAt, now, pl);
+      const isNow = Math.round((c.eventAt - now) / 60_000) <= 1;
       const title = `⏰ ${clipOne(label, 80)}`;
-      const body = `${when === 'now' ? 'Starting now' : `Starts ${when}`} (${time12(localTime(prefs.tz, c.eventAt))})`;
+      const body = `${isNow ? t(pl, 'pushStartsNow') : t(pl, 'pushStarts', { when })} (${time12(localTime(prefs.tz, c.eventAt))})`;
       // Same title/body to every app the user has: the PWA (FCM) and the native app (Expo).
       const rs: ('ok' | 'dead' | 'error')[] = [];
       if (prefs.fcmToken) rs.push(await deps.sendPush(prefs.fcmToken, title, body, c.task.id));

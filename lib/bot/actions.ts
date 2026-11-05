@@ -10,39 +10,53 @@ import type { BotDeps, Undo } from './types';
 import { COACH_IDS, COACHES, isCoachId } from './coaches';
 import { raise, type MemeRequest } from './memes';
 import { REMIND_LEAD_MIN } from '@/lib/server/reminders';
+import { agendaText, buildMonth, buildWeek } from '@/lib/calendar/events';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
+import { LANGS, LANG_NAMES, langOf, t as tr, type Key, type Lang, type Params } from './i18n';
 
 export const MAX_LIST = 10;
 
-export const HELP = [
-  '*What I can do* 👇',
-  '• Add tasks: "gym 6pm, call mom, deck by Fri"',
-  '• *today* - your list, then tap a task',
-  '• *done 2* or *done 1,3* - tick off, *delete 2* - remove',
-  '• *someday* - ideas you are keeping for later: "someday learn guitar" parks one, *park 2* parks item 2, *bored* suggests three',
-  '• *undo* - take back the last change',
-  '• Log fitness: "ran 5k in 28 min", "82.4 kg"',
-  '• *week* - fitness this week, *friends* - what friends did',
-  '• "nudge Ali" - cheer a friend on',
-  '• *coach* - pick your coach (friendly, hardcore, hype...)',
-  '• *meme* - a meme from your coach, *memes off* to stop them',
-  '• Voice notes and screenshots work too',
-  '• Send a document or video and I file it in Drive (a photo: forward it, or caption it "save passport" or "/ref name")',
-  '• *review off* stops the "this has been sitting" nudges and the Sunday review, *review on* brings them back',
-  '• *stop* pauses my messages, *start* resumes',
-  '',
-  '*Slash commands* (a leading / works on the commands above)',
-  '/task <text> add a task, /today, /done 2, /undo, /week',
-  '/files your last 5 Drive files, /help',
-].join('\n');
+export const HELP = tr('en', 'help');
+export const helpFor = (lang: Lang) => tr(lang, 'help');
 
-export const UNKNOWN_CMD = (cmd: string) => `Unknown command /${cmd.slice(0, 20)}. Send /help to see what I can do.`;
+export const UNKNOWN_CMD = (cmd: string, lang: Lang = 'en') => tr(lang, 'unknownCmd', { cmd: cmd.slice(0, 20) });
 export const TASK_USAGE = 'Add a task like this: /task call the bank';
 export const FILES_NONE = 'Nothing in your Drive vault yet. Send me a document or video, or a photo captioned "/ref name".';
 
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 /** "/files": the user's last vault items, newest first. */
+/** "/calendar": the month grid or the week agenda as a picture, with Prev / Next / switch buttons; a text agenda if the picture fails. */
+export async function showCalendar(ctx: Ctx, view: 'month' | 'week', offset: number): Promise<void> {
+  const cal = ctx.d.calendar;
+  if (!cal) { await ctx.text('The calendar is not available right now.'); return; }
+  const tasks = await cal.tasks(ctx.uid);
+  const model = view === 'month' ? buildMonth(tasks, ctx.tz, ctx.today, offset) : buildWeek(tasks, ctx.tz, ctx.today, offset);
+  const days = view === 'month' ? (model as ReturnType<typeof buildMonth>).weeks.flat() : (model as ReturnType<typeof buildWeek>).days;
+  // Caption: a month shows what is coming up next (this month only); a week shows its own days.
+  const upcoming = view === 'month' ? days.filter((d) => d.date >= ctx.today && d.date <= addDays(ctx.today, 7)) : days;
+  const agenda = (view === 'week' || offset === 0 ? agendaText(upcoming, ctx.today, view === 'week' ? 7 : 4, 4) : '');
+  const headline = view === 'month' ? (model as ReturnType<typeof buildMonth>).title : (model as ReturnType<typeof buildWeek>).title;
+  const nothing = 'Nothing planned. Send me what you want to get done.';
+  const caption = agenda
+    ? `*${headline}*\n\n${view === 'month' ? '*Coming up*\n' : ''}${agenda}`.slice(0, 1000)
+    : `*${headline}*\n${model.total ? `${model.total - model.done} to go, ${model.done} done` : nothing}`;
+  const other = view === 'month' ? 'week' : 'month';
+  const buttons = [
+    { id: `cal:${view}:${offset - 1}`, title: '◀ Prev' },
+    { id: `cal:${view}:${offset + 1}`, title: 'Next ▶' },
+    { id: `cal:${other}:0`, title: other === 'week' ? 'Week view' : 'Month view' },
+  ];
+  const sent = await cal.sendImage(ctx.waId, view, model, caption, buttons);
+  ctx.out.push(caption);
+  if (!sent) {
+    const text = agendaText(days, ctx.today, 7, 5);
+    await ctx.text(`*${headline}*
+
+${text || 'Nothing planned yet. Tell me what you want to get done.'}`);
+  }
+}
+
 export async function filesLines(ctx: Ctx): Promise<string[]> {
   const items = (await ctx.d.listVaultFiles?.(ctx.waId, 5)) ?? [];
   if (!items.length) return [FILES_NONE];
@@ -52,6 +66,79 @@ export async function filesLines(ctx: Ctx): Promise<string[]> {
     lines.push(`• ${it.name}${it.bytes ? ` (${fmtSize(it.bytes)})` : ''} · ${date}`);
   }
   return lines;
+}
+
+/**
+ * "/sync": put timed tasks into a calendar. Two ways, both set up from this chat:
+ *   link   a private ICS URL to subscribe to in Google / Apple / Outlook (read-only, refreshes about hourly)
+ *   google a "Nudge" calendar in the user's Google account, kept in step by the 15-min cron
+ * Returns one WhatsApp message per entry (a copyable URL goes alone so it can be long-pressed).
+ */
+export async function syncLines(ctx: Ctx, arg: string): Promise<string[]> {
+  const cal = ctx.d.calSync;
+  if (!cal) return ['Calendar sync is not available right now.'];
+  const a = arg.trim();
+  const uid = ctx.uid;
+
+  if (a === 'link' || a === 'ics' || a === 'url' || a === 'reset' || a === 'new link') {
+    const f = await cal.ensureFeed(uid, a === 'reset' || a === 'new link');
+    return [
+      [
+        a === 'reset' || a === 'new link' ? '🔄 New calendar link made. The old one stopped working.' : '📅 *Your calendar link*',
+        '',
+        '*iPhone / Mac:* tap this: ' + f.webcalUrl,
+        '*Google Calendar:* open calendar.google.com on a computer → Other calendars (+) → *From URL* → paste the link below. (The phone app can\'t add it; once added it shows there too.)',
+        '',
+        'Timed tasks show up (like "gym 6pm"); done ones disappear. Calendars refresh it by themselves, Google can take a few hours. Anyone with the link can see your task titles, so keep it private. */sync reset* makes a new one.',
+      ].join('\n'),
+      f.url,
+    ];
+  }
+
+  if (a === 'google' || a === 'connect' || a === 'gcal') {
+    if (!cal.googleAvailable()) return ['Google Calendar is not switched on yet. Send */sync link* for the link version, which works everywhere.'];
+    const st = await cal.status(uid);
+    if (st.google.connected) return [`Google Calendar is already connected${st.google.email ? ` (${st.google.email})` : ''}. Send */sync now* to update it, or */sync off* to disconnect.`];
+    return [
+      [
+        '📅 *Connect Google Calendar*',
+        'Tap the link, pick your Google account and allow it. Nudge only gets its own calendar called *Nudge*; it can\'t see or change your other events.',
+        'The link works for 20 minutes.',
+      ].join('\n'),
+      cal.googleLink(uid),
+    ];
+  }
+
+  if (a === 'now' || a === 'refresh') {
+    const st = await cal.status(uid);
+    if (!st.google.connected) return [st.google.needsReconnect ? 'Google lost access. Send */sync google* to reconnect.' : 'Google Calendar isn\'t connected. Send */sync google* to set it up.'];
+    const r = await cal.syncNow(uid);
+    if (r.status === 'revoked') return ['Google lost access. Send */sync google* to reconnect.'];
+    if (r.status === 'error') return ['I couldn\'t reach Google just now. I\'ll retry on my own in a few minutes.'];
+    const bits = [r.created && `${r.created} added`, r.updated && `${r.updated} updated`, r.deleted && `${r.deleted} removed`].filter(Boolean);
+    return [bits.length ? `✅ Calendar updated: ${bits.join(', ')}.` : '✅ Calendar is already up to date.'];
+  }
+
+  if (a === 'off' || a === 'stop' || a === 'disconnect') {
+    const st = await cal.status(uid);
+    if (!st.feed && !st.google.connected) return ['Nothing is connected.'];
+    if (st.google.connected || st.google.needsReconnect) await cal.disconnectGoogle(uid);
+    if (st.feed) await cal.removeFeed(uid);
+    return ['Done. The link no longer works and the *Nudge* calendar was removed from Google. Your tasks in Nudge are untouched.'];
+  }
+
+  const st = await cal.status(uid);
+  const g = st.google;
+  return [[
+    '📅 *Calendar sync*',
+    'Tasks with a time ("gym 6pm") can show up in your calendar.',
+    '',
+    `• */sync link*: a private link for Apple, Google or Outlook ${st.feed ? '✅ on' : '(not set up)'}`,
+    `• */sync google*: its own *Nudge* calendar in Google, updated every few minutes ${g.connected ? `✅ connected${g.email ? ` (${g.email})` : ''}` : g.needsReconnect ? '⚠️ lost access, send it again' : '(not connected)'}`,
+    ...(g.connected && g.error ? [`⚠️ ${g.error}`] : []),
+    '',
+    st.feed || g.connected ? '*/sync now* updates Google right away, */sync off* turns it all off.' : 'The app has the same under *Me → Calendar*.',
+  ].join('\n')];
 }
 
 export class Ctx {
@@ -65,6 +152,8 @@ export class Ctx {
   meme?: MemeRequest;
   /** One plain task just added for today: flush() offers a "Done already" tap next to Undo (the two-minute rule). */
   doneAlready?: string;
+  /** The user's language (waLinks.lang); `setLang` changes it mid-turn. */
+  lang: Lang;
   private loaded = false;
 
   wantMeme(r: MemeRequest): void { this.meme = raise(this.meme, r); }
@@ -78,9 +167,14 @@ export class Ctx {
     readonly session: WaSession,
     readonly today: string,
     readonly time: string,
-  ) {}
+  ) {
+    this.lang = langOf(link);
+  }
 
   get uid(): string { return this.link.uid; }
+
+  /** A fixed reply in the user's language. */
+  t(key: Key, params?: Params): string { return tr(this.lang, key, params); }
 
   async text(t: string): Promise<void> {
     const body = t.slice(0, 3800);
@@ -125,7 +219,7 @@ export async function flush(ctx: Ctx, lines: string[]): Promise<void> {
     ctx.session.lastAction = { id, kind: 'batch', payload: { undos: [...ctx.undos] }, at: ctx.d.now() };
     const btns: WaButton[] = [];
     if (ctx.doneAlready && !ctx.undos.some((u) => u.k === 'complete')) btns.push({ id: BUTTON_IDS.done(ctx.doneAlready), title: 'Done already ✅' });
-    btns.push({ id: BUTTON_IDS.undo(id), title: 'Undo ↩️' });
+    btns.push({ id: BUTTON_IDS.undo(id), title: ctx.t('btnUndo') });
     ctx.doneAlready = undefined;
     ctx.undos.length = 0;
     await ctx.buttons(text, btns);
@@ -144,11 +238,11 @@ export async function resolveRef(ctx: Ctx, ref: string): Promise<Resolved> {
   if (m) {
     const n = +m[1];
     const id = ctx.session.lastList[n - 1];
-    if (!id) return { err: `I don't have a #${n} in your list. Send *today* to see it.` };
+    if (!id) return { err: ctx.t('noNumber', { n }) };
     return { id };
   }
   const t = await ctx.d.findTask(ctx.uid, r);
-  if (!t) return { err: `Couldn't pin down "${clip(r, 40)}". Send *today* and use the number.` };
+  if (!t) return { err: ctx.t('cantPin', { q: clip(r, 40) }) };
   ctx.rememberTasks([t]);
   return { id: t.id, text: t.text };
 }
@@ -173,7 +267,7 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
       lines.push(`✅ ${t.text}`);
     } catch (e) {
       console.error('[bot] complete failed', id, e);
-      lines.push('⚠️ Could not complete one of those.');
+      lines.push(ctx.t('couldNotComplete'));
     }
   }
   lines.push(...errs);
@@ -185,13 +279,13 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
         let extra = '';
         try {
           const s = await ctx.d.daySummary(ctx.uid);
-          if (s.streak > 0) extra = ` 🔥 ${s.streak}-day streak`;
+          if (s.streak > 0) extra = ctx.t('streak', { n: s.streak });
         } catch { /* streak is a nicety */ }
-        lines.push(`🎉 All done for today!${extra}`);
+        lines.push(ctx.t('allDone', { extra }));
         ctx.sticker = 'cheer';
         ctx.wantMeme({ moment: 'all_done', topic: names[0] });
       } else {
-        lines.push(`${left.length} left today`);
+        lines.push(ctx.t('leftToday', { n: left.length }));
         ctx.wantMeme({ moment: 'done', topic: names[0] });
       }
       // The top 3 for today (task.focusDate): say so when the last of them is ticked.
@@ -229,10 +323,10 @@ export async function deferById(ctx: Ctx, id: string, toDate?: string): Promise<
     const t = await ctx.d.deferTask(ctx.uid, id, to);
     ctx.undos.push({ k: 'defer', ids: [id], to: ctx.today, label: `moved ${clip(t.text, 30)}` });
     if (to > ctx.today) ctx.wantMeme({ moment: 'deferred', topic: t.text });
-    return [`➡️ ${t.text} moved to ${whenLabel(to, ctx.today) || 'today'}`];
+    return [ctx.t('moved', { task: t.text, when: whenLabel(to, ctx.today, ctx.lang) || ctx.t('today') })];
   } catch (e) {
     console.error('[bot] defer failed', id, e);
-    return ['⚠️ Could not move that task.'];
+    return [ctx.t('couldNotMove')];
   }
 }
 
@@ -241,10 +335,10 @@ export async function deleteById(ctx: Ctx, id: string): Promise<string[]> {
   try {
     await ctx.d.deleteTask(ctx.uid, id);
     ctx.undos.push({ k: 'delete', ids: [id], label: `deleted ${clip(title, 30)}` });
-    return [`🗑 Deleted: ${title}`];
+    return [ctx.t('deleted', { task: title })];
   } catch (e) {
     console.error('[bot] delete failed', id, e);
-    return ['⚠️ Could not delete that task.'];
+    return [ctx.t('couldNotDelete')];
   }
 }
 
@@ -278,39 +372,34 @@ function reminderFor(ctx: Ctx, o: Record<string, unknown>, when?: string, due?: 
 }
 
 export async function setReminderAction(ctx: Ctx, a: Record<string, unknown>): Promise<string[]> {
-  if (!ctx.d.setReminder) return ['⚠️ Reminders are not available right now.'];
+  if (!ctx.d.setReminder) return [ctx.t('remUnavailable')];
   const r = await resolveRef(ctx, str(a.ref) ?? String(a.ref ?? ''));
   if ('err' in r) return [r.err];
   const t = ctx.known.get(r.id);
   const title = clip(t?.text ?? r.text ?? 'task', 30);
   if (a.off === true) {
     await ctx.d.setReminder(ctx.uid, r.id, null);
-    return [`🔕 No reminder for ${title}`];
+    return [ctx.t('remOff', { task: title })];
   }
   const ev = eventMsOf(t, ctx.tz);
   const abs = validWhen(a.remind_at);
   const before = num(a.minutes_before);
   const at = abs?.includes('T') ? zonedToMs(abs, ctx.tz) : ev && before != null && before >= 0 ? ev - before * 60_000 : null;
-  if (!at) return ['⚠️ When should I remind you? e.g. "remind me at 5pm".'];
-  if (at <= ctx.d.now()) return ['⚠️ That time has already passed.'];
+  if (!at) return [ctx.t('remWhen')];
+  if (at <= ctx.d.now()) return [ctx.t('remPassed')];
   await ctx.d.setReminder(ctx.uid, r.id, at, ev ?? at);
   const date = ctx.d.localDate(ctx.tz, at);
-  const label = whenLabel(`${date}T${ctx.d.localTime(ctx.tz, at)}`, ctx.today);
-  return [`⏰ I'll remind you about ${title}: ${label}`];
+  const label = whenLabel(`${date}T${ctx.d.localTime(ctx.tz, at)}`, ctx.today, ctx.lang);
+  return [ctx.t('remSet', { task: title, when: label })];
 }
 
-const CHANNEL_LABEL: Record<string, string> = {
-  auto: 'in the app if you have it, otherwise here on WhatsApp',
-  app: 'in the app only',
-  whatsapp: 'here on WhatsApp only',
-  both: 'in the app and on WhatsApp',
-};
+const CHANNEL_KEY: Record<string, Key> = { auto: 'remChannelAuto', app: 'remChannelApp', whatsapp: 'remChannelWa', both: 'remChannelBoth' };
 
 export async function setReminderChannelAction(ctx: Ctx, channel?: string): Promise<string[]> {
   const c = (channel ?? '').toLowerCase();
-  if (!ctx.d.setReminderChannel || !(c in CHANNEL_LABEL)) return ['⚠️ Reminders go to: app, whatsapp, both or auto. Which one?'];
+  if (!ctx.d.setReminderChannel || !(c in CHANNEL_KEY)) return [ctx.t('remChannelAsk')];
   await ctx.d.setReminderChannel(ctx.uid, c as 'auto' | 'app' | 'whatsapp' | 'both');
-  return [`🔔 Reminders will come ${CHANNEL_LABEL[c]}.`];
+  return [ctx.t(CHANNEL_KEY[c])];
 }
 
 export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
@@ -341,13 +430,13 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
   const finished = created.filter((_, i) => items[i]?.alreadyDone);
   const parkedNew = created.filter((_, i) => items[i]?.parked);
   const pending = created.filter((_, i) => !items[i]?.alreadyDone && !items[i]?.parked);
-  const lines = pending.length ? [pending.length === 1 ? '📝 Added:' : `📝 Added ${pending.length}:`] : [];
+  const lines = pending.length ? [pending.length === 1 ? ctx.t('addedOne') : ctx.t('addedMany', { n: pending.length })] : [];
   for (const t of pending) {
     const forToday = !t.deferredTo || t.deferredTo.slice(0, 10) === ctx.today;
     if (forToday && !ctx.session.lastList.includes(t.id)) ctx.session.lastList.push(t.id);
     const n = ctx.session.lastList.indexOf(t.id) + 1;
-    const w = whenLabel(t.deferredTo, ctx.today);
-    const due = t.dueDate ? ` · due ${whenLabel(new Date(t.dueDate).toLocaleDateString('en-CA', { timeZone: ctx.tz }), ctx.today) || 'today'}` : '';
+    const w = whenLabel(t.deferredTo, ctx.today, ctx.lang);
+    const due = t.dueDate ? ctx.t('dueOn', { when: whenLabel(new Date(t.dueDate).toLocaleDateString('en-CA', { timeZone: ctx.tz }), ctx.today, ctx.lang) || ctx.t('today') }) : '';
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
     lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
   }
@@ -370,23 +459,24 @@ export async function showToday(ctx: Ctx): Promise<void> {
   const done = all.length - open.length;
   if (!open.length) {
     ctx.session.lastList = [];
-    await ctx.text(done ? `🎉 Nothing left for today (${done} done). Tell me what's next.` : 'Nothing on your list today. Tell me what you want to get done.');
+    await ctx.text(done ? ctx.t('todayEmptyDone', { done }) : ctx.t('todayEmpty'));
     return;
   }
   const shown = open.slice(0, MAX_LIST);
   ctx.session.lastList = shown.map((t) => t.id);
-  const head = `*Today* · ${open.length} open${done ? `, ${done} done` : ''}`;
-  const body = [head, ...shown.map((t, i) => (isFocus(t) ? taskLine(i + 1, t, ctx.today).replace(/^(\d+\.) /, '$1 ⭐ ') : taskLine(i + 1, t, ctx.today))), open.length > shown.length ? `+${open.length - shown.length} more (ask me for them)` : ''].filter(Boolean).join('\n');
+  const head = done ? ctx.t('todayHeadDone', { open: open.length, done }) : ctx.t('todayHead', { open: open.length });
+  const line = (t: Task, i: number) => (isFocus(t) ? taskLine(i + 1, t, ctx.today, ctx.lang).replace(/^(\d+\.) /, '$1 ⭐ ') : taskLine(i + 1, t, ctx.today, ctx.lang));
+  const body = [head, ...shown.map((t, i) => line(t, i)), open.length > shown.length ? ctx.t('moreAsk', { n: open.length - shown.length }) : ''].filter(Boolean).join('\n');
   if (shown.length === 1) {
-    await ctx.buttons(body, taskButtons(shown[0].id));
+    await ctx.buttons(body, taskButtons(shown[0].id, ctx.lang));
     return;
   }
   const rows: WaListRow[] = shown.map((t, i) => ({
     id: BUTTON_IDS.task(t.id),
     title: clip(`${i + 1}. ${t.text}`, 24),
-    description: clip(whenLabel(t.deferredTo, ctx.today) || t.text, 72),
+    description: clip(whenLabel(t.deferredTo, ctx.today, ctx.lang) || t.text, 72),
   }));
-  await ctx.list(body, 'Pick a task', rows);
+  await ctx.list(body, ctx.t('pickTask'), rows);
 }
 
 /**
@@ -394,24 +484,24 @@ export async function showToday(ctx: Ctx): Promise<void> {
  * Drop it, because postponing a task that has already sat for a week only kicks the can. `parked`: Do it today / Done / Delete.
  * Delete is always one text away (*delete 2*).
  */
-export function taskButtons(id: string, variant: 'default' | 'review' | 'parked' = 'default'): WaButton[] {
+export function taskButtons(id: string, lang: Lang = 'en', variant: 'default' | 'review' | 'parked' = 'default'): WaButton[] {
   if (variant === 'parked') {
     return [
       { id: BUTTON_IDS.unpark(id), title: 'Do it today' },
-      { id: BUTTON_IDS.done(id), title: 'Done ✅' },
-      { id: BUTTON_IDS.del(id), title: 'Delete' },
+      { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
+      { id: BUTTON_IDS.del(id), title: tr(lang, 'btnDelete') },
     ];
   }
   if (variant === 'review') {
     return [
-      { id: BUTTON_IDS.done(id), title: 'Done ✅' },
+      { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
       { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
       { id: BUTTON_IDS.del(id), title: 'Drop it 🗑' },
     ];
   }
   return [
-    { id: BUTTON_IDS.done(id), title: 'Done ✅' },
-    { id: BUTTON_IDS.tomorrow(id), title: 'Tomorrow' },
+    { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
+    { id: BUTTON_IDS.tomorrow(id), title: tr(lang, 'btnTomorrow') },
     { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
   ];
 }
@@ -419,10 +509,10 @@ export function taskButtons(id: string, variant: 'default' | 'review' | 'parked'
 export async function openTask(ctx: Ctx, id: string, fromReview = false): Promise<void> {
   await ctx.loadKnown();
   const t = ctx.known.get(id);
-  if (!t || t.deleted) { await ctx.text('That task is gone. Send *today* for your list.'); return; }
-  const w = whenLabel(t.deferredTo, ctx.today);
+  if (!t || t.deleted) { await ctx.text(ctx.t('taskGone')); return; }
+  const w = whenLabel(t.deferredTo, ctx.today, ctx.lang);
   const variant = t.parkedAt ? 'parked' : fromReview ? 'review' : 'default';
-  await ctx.buttons(`${t.parkedAt ? '💤 ' : ''}*${clip(t.text, 200)}*${w && !t.parkedAt ? `\n${w}` : ''}`, taskButtons(id, variant));
+  await ctx.buttons(`${t.parkedAt ? '💤 ' : ''}*${clip(t.text, 200)}*${w && !t.parkedAt ? `\n${w}` : ''}`, taskButtons(id, ctx.lang, variant));
 }
 
 // ---------- top 3 for today (focus) ----------
@@ -609,7 +699,7 @@ export async function takeStep(ctx: Ctx, text: string | undefined): Promise<bool
 export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
   const la = ctx.session.lastAction;
   if (!la || (actionId && la.id !== actionId) || la.kind !== 'batch') {
-    await ctx.text('Nothing to undo.');
+    await ctx.text(ctx.t('nothingUndo'));
     return;
   }
   const undos = ((la.payload as { undos?: Undo[] }).undos ?? []);
@@ -631,7 +721,7 @@ export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
       labels.push(`(could not undo: ${u.label})`);
     }
   }
-  await ctx.text(`↩️ Undone: ${labels.join(', ') || 'nothing'}`);
+  await ctx.text(ctx.lang === 'en' ? ctx.t('undone', { labels: labels.join(', ') || 'nothing' }) : ctx.t('undone'));
 }
 
 // ---------- fitness ----------
@@ -671,12 +761,12 @@ export function describeWorkout(w: WorkoutArgs): string {
 export async function logWorkoutAction(ctx: Ctx, w: WorkoutArgs): Promise<string[]> {
   await ctx.d.logWorkout(ctx.uid, w);
   ctx.undos.push({ k: 'workout', label: `workout ${clip(w.type, 20)}` });
-  const lines = [`💪 Logged: ${describeWorkout(w)}`];
+  const lines = [ctx.t('workoutLogged', { desc: describeWorkout(w) })];
   ctx.sticker = 'flex';
   ctx.wantMeme({ moment: 'workout', topic: w.type });
   try {
     const wk = await ctx.d.weekSummary(ctx.uid);
-    lines.push(wk.goal ? `${wk.workouts}/${wk.goal} workouts this week` : `${wk.workouts} workout${wk.workouts === 1 ? '' : 's'} this week`);
+    lines.push(wk.goal ? ctx.t('workoutsWeekGoal', { w: wk.workouts, g: wk.goal }) : ctx.lang === 'en' ? `${wk.workouts} workout${wk.workouts === 1 ? '' : 's'} this week` : ctx.t('workoutsWeek', { w: wk.workouts }));
   } catch (e) {
     console.error('[bot] weekSummary failed', e);
   }
@@ -697,7 +787,7 @@ export async function weekLines(ctx: Ctx): Promise<string[]> {
   if (w.minutes) bits.push(`${fmtNum(w.minutes)} min`);
   if (w.distanceKm) bits.push(`${fmtNum(w.distanceKm)} km`);
   if (w.lastWeightKg) bits.push(`${fmtNum(w.lastWeightKg)} kg`);
-  return [`*This week* 🏃`, bits.join(' · ')];
+  return [ctx.t('weekHead'), bits.join(' · ')];
 }
 
 export async function setGoalAction(ctx: Ctx, a: Record<string, unknown>): Promise<string[]> {
@@ -719,8 +809,8 @@ export async function setGoalAction(ctx: Ctx, a: Record<string, unknown>): Promi
 
 export async function friendsLines(ctx: Ctx): Promise<string[]> {
   const acts = await ctx.d.friendsActivity(ctx.uid);
-  if (!acts.length) return ["No friends on Nudge yet. Add some in the app and I'll show what they get done."];
-  const lines = ['*Friends today*'];
+  if (!acts.length) return [ctx.t('friendsNone')];
+  const lines = [ctx.t('friendsHead')];
   for (const a of acts) {
     const bits: string[] = [];
     if (a.doneToday.length) bits.push(`✅ ${a.doneToday.length} done`);
@@ -767,9 +857,9 @@ export async function setScheduleAction(ctx: Ctx, a: Record<string, unknown>): P
     const t = validTime(raw);
     if (t) { patch[field] = t; lines.push(`${label}: ${time12(t)}`); }
   }
-  if (!Object.keys(patch).length) return ['⚠️ What time should I use? e.g. "check in at 8am".'];
+  if (!Object.keys(patch).length) return [ctx.t('schedAsk')];
   await ctx.d.updateLink(ctx.waId, patch);
-  return ['⏰ Saved', ...lines];
+  return [ctx.t('schedSaved'), ...lines];
 }
 
 /** Switch coach. Returns the new coach's hello line; the whistle sticker marks the change. */
@@ -789,4 +879,48 @@ export async function coachMenu(ctx: Ctx): Promise<void> {
     'Pick a coach',
     COACH_IDS.map((id) => ({ id: `coach:${id}`, title: COACHES[id].title, description: COACHES[id].blurb })),
   );
+}
+
+// ---------- language ----------
+
+/** Switch the language of every fixed reply (and of Gemini's lead-ins). A manual choice stops script detection. */
+export async function setLangAction(ctx: Ctx, code: Lang): Promise<string[]> {
+  await ctx.d.updateLink(ctx.waId, { lang: code, langManual: true });
+  ctx.link.lang = code;
+  ctx.link.langManual = true;
+  ctx.lang = code;
+  return [ctx.t('langSet')];
+}
+
+/** The language picker (WhatsApp list, ids `lang:<code>`). */
+export async function langMenu(ctx: Ctx): Promise<void> {
+  await ctx.list(
+    ctx.t('langPick', { cur: LANG_NAMES[ctx.lang] }),
+    ctx.t('langPickBtn'),
+    LANGS.map((l) => ({ id: BUTTON_IDS.lang(l), title: LANG_NAMES[l] })),
+  );
+}
+
+// ---------- medicine reminders (the family member's side) ----------
+
+export async function medsLines(ctx: Ctx): Promise<string[]> {
+  if (!ctx.d.meds) return [ctx.t('medsNone')];
+  return ctx.d.meds.statusLines(ctx.uid, ctx.d.now(), ctx.lang, ctx.tz);
+}
+
+export async function addMedicationAction(ctx: Ctx, a: Record<string, unknown>): Promise<string[]> {
+  if (!ctx.d.meds) return [ctx.t('remUnavailable')];
+  const times = (Array.isArray(a.times) ? a.times : [a.times]).map((x) => String(x ?? '')).filter(Boolean);
+  const med = str(a.medicine);
+  if (!med) return [ctx.t('medNeedTimes')];
+  const r = await ctx.d.meds.addMedication(ctx.uid, str(a.person), med, times);
+  if (!r.ok) return [r.reason === 'no_times' ? ctx.t('medNeedTimes') : ctx.t('medNoPerson', { names: r.names.join(', ') || '-' })];
+  return [ctx.t('medAdded', { name: r.plan.ownerLabel, meds: r.med.name, times: r.med.times.map((x) => time12(x)).join(', ') })];
+}
+
+export async function removeMedicationAction(ctx: Ctx, a: Record<string, unknown>): Promise<string[]> {
+  if (!ctx.d.meds) return [ctx.t('remUnavailable')];
+  const r = await ctx.d.meds.removeMedication(ctx.uid, str(a.person), str(a.medicine) ?? '');
+  if (!r.ok) return [r.reason === 'no_med' ? ctx.t('medNoMatch', { name: str(a.person) ?? '' }) : ctx.t('medNoPerson', { names: r.names.join(', ') || '-' })];
+  return [ctx.t('medRemoved', { name: r.plan.ownerLabel, meds: r.med.name })];
 }

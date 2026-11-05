@@ -314,6 +314,9 @@ service cloud.firestore {
     match /waSessions/{id} { allow read, write: if false; }
     match /waSeen/{id} { allow read, write: if false; }
     match /nudgeLimits/{id} { allow read, write: if false; }
+    // Calendar connections: the Google refresh token lives here, so no client may read it. Feed token -> uid lookup too.
+    match /calendarLinks/{id} { allow read, write: if false; }
+    match /calendarFeeds/{id} { allow read, write: if false; }
 
     // Friend invites: created/answered server-side only; the two people involved may read.
     match /friendInvites/{id} {

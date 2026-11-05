@@ -6,6 +6,7 @@ export type Fast =
   | { t: 'today' }
   | { t: 'addTask'; text: string }
   | { t: 'files' }
+  | { t: 'sync'; arg: string }
   | { t: 'unknownCmd'; cmd: string }
   | { t: 'done' | 'delete' | 'tomorrow'; nums: number[] }
   | { t: 'undo'; id?: string }
@@ -79,6 +80,8 @@ function fromReply(id: string): Fast | null {
 /** Commands that take the rest of the line as written (not lower-cased). */
 const ADD_CMDS = new Set(['task', 'add']);
 const FILE_CMDS = new Set(['files', 'vault']);
+/** /sync: calendar sync (ICS link + Google Calendar). NOT /calendar, which shows the month/week image. */
+const SYNC_CMDS = new Set(['sync', 'gcal']);
 /** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
 const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
   'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines']);
@@ -95,6 +98,7 @@ export function parseSlash(text: string): { rest: string } | { fast: Fast } | nu
   const arg = (m[2] ?? '').trim();
   if (ADD_CMDS.has(cmd)) return { fast: { t: 'addTask', text: arg } };
   if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
+  if (SYNC_CMDS.has(cmd)) return { fast: { t: 'sync', arg: arg.toLowerCase() } };
   if (BARE_CMDS.has(cmd)) return { rest: arg ? `${cmd} ${arg}` : cmd };
   return { fast: { t: 'unknownCmd', cmd } };
 }
@@ -110,6 +114,7 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (t === 'stop') return { t: 'mute' };
   if (t === 'start') return { t: 'unmute' };
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
+  if (/^(sync|sync calendar|calendar sync|connect (google )?calendar|sync (to )?google calendar|add (my tasks )?to (my |google )?calendar)$/.test(t)) return { t: 'sync', arg: '' };
   if (t === 'week') return { t: 'week' };
   if (/^(meds|medicine|medicines|my meds|medicine status)$/.test(t)) return { t: 'meds' };
   if (isLangCommand(t)) return { t: 'lang' };

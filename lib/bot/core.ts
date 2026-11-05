@@ -3,7 +3,7 @@ import type { InboundMessage } from '@/lib/wa/types';
 import type { StickerName } from '@/lib/wa/send';
 import type { BotDeps } from './types';
 import {
-  Ctx, HELP, UNKNOWN_CMD, completeByIds, filesLines, deferById, deleteById, flush, friendsLines,
+  Ctx, HELP, UNKNOWN_CMD, completeByIds, filesLines, syncLines, deferById, deleteById, flush, friendsLines,
   coachMenu, logWorkoutAction, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
   langMenu, medsLines, setLangAction,
 } from './actions';
@@ -217,6 +217,7 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       if (!f.text) await ctx.text(ctx.t('taskUsage')); else await addTaskCommand(ctx, f.text);
       return;
     case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
+    case 'sync': for (const m of await syncLines(ctx, f.arg)) await ctx.text(m); return;
     case 'unknownCmd': await ctx.text(UNKNOWN_CMD(f.cmd, ctx.lang)); return;
     case 'week': await ctx.text((await weekLines(ctx)).join('\n')); return;
     case 'friends': await ctx.text((await friendsLines(ctx)).join('\n')); return;

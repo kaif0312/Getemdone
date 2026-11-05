@@ -36,6 +36,79 @@ export async function filesLines(ctx: Ctx): Promise<string[]> {
   return lines;
 }
 
+/**
+ * "/sync": put timed tasks into a calendar. Two ways, both set up from this chat:
+ *   link   a private ICS URL to subscribe to in Google / Apple / Outlook (read-only, refreshes about hourly)
+ *   google a "Nudge" calendar in the user's Google account, kept in step by the 15-min cron
+ * Returns one WhatsApp message per entry (a copyable URL goes alone so it can be long-pressed).
+ */
+export async function syncLines(ctx: Ctx, arg: string): Promise<string[]> {
+  const cal = ctx.d.calendar;
+  if (!cal) return ['Calendar sync is not available right now.'];
+  const a = arg.trim();
+  const uid = ctx.uid;
+
+  if (a === 'link' || a === 'ics' || a === 'url' || a === 'reset' || a === 'new link') {
+    const f = await cal.ensureFeed(uid, a === 'reset' || a === 'new link');
+    return [
+      [
+        a === 'reset' || a === 'new link' ? '🔄 New calendar link made. The old one stopped working.' : '📅 *Your calendar link*',
+        '',
+        '*iPhone / Mac:* tap this: ' + f.webcalUrl,
+        '*Google Calendar:* open calendar.google.com on a computer → Other calendars (+) → *From URL* → paste the link below. (The phone app can\'t add it; once added it shows there too.)',
+        '',
+        'Timed tasks show up (like "gym 6pm"); done ones disappear. Calendars refresh it by themselves, Google can take a few hours. Anyone with the link can see your task titles, so keep it private. */sync reset* makes a new one.',
+      ].join('\n'),
+      f.url,
+    ];
+  }
+
+  if (a === 'google' || a === 'connect' || a === 'gcal') {
+    if (!cal.googleAvailable()) return ['Google Calendar is not switched on yet. Send */sync link* for the link version, which works everywhere.'];
+    const st = await cal.status(uid);
+    if (st.google.connected) return [`Google Calendar is already connected${st.google.email ? ` (${st.google.email})` : ''}. Send */sync now* to update it, or */sync off* to disconnect.`];
+    return [
+      [
+        '📅 *Connect Google Calendar*',
+        'Tap the link, pick your Google account and allow it. Nudge only gets its own calendar called *Nudge*; it can\'t see or change your other events.',
+        'The link works for 20 minutes.',
+      ].join('\n'),
+      cal.googleLink(uid),
+    ];
+  }
+
+  if (a === 'now' || a === 'refresh') {
+    const st = await cal.status(uid);
+    if (!st.google.connected) return [st.google.needsReconnect ? 'Google lost access. Send */sync google* to reconnect.' : 'Google Calendar isn\'t connected. Send */sync google* to set it up.'];
+    const r = await cal.syncNow(uid);
+    if (r.status === 'revoked') return ['Google lost access. Send */sync google* to reconnect.'];
+    if (r.status === 'error') return ['I couldn\'t reach Google just now. I\'ll retry on my own in a few minutes.'];
+    const bits = [r.created && `${r.created} added`, r.updated && `${r.updated} updated`, r.deleted && `${r.deleted} removed`].filter(Boolean);
+    return [bits.length ? `✅ Calendar updated: ${bits.join(', ')}.` : '✅ Calendar is already up to date.'];
+  }
+
+  if (a === 'off' || a === 'stop' || a === 'disconnect') {
+    const st = await cal.status(uid);
+    if (!st.feed && !st.google.connected) return ['Nothing is connected.'];
+    if (st.google.connected || st.google.needsReconnect) await cal.disconnectGoogle(uid);
+    if (st.feed) await cal.removeFeed(uid);
+    return ['Done. The link no longer works and the *Nudge* calendar was removed from Google. Your tasks in Nudge are untouched.'];
+  }
+
+  const st = await cal.status(uid);
+  const g = st.google;
+  return [[
+    '📅 *Calendar sync*',
+    'Tasks with a time ("gym 6pm") can show up in your calendar.',
+    '',
+    `• */sync link*: a private link for Apple, Google or Outlook ${st.feed ? '✅ on' : '(not set up)'}`,
+    `• */sync google*: its own *Nudge* calendar in Google, updated every few minutes ${g.connected ? `✅ connected${g.email ? ` (${g.email})` : ''}` : g.needsReconnect ? '⚠️ lost access, send it again' : '(not connected)'}`,
+    ...(g.connected && g.error ? [`⚠️ ${g.error}`] : []),
+    '',
+    st.feed || g.connected ? '*/sync now* updates Google right away, */sync off* turns it all off.' : 'The app has the same under *Me → Calendar*.',
+  ].join('\n')];
+}
+
 export class Ctx {
   readonly known = new Map<string, Task>();
   readonly undos: Undo[] = [];

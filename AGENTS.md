@@ -203,3 +203,11 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
 | `GEMINI_API_KEY` | Gemini key |
 | `CRON_SECRET` | Auth for `/api/cron/nudge` |
 | `NUDGE_WA_NUMBER` | `96560091617` (for `wa.me` links) |
+
+## Calendar sync (2026-11-05): ICS feed + Google Calendar
+`/sync` on WhatsApp and Me -> Calendar in the native app. Full design, scope choice, owner steps, failure handling: `docs/CALENDAR.md`.
+- `lib/server/calendarEvents.ts` (which tasks become events, pure) -> `ics.ts` (feed writer) and `googleCal.ts` (OAuth, one-way sync into a
+  secondary "Nudge" calendar, scope `calendar.app.created`). State in `calendarLinks/{uid}` + `calendarFeeds/{token}` (server-only rules).
+- Routes: `app/api/cal/[token]` (ICS), `app/api/cal/google/{start,callback}`, `app/api/app/calendar` (native). Cron: `runCalendarSync` in `app/api/cron/nudge`.
+- Bot: `syncLines` in `lib/bot/actions.ts`, `deps.calendar`. `/calendar` is NOT ours (month/week image command).
+- Test: `npx tsx scripts/tests/test_calendar.mts` (no Firestore, no network).

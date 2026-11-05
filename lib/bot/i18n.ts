@@ -122,6 +122,7 @@ export const STR = {
       '*Slash commands* (a leading / works on the commands above)',
       '/task <text> add a task, /today, /done 2, /undo, /week',
       '/files your last 5 Drive files, /meds medicine reminders, /language, /help',
+      '/sync put your timed tasks in Google, Apple or Outlook calendar',
     ].join('\n'),
     [
       '*मैं क्या-क्या कर सकता हूँ* 👇',

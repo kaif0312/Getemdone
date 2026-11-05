@@ -109,14 +109,19 @@ admin dashboard (stays web).
 - Live checks 2026-11-06: Firestore rules release (updated 2026-11-04 21:08Z) = main's rules minus the deny-all
   `calendarLinks`/`calendarFeeds` matches (no wildcard match, so the same effect). Functions list: SA lacks
   `cloudfunctions.functions.list`, so whether `sendPushNotification` is deployed is unverified.
-- iOS 2026-11-06: no iOS build ever; EAS has no iOS credentials for `com.iskaria.nudge` (bundle id is registered on EAS);
-  `eas build -p ios --profile production --non-interactive` fails "Credentials are not set up" (it bumped the remote
-  buildNumber to 2). The account has an ASC API key on EAS (`WBSNS9S9HR`, ADMIN, team BJ25ZY3GQ3) and an APNs key
-  (`NNQAXP52N2`), but no local `.p8` for the ASC key, so the first build + app record need the owner's Apple login:
-  in a real terminal, `cd native; npx eas-cli build -p ios --profile production` then `npx eas-cli submit -p ios --latest`.
+- iOS 2026-11-06 (no TTY, no Apple login needed): ASC app **"Nudge: Coach To-Do"** (plain "Nudge" is taken; home-screen
+  name stays "Nudge") = ascAppId `6831352171`, SKU `nudge-ios`, team BJ25ZY3GQ3 (Individual). The ASC key `WBSNS9S9HR`
+  (EAS Submit, ADMIN) .p8 was fetched from EAS GraphQL to `~/.secrets/nudge/` (+ `asc.env`). EAS iOS credentials are
+  remote: the team's existing distribution cert `XNNRB2VAHL` reused (shared with Iskaria Desk, unchanged), new App Store
+  profile `JD3RVUB3T5` (copy in `~/.secrets/nudge/ios/`), push key `NNQAXP52N2`, ASC key set for submissions. So
+  `eas build -p ios --profile production --non-interactive` and `eas submit -p ios --latest --non-interactive` now
+  work (eas.json `submit.production.ios` = ascAppId + appleTeamId, no secrets). First build: `ef3dea7c-1cde-4c9f-95ca-ca504c63aa6a`
+  = 1.0.0 (3) from `633df8a`. TestFlight: internal group "Nudge friends" (owner ikaif0312@gmail.com, all builds),
+  external group "Nudge friends external", beta review details with the play.reviewer demo login. How-to replay:
+  `~/.claude/scripts/browser-flows/apple-asc-new-app-testflight.md`.
 - Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
-  FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), iOS build + submit +
-  TestFlight group, friends' emails on the tester list. The list below is the original.
+  FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), friends' emails on the tester lists
+  (Play + TestFlight external group). The list below is the original.
 - **Blocking a working beta (owner):** deploy `firestore.rules` (live rules are from 2026-02: no presence/fitness/
   focusSessions/friendInvites) and `functions` (`firebase deploy --only firestore:rules,functions:sendPushNotification`);
   merge `app-api` (Vercel deploy) so WhatsApp sign-in and friend invites work; upload the FCM V1 key to EAS

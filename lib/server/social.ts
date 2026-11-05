@@ -13,7 +13,15 @@ import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
 
 export interface FriendLite { uid: string; displayName: string; waLinked: boolean; }
-export interface FriendActivity { uid: string; displayName: string; doneToday: { taskId: string; text: string }[]; workoutsToday: string[]; streak: number; }
+export interface FriendActivity {
+  uid: string;
+  displayName: string;
+  doneToday: { taskId: string; text: string }[];
+  workoutsToday: string[];
+  streak: number;
+  /** The friend's "top 3 for today" (task.focusDate === today) that this viewer may see: how many are done. */
+  focus?: { done: number; total: number };
+}
 
 /** Injectable collaborators (real ones by default) so emulator tests can fake time, zones and sends. */
 export const deps = {
@@ -292,13 +300,19 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
         db.doc(`fitness/${fid}/days/${today}`).get(),
       ]);
       const doneToday: { taskId: string; text: string }[] = [];
+      const focus = { done: 0, total: 0 };
       for (const d of tasksSnap.docs) {
         const t = { ...(d.data() as Task), id: d.id };
         if (t.deleted) continue;
         const doneNow = t.completed && t.completedAt != null && deps.localDate(tz, t.completedAt) === today;
         const doneRecurring = !!t.recurrence?.completedDates?.includes(today);
+        const visible = canViewTask(t, uid, false);
+        if (visible && t.focusDate === today) {
+          focus.total++;
+          if (doneNow || doneRecurring) focus.done++;
+        }
         if (!doneNow && !doneRecurring) continue;
-        if (!canViewTask(t, uid, false)) continue;
+        if (!visible) continue;
         doneToday.push({ taskId: t.id, text: plainText(t.text) || 'a task' });
       }
       const visibility = (goalsSnap.data() as { visibility?: string } | undefined)?.visibility ?? 'friends';
@@ -312,6 +326,7 @@ export async function friendsActivity(uid: string): Promise<FriendActivity[]> {
         doneToday,
         workoutsToday: workouts,
         streak: friend.streakData?.currentStreak ?? 0,
+        ...(focus.total ? { focus } : {}),
       };
     }),
   );

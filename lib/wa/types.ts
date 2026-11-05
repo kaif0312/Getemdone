@@ -61,6 +61,16 @@ export const BUTTON_IDS = {
   nudge: (friendUid: string) => `nudge:${friendUid}`,
   checkinStart: 'checkin:start',
   checkinSkip: 'checkin:skip',
+  /** Top-3 picker: "that's enough" row. */
+  focusDone: 'checkin:focusdone',
+  /** Stale-task nudge: the user wants to write the first small step. */
+  step: (taskId: string) => `step:${taskId}`,
+  /** Someday/Maybe: park a task, pick a parked one up again, or keep it parked after the yearly question. */
+  park: (taskId: string) => `park:${taskId}`,
+  unpark: (taskId: string) => `unpark:${taskId}`,
+  keep: (taskId: string) => `keep:${taskId}`,
+  /** A row of the Sunday review: opens the task with Done / Someday / Drop it. */
+  review: (taskId: string) => `rv:${taskId}`,
   /** Medicine reminder taps (lib/server/meds.ts): taken / ask again in 30 min. `<x>` = a medDoses doc id. */
   medTaken: (doseId: string) => `med:taken:${doseId}`,
   medLater: (doseId: string) => `med:later:${doseId}`,
@@ -90,6 +100,8 @@ export interface WaLink {
   muted: boolean;
   /** Coach personality id (lib/bot/coaches.ts CoachId). Missing = the default 'buddy'. */
   coach?: string;
+  /** false = the user sent *review off*: no stale-task nudges and no Sunday review. Missing = on. */
+  reviews?: boolean;
   /** false = the user sent *memes off* (asked-for memes still work). Missing = on. */
   memes?: boolean;
   /** Meme budget for the local day memeDay (lib/bot/memes.ts allowMeme). */

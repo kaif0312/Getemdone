@@ -23,6 +23,8 @@ export const TOOLS: FunctionDecl[] = [
               remind_before_min: { ...N, description: 'Only if the user asks to be reminded N minutes before the time ("remind me 30 min before"). A task with a clock time already gets a 15 min reminder by default.' },
               remind_at: { ...S, description: 'Only if the user names the reminder moment itself ("remind me at 5pm"): YYYY-MM-DDTHH:mm in the user local zone' },
               no_reminder: { type: 'BOOLEAN', description: 'true if the user says they do not want a reminder for this task' },
+              someday: { type: 'BOOLEAN', description: 'true if the user wants to KEEP this for later without doing it soon ("someday learn guitar", "maybe one day...", "park this", "idea:"): it goes to the Someday list, not today' },
+              already_done: { type: 'BOOLEAN', description: 'true only if the user says they ALREADY did it ("just called mom", "already paid the bill"): the task is logged and ticked off in one go' },
             },
             required: ['text'],
           },
@@ -30,6 +32,16 @@ export const TOOLS: FunctionDecl[] = [
       },
       required: ['items'],
     },
+  },
+  {
+    name: 'park_tasks',
+    description: 'Move existing tasks to the Someday list ("park it", "not now", "someday", "maybe later", "I do not want to see this every day"). Each ref is a list number or the task text. Not for repeating tasks.',
+    parameters: { type: 'OBJECT', properties: { refs: { type: 'ARRAY', items: S } }, required: ['refs'] },
+  },
+  {
+    name: 'show_someday',
+    description: 'Show the Someday list, or with pick=true suggest three parked tasks to try now (the user says they are bored, free, have time, or asks what they could do).',
+    parameters: { type: 'OBJECT', properties: { pick: { type: 'BOOLEAN' } } },
   },
   {
     name: 'complete_tasks',

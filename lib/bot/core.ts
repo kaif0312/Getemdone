@@ -6,6 +6,8 @@ import {
   Ctx, HELP, UNKNOWN_CMD, completeByIds, filesLines, syncLines, deferById, deleteById, flush, friendsLines,
   coachMenu, logWorkoutAction, showCalendar, nudgeUid, setCoachAction, openTask, showToday, undoLast, weekLines, resolveRef, type WorkoutArgs,
   langMenu, medsLines, setLangAction,
+  askNextStep, focusPick, focusPrompt, focusSummary, pickedFocus, takeStep,
+  addParked, keepParked, parkByIds, somedayList, somedayPick, unparkById,
 } from './actions';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
@@ -74,7 +76,10 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   const ctx = new Ctx(d, msg.from, link, user, tz, session, d.localDate(tz, now), d.localTime(tz, now));
 
   const fast = parseFast(msg);
+  // "Next step" on a stale-task nudge waits for the user's next plain message; any button, command or other message ends the wait.
+  if (fast && fast.t !== 'step' && ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined;
   if (fast) await runFast(ctx, fast);
+  else if (await takeStep(ctx, msg.type === 'text' ? msg.text : undefined)) { /* the reply was the first step */ }
   else await runGemini(ctx, msg);
   const memed = await runMeme(ctx);
   if (!memed && ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
@@ -240,25 +245,34 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       const open = (await d.listToday(ctx.uid)).filter((t) => !t.completed);
       ctx.rememberTasks(open);
       if (!open.length) { await ctx.text('Nothing planned yet. Tell me what you want to get done today.'); return; }
-      const shown = open.slice(0, 10);
-      ctx.session.lastList = shown.map((t) => t.id);
-      await ctx.list(
-        ['Pick up to 3 to focus on today:', ...shown.map((t, i) => `${i + 1}. ${t.text}`)].join('\n'),
-        'Pick a task',
-        shown.map((t, i) => ({ id: `focus:${t.id}`, title: `${i + 1}. ${t.text}`.slice(0, 24) })),
-      );
+      if (ctx.session.lastAction?.kind === 'focus') ctx.session.lastAction = undefined; // a new morning starts with no picks
+      await focusPrompt(ctx, []);
       return;
     }
     case 'checkinSkip': await ctx.text('No problem. Tell me whenever you want to add something 👍'); return;
-    case 'focus': {
-      const la = ctx.session.lastAction;
-      const prev = la?.kind === 'focus' ? ((la.payload as { ids?: string[] }).ids ?? []) : [];
-      const ids = [...new Set([...prev, f.id])].slice(-3);
-      await d.setFocus(ctx.uid, ids);
-      ctx.session.lastAction = { id: 'focus', kind: 'focus', payload: { ids }, at: d.now() };
-      await ctx.text(ids.length >= 3 ? '⭐ 3 focus tasks set. Go get them!' : `⭐ ${ids.length}/3 picked. Pick more, or send *today*.`);
+    case 'focus': await focusPick(ctx, f.id); return;
+    case 'focusDone': await focusSummary(ctx, pickedFocus(ctx)); return;
+    case 'step': await askNextStep(ctx, f.id); return;
+    case 'park': {
+      const { ids, errs } = await idsFromNums(ctx, f.nums);
+      await flush(ctx, await parkByIds(ctx, ids, errs));
       return;
     }
+    case 'parkId': await flush(ctx, await parkByIds(ctx, [f.id])); return;
+    case 'unparkId': await flush(ctx, await unparkById(ctx, f.id)); return;
+    case 'keepParked': await keepParked(ctx, f.id); return;
+    case 'reviewOpen': await openTask(ctx, f.id, true); return;
+    case 'somedayList': await somedayList(ctx); return;
+    case 'somedayPick': await somedayPick(ctx); return;
+    case 'somedayAdd': await addParked(ctx, f.text); return;
+    case 'reviewsOff':
+      await d.updateLink(ctx.waId, { reviews: false });
+      await ctx.text('Okay, no more "this has been sitting" nudges or Sunday reviews. Send *review on* to bring them back.');
+      return;
+    case 'reviewsOn':
+      await d.updateLink(ctx.waId, { reviews: true });
+      await ctx.text("Back on. I'll ask about tasks that sit for days, and send a short review on Sundays.");
+      return;
     case 'setTime':
       await d.updateLink(ctx.waId, { checkinTime: f.time });
       await ctx.text(ctx.t('checkinSet', { time: time12(f.time) }));

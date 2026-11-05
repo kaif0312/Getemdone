@@ -150,6 +150,8 @@ export class Ctx {
   sticker?: StickerName;
   /** A meme moment raised this turn (lib/bot/memes.ts). */
   meme?: MemeRequest;
+  /** One plain task just added for today: flush() offers a "Done already" tap next to Undo (the two-minute rule). */
+  doneAlready?: string;
   /** The user's language (waLinks.lang); `setLang` changes it mid-turn. */
   lang: Lang;
   private loaded = false;
@@ -215,8 +217,12 @@ export async function flush(ctx: Ctx, lines: string[]): Promise<void> {
   if (ctx.undos.length) {
     const id = newActionId(ctx.d.now());
     ctx.session.lastAction = { id, kind: 'batch', payload: { undos: [...ctx.undos] }, at: ctx.d.now() };
+    const btns: WaButton[] = [];
+    if (ctx.doneAlready && !ctx.undos.some((u) => u.k === 'complete')) btns.push({ id: BUTTON_IDS.done(ctx.doneAlready), title: 'Done already ✅' });
+    btns.push({ id: BUTTON_IDS.undo(id), title: ctx.t('btnUndo') });
+    ctx.doneAlready = undefined;
     ctx.undos.length = 0;
-    await ctx.buttons(text, [{ id: BUTTON_IDS.undo(id), title: ctx.t('btnUndo') }]);
+    await ctx.buttons(text, btns);
   } else {
     await ctx.text(text);
   }
@@ -281,6 +287,11 @@ export async function completeByIds(ctx: Ctx, ids: string[], errs: string[] = []
       } else {
         lines.push(ctx.t('leftToday', { n: left.length }));
         ctx.wantMeme({ moment: 'done', topic: names[0] });
+      }
+      // The top 3 for today (task.focusDate): say so when the last of them is ticked.
+      const focus = [...ctx.known.values()].filter((t) => t.focusDate === ctx.today && !t.deleted);
+      if (focus.length && focus.every((t) => t.completed) && focus.some((t) => doneIds.includes(t.id))) {
+        lines.push(focus.length === 1 ? '⭐ Your focus task is done' : `⭐ All ${focus.length} focus tasks done`);
       }
     } catch (e) {
       console.error('[bot] left count failed', e);
@@ -406,15 +417,21 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
         dueDate: due ? zonedToMs(due, ctx.tz) ?? undefined : undefined,
         recurrenceText: str(o.recurrence),
         ...reminderFor(ctx, o, when, due),
+        alreadyDone: o.already_done === true && !str(o.recurrence),
+        parked: o.someday === true && !str(o.recurrence) && o.already_done !== true,
       };
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
     .slice(0, 15);
   if (!items.length) return [];
-  const created = await ctx.d.addTasks(ctx.uid, items);
+  const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked })));
   ctx.rememberTasks(created);
-  const lines = [created.length === 1 ? ctx.t('addedOne') : ctx.t('addedMany', { n: created.length })];
-  for (const t of created) {
+  // "I already called mom": the task is logged and ticked in one go (the two-minute rule), so the day's streak counts it.
+  const finished = created.filter((_, i) => items[i]?.alreadyDone);
+  const parkedNew = created.filter((_, i) => items[i]?.parked);
+  const pending = created.filter((_, i) => !items[i]?.alreadyDone && !items[i]?.parked);
+  const lines = pending.length ? [pending.length === 1 ? ctx.t('addedOne') : ctx.t('addedMany', { n: pending.length })] : [];
+  for (const t of pending) {
     const forToday = !t.deferredTo || t.deferredTo.slice(0, 10) === ctx.today;
     if (forToday && !ctx.session.lastList.includes(t.id)) ctx.session.lastList.push(t.id);
     const n = ctx.session.lastList.indexOf(t.id) + 1;
@@ -423,7 +440,12 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
     lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
   }
+  for (const t of parkedNew) lines.push(`💤 Parked: ${t.text} (find it with *someday*)`);
+  if (finished.length) lines.push(...await completeByIds(ctx, finished.map((t) => t.id)));
   ctx.undos.push({ k: 'add', ids: created.map((t) => t.id), label: `added ${created.length === 1 ? clip(created[0].text, 30) : created.length + ' tasks'}` });
+  // Two-minute rule: one plain task for today gets a "Done already" tap (a timed or recurring one is not "already").
+  const only = created.length === 1 && pending.length === 1 ? pending[0] : null; // a parked or finished task gets no tap
+  if (only && (!only.deferredTo || only.deferredTo.slice(0, 10) === ctx.today) && !only.deferredTo?.includes('T') && !only.recurrence) ctx.doneAlready = only.id;
   return lines;
 }
 
@@ -431,7 +453,9 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
 export async function showToday(ctx: Ctx): Promise<void> {
   const all = await ctx.d.listToday(ctx.uid);
   ctx.rememberTasks(all);
-  const open = all.filter((t) => !t.completed);
+  const isFocus = (t: Task) => t.focusDate === ctx.today;
+  // Today's top 3 first (stable: the rest keep the app's order).
+  const open = [...all.filter((t) => !t.completed && isFocus(t)), ...all.filter((t) => !t.completed && !isFocus(t))];
   const done = all.length - open.length;
   if (!open.length) {
     ctx.session.lastList = [];
@@ -441,7 +465,8 @@ export async function showToday(ctx: Ctx): Promise<void> {
   const shown = open.slice(0, MAX_LIST);
   ctx.session.lastList = shown.map((t) => t.id);
   const head = done ? ctx.t('todayHeadDone', { open: open.length, done }) : ctx.t('todayHead', { open: open.length });
-  const body = [head, ...shown.map((t, i) => taskLine(i + 1, t, ctx.today, ctx.lang)), open.length > shown.length ? ctx.t('moreAsk', { n: open.length - shown.length }) : ''].filter(Boolean).join('\n');
+  const line = (t: Task, i: number) => (isFocus(t) ? taskLine(i + 1, t, ctx.today, ctx.lang).replace(/^(\d+\.) /, '$1 ⭐ ') : taskLine(i + 1, t, ctx.today, ctx.lang));
+  const body = [head, ...shown.map((t, i) => line(t, i)), open.length > shown.length ? ctx.t('moreAsk', { n: open.length - shown.length }) : ''].filter(Boolean).join('\n');
   if (shown.length === 1) {
     await ctx.buttons(body, taskButtons(shown[0].id, ctx.lang));
     return;
@@ -454,20 +479,219 @@ export async function showToday(ctx: Ctx): Promise<void> {
   await ctx.list(body, ctx.t('pickTask'), rows);
 }
 
-export function taskButtons(id: string, lang: Lang = 'en'): WaButton[] {
+/**
+ * The three taps on a task. Default: Done / Tomorrow / Someday. `review` (a stale task, the Sunday list): Done / Someday /
+ * Drop it, because postponing a task that has already sat for a week only kicks the can. `parked`: Do it today / Done / Delete.
+ * Delete is always one text away (*delete 2*).
+ */
+export function taskButtons(id: string, lang: Lang = 'en', variant: 'default' | 'review' | 'parked' = 'default'): WaButton[] {
+  if (variant === 'parked') {
+    return [
+      { id: BUTTON_IDS.unpark(id), title: 'Do it today' },
+      { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
+      { id: BUTTON_IDS.del(id), title: tr(lang, 'btnDelete') },
+    ];
+  }
+  if (variant === 'review') {
+    return [
+      { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
+      { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
+      { id: BUTTON_IDS.del(id), title: 'Drop it 🗑' },
+    ];
+  }
   return [
     { id: BUTTON_IDS.done(id), title: tr(lang, 'btnDone') },
     { id: BUTTON_IDS.tomorrow(id), title: tr(lang, 'btnTomorrow') },
-    { id: BUTTON_IDS.del(id), title: tr(lang, 'btnDelete') },
+    { id: BUTTON_IDS.park(id), title: 'Someday 💤' },
   ];
 }
 
-export async function openTask(ctx: Ctx, id: string): Promise<void> {
+export async function openTask(ctx: Ctx, id: string, fromReview = false): Promise<void> {
   await ctx.loadKnown();
   const t = ctx.known.get(id);
   if (!t || t.deleted) { await ctx.text(ctx.t('taskGone')); return; }
   const w = whenLabel(t.deferredTo, ctx.today, ctx.lang);
-  await ctx.buttons(`*${clip(t.text, 200)}*${w ? `\n${w}` : ''}`, taskButtons(id, ctx.lang));
+  const variant = t.parkedAt ? 'parked' : fromReview ? 'review' : 'default';
+  await ctx.buttons(`${t.parkedAt ? '💤 ' : ''}*${clip(t.text, 200)}*${w && !t.parkedAt ? `\n${w}` : ''}`, taskButtons(id, ctx.lang, variant));
+}
+
+// ---------- top 3 for today (focus) ----------
+
+export const MAX_FOCUS = 3;
+
+/** The focus ids picked so far this session (session.lastAction kind 'focus'). */
+export function pickedFocus(ctx: Ctx): string[] {
+  const la = ctx.session.lastAction;
+  return la?.kind === 'focus' ? ((la.payload as { ids?: string[] }).ids ?? []) : [];
+}
+
+/** After a pick: the rest of today's open tasks as one-tap rows, plus "That's enough" once something is picked. */
+export async function focusPrompt(ctx: Ctx, picked: string[]): Promise<void> {
+  const open = (await ctx.d.listToday(ctx.uid)).filter((t) => !t.completed);
+  ctx.rememberTasks(open);
+  const rest = open.filter((t) => !picked.includes(t.id));
+  if (!rest.length) { await focusSummary(ctx, picked); return; }
+  const shown = rest.slice(0, picked.length ? MAX_LIST - 1 : MAX_LIST);
+  ctx.session.lastList = shown.map((t) => t.id);
+  const rows: WaListRow[] = shown.map((t, i) => ({ id: BUTTON_IDS.focus(t.id), title: clip(`${i + 1}. ${t.text}`, 24) }));
+  if (picked.length) rows.push({ id: BUTTON_IDS.focusDone, title: "That's enough" });
+  await ctx.list(
+    [
+      picked.length ? `⭐ ${picked.length}/${MAX_FOCUS} picked. Next one?` : `Pick up to ${MAX_FOCUS} to focus on today:`,
+      ...shown.map((t, i) => `${i + 1}. ${t.text}`),
+    ].join('\n'),
+    'Pick a task',
+    rows,
+  );
+}
+
+/** The chosen top tasks as a numbered list, so "done 1" ticks the first one. */
+export async function focusSummary(ctx: Ctx, ids: string[]): Promise<void> {
+  if (!ids.length) { await ctx.text('No focus picked. Send *today* any time to see your list.'); return; }
+  for (const id of ids) await ctx.titleOf(id); // loads the known tasks once
+  ctx.session.lastList = [...ids];
+  const lines = ids.map((id, i) => `${i + 1}. ⭐ ${ctx.known.get(id)?.text ?? 'task'}`);
+  await ctx.text([`*Your ${ids.length === 1 ? 'focus' : ids.length + ' for today'}*`, ...lines, '', 'Send *done 1* as you finish them. Your friends can see how you get on.'].join('\n'));
+}
+
+export async function focusPick(ctx: Ctx, id: string): Promise<void> {
+  const ids = [...new Set([...pickedFocus(ctx), id])].slice(-MAX_FOCUS);
+  await ctx.d.setFocus(ctx.uid, ids);
+  ctx.session.lastAction = { id: 'focus', kind: 'focus', payload: { ids }, at: ctx.d.now() };
+  if (ids.length >= MAX_FOCUS) await focusSummary(ctx, ids);
+  else await focusPrompt(ctx, ids);
+}
+
+// ---------- Someday/Maybe: tasks you want to keep but not nag yourself with ----------
+
+const PARK_UNAVAILABLE = ['⚠️ Parking tasks is not available right now.'];
+
+export async function parkByIds(ctx: Ctx, ids: string[], errs: string[] = []): Promise<string[]> {
+  if (!ctx.d.parkTask) return PARK_UNAVAILABLE;
+  const lines: string[] = [];
+  let n = 0;
+  for (const id of [...new Set(ids)]) {
+    try {
+      const before = await ctx.d.parkTask(ctx.uid, id);
+      ctx.undos.push({ k: 'park', id, deferredTo: before.deferredTo, label: `parked ${clip(before.text, 30)}` });
+      lines.push(`💤 Parked: ${before.text}`);
+      n++;
+    } catch (e) {
+      const m = String((e as Error).message);
+      lines.push(m === 'recurring' ? '⚠️ A repeating task cannot be parked.' : m === 'completed' ? '⚠️ That one is already done.' : '⚠️ Could not park that task.');
+    }
+  }
+  if (n) lines.push('Find parked tasks any time with *someday*.');
+  return [...lines, ...errs];
+}
+
+export async function parkByRef(ctx: Ctx, ref: string): Promise<string[]> {
+  const r = await resolveRef(ctx, ref);
+  return 'err' in r ? [r.err] : parkByIds(ctx, [r.id]);
+}
+
+export async function unparkById(ctx: Ctx, id: string): Promise<string[]> {
+  if (!ctx.d.unparkTask) return PARK_UNAVAILABLE;
+  try {
+    const t = await ctx.d.unparkTask(ctx.uid, id);
+    ctx.undos.push({ k: 'unpark', id, label: `picked up ${clip(t.text, 30)}` });
+    return [`📌 On today's list: ${t.text}`];
+  } catch (e) {
+    console.error('[bot] unpark failed', id, e);
+    return ['⚠️ Could not pick that one up.'];
+  }
+}
+
+/** The yearly question's "keep it": the question was stamped when it was sent, so there is nothing more to write. */
+export async function keepParked(ctx: Ctx, id: string): Promise<void> {
+  try { await ctx.d.markParkedAsked?.(ctx.uid, id, ctx.d.now()); } catch { /* the stamp from sending the question stands */ }
+  await ctx.text('Okay, it stays parked. I will ask again in a year.');
+}
+
+export async function addParked(ctx: Ctx, text: string): Promise<void> {
+  const lines = await addItems(ctx, [{ text, someday: true }]);
+  await flush(ctx, lines.length ? lines : [TASK_USAGE]);
+}
+
+/** "someday": parked tasks, newest first, one tap each. */
+export async function somedayList(ctx: Ctx): Promise<void> {
+  const parked = (await ctx.d.listParked?.(ctx.uid, 30)) ?? [];
+  ctx.rememberTasks(parked);
+  if (!parked.length) {
+    await ctx.text('Nothing parked yet. Send *someday learn guitar* to keep an idea for later, or tap *Someday* on any task.');
+    return;
+  }
+  const shown = parked.slice(0, MAX_LIST);
+  ctx.session.lastList = shown.map((t) => t.id);
+  const body = [`💤 *Someday* · ${parked.length} parked`, ...shown.map((t, i) => `${i + 1}. ${t.text}`), parked.length > shown.length ? `+${parked.length - shown.length} more` : '', 'Tap one to do it today, or send *bored* for three ideas.']
+    .filter(Boolean).join('\n');
+  await ctx.list(body, 'Pick one', shown.map((t, i) => ({ id: BUTTON_IDS.task(t.id), title: clip(`${i + 1}. ${t.text}`, 24) })));
+}
+
+/** Three parked tasks to try, the shortest (smallest) ones first, rotated by day so it is not always the same three. */
+export function pickSomeday(parked: Task[], dayKey: string, n = 3): Task[] {
+  const small = [...parked].sort((a, b) => a.text.length - b.text.length).slice(0, Math.max(n * 2, n));
+  let h = 0;
+  for (const c of dayKey) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const start = small.length ? h % small.length : 0;
+  return [...small.slice(start), ...small.slice(0, start)].slice(0, n);
+}
+
+export async function somedayPick(ctx: Ctx): Promise<void> {
+  const parked = (await ctx.d.listParked?.(ctx.uid, 100)) ?? [];
+  if (!parked.length) { await ctx.text('Nothing parked yet, so nothing to suggest. Send *someday learn guitar* to keep an idea for later.'); return; }
+  const picks = pickSomeday(parked, ctx.today);
+  ctx.rememberTasks(picks);
+  ctx.session.lastList = picks.map((t) => t.id);
+  await ctx.list(
+    ['Got a few minutes? Here are some ideas you parked:', ...picks.map((t, i) => `${i + 1}. ${t.text}`)].join('\n'),
+    'Pick one',
+    picks.map((t, i) => ({ id: BUTTON_IDS.task(t.id), title: clip(`${i + 1}. ${t.text}`, 24) })),
+  );
+}
+
+// ---------- stale task: "what is the very first small step?" ----------
+
+const STEP_TTL_MS = 20 * 60_000;
+const SKIP_STEP = /^(skip|cancel|no|nope|later|never ?mind)$/i;
+
+/** The user tapped "Next step" on a stale-task nudge: ask for the first action and wait for their next message. */
+export async function askNextStep(ctx: Ctx, id: string): Promise<void> {
+  if (!ctx.d.renameTask) { await ctx.text('That is not available right now.'); return; }
+  await ctx.loadKnown();
+  const t = ctx.known.get(id);
+  if (!t || t.deleted || t.completed) { await ctx.text('That task is already gone or done. Send *today* for your list.'); return; }
+  ctx.session.lastAction = { id: 'step', kind: 'pending_step', payload: { taskId: id }, at: ctx.d.now() };
+  await ctx.text(`✍️ *${clip(t.text, 120)}*\nWhat is the very first small step? Reply with it (e.g. "Call the bank and ask for the form"), or send *skip*.`);
+}
+
+export function hasPendingStep(ctx: Ctx): string | null {
+  const la = ctx.session.lastAction;
+  if (la?.kind !== 'pending_step' || ctx.d.now() - la.at > STEP_TTL_MS) return null;
+  return String((la.payload as { taskId?: string }).taskId ?? '') || null;
+}
+
+/**
+ * The reply after "Next step". Only a short single-line text counts as the step; anything else (a list of new tasks, a
+ * command, a voice note) just ends the wait and is handled normally. Returns true when the message was consumed.
+ */
+export async function takeStep(ctx: Ctx, text: string | undefined): Promise<boolean> {
+  const taskId = hasPendingStep(ctx);
+  if (!taskId) { if (ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined; return false; }
+  const t = (text ?? '').trim();
+  if (!t || t.length > 200 || /[\n;]/.test(t) || (t.match(/,/g)?.length ?? 0) > 1) { ctx.session.lastAction = undefined; return false; }
+  ctx.session.lastAction = undefined;
+  if (SKIP_STEP.test(t)) { await ctx.text('Okay, I left it as it is.'); return true; }
+  try {
+    const { old, task } = await ctx.d.renameTask!(ctx.uid, taskId, t);
+    ctx.undos.push({ k: 'rename', id: taskId, old, label: `rewrote ${clip(old, 30)}` });
+    ctx.rememberTasks([task]);
+    await flush(ctx, [`✏️ Now: *${clip(task.text, 150)}*`, `Was: ${clip(old, 80)}`]);
+  } catch (e) {
+    console.error('[bot] rename failed', taskId, e);
+    await ctx.text('⚠️ I could not change that task.');
+  }
+  return true;
 }
 
 // ---------- undo ----------
@@ -487,6 +711,9 @@ export async function undoLast(ctx: Ctx, actionId?: string): Promise<void> {
       else if (u.k === 'complete') for (const id of u.ids) await ctx.d.uncompleteTask(ctx.uid, id);
       else if (u.k === 'delete') for (const id of u.ids) await ctx.d.restoreTask(ctx.uid, id);
       else if (u.k === 'defer') for (const id of u.ids) await ctx.d.deferTask(ctx.uid, id, u.to);
+      else if (u.k === 'rename') await ctx.d.renameTask?.(ctx.uid, u.id, u.old);
+      else if (u.k === 'park') await ctx.d.unparkTask?.(ctx.uid, u.id, { deferredTo: u.deferredTo ?? null });
+      else if (u.k === 'unpark') await ctx.d.parkTask?.(ctx.uid, u.id);
       else if (u.k === 'workout') await ctx.d.undoLastWorkout(ctx.uid);
       labels.push(u.label);
     } catch (e) {
@@ -588,6 +815,7 @@ export async function friendsLines(ctx: Ctx): Promise<string[]> {
     const bits: string[] = [];
     if (a.doneToday.length) bits.push(`✅ ${a.doneToday.length} done`);
     if (a.workoutsToday.length) bits.push(`🏃 ${a.workoutsToday.join(', ')}`);
+    if (a.focus?.total) bits.push(`⭐ ${a.focus.done}/${a.focus.total} focus`);
     if (a.streak > 1) bits.push(`🔥 ${a.streak}`);
     lines.push(`• ${a.displayName}: ${bits.join(' · ') || 'quiet so far'}`);
   }

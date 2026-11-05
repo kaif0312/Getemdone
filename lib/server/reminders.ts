@@ -148,7 +148,7 @@ export function fireFor(
   leadMin: number,
   tz: string,
 ): { fireAt: number; eventAt: number } | null {
-  if (t.completed || t.deleted || t.recurrence) return null;
+  if (t.completed || t.deleted || t.recurrence || t.parkedAt) return null;
   if (t.remindAt) {
     const eventAt = t.remindFor ?? t.remindAt;
     if (t.remindAt > now) return null;
@@ -194,7 +194,7 @@ async function claim(taskId: string, fireAt: number): Promise<boolean> {
   return adminDb().runTransaction(async (tx) => {
     const s = await tx.get(ref);
     const d = s.data();
-    if (!d || d.completed === true || d.deleted === true) return false;
+    if (!d || d.completed === true || d.deleted === true || d.parkedAt) return false;
     if (d.remindSentFor === fireAt) return false;
     tx.update(ref, { remindSentFor: fireAt });
     return true;

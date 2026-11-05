@@ -46,6 +46,11 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
     return false;
   }
 
+  // Parked (Someday/Maybe) tasks never show in Today until they are picked up again
+  if (task.parkedAt) {
+    return false;
+  }
+
   // Focus tasks always appear on their focus date, regardless of deferral
   if (task.focusDate === todayStr) {
     if (task.completed && task.completedAt) {

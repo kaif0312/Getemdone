@@ -74,7 +74,7 @@ await test('today: list message, sets lastList; one task -> buttons', async () =
   const g = makeFake({ tasks: [mkTask('a', 'only')] });
   await handleWith(g.deps, text('list'));
   assert.equal(g.sent[0].kind, 'buttons');
-  assert.deepEqual(g.sent[0].buttons!.map((b) => b.id), ['done:a', 'tmrw:a', 'del:a']);
+  assert.deepEqual(g.sent[0].buttons!.map((b) => b.id), ['done:a', 'tmrw:a', 'park:a']);
 });
 
 await test('empty today', async () => {
@@ -129,7 +129,7 @@ await test('done works without a prior list (rebuilds it)', async () => {
 await test('buttons: task tap, tomorrow, delete + undo delete', async () => {
   const f = makeFake({ tasks: three() });
   await handleWith(f.deps, tap('task:t1'));
-  assert.deepEqual(f.sent[0].buttons!.map((b) => b.id), ['done:t1', 'tmrw:t1', 'del:t1']);
+  assert.deepEqual(f.sent[0].buttons!.map((b) => b.id), ['done:t1', 'tmrw:t1', 'park:t1']);
   await handleWith(f.deps, tap('tmrw:t2'));
   assert.ok(f.calls.includes('defer t2 2026-11-02'));
   await handleWith(f.deps, tap('del:t3'));

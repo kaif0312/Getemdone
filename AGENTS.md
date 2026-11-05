@@ -176,6 +176,44 @@ never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUpl
 - Delivery time is the 15-min cron tick (GitHub Actions can run late), so a dose arrives up to ~15 min after its time.
 - Tests: `scripts/tests/test_i18n.mts` (no emulator; languages + the parent's chat), `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_meds.mts`.
 
+## GTD-style nudges (2026-11-05): stale tasks, Sunday review, top 3, "Done already" (WhatsApp bot)
+Four small rules taken from Getting Things Done and friends, all inside the 24 h window (free, no templates):
+- **Stale-task nudge** (`sendStale` in `lib/server/scheduler.ts`): once a day at `NUDGE_STALE_TIME` (default 13:00 local) the oldest
+  open task that has sat `NUDGE_STALE_DAYS` (default 5) days gets a 3-button message: *Next step* / *Tomorrow* / *Drop it*.
+  Not nudged: done/deleted, recurring, scheduled for a later day, today's focus, encrypted (`e1:`) text, and anything asked
+  about in the last 7 days (`task.staleNudgedAt`, written by the server only). Not on Sundays (the review covers it).
+  Selection is the pure `staleTasks()` in `lib/server/tasks.ts`.
+- **First small step** (`askNextStep` / `takeStep` in `lib/bot/actions.ts`): the *Next step* tap (`step:<id>`) stores
+  `session.lastAction = pending_step` (20 min). The next plain one-line message (<= 200 chars, no newline/`;`, at most one comma)
+  becomes the task's new text (`renameTask`, undoable via the *rename* undo); *skip*, a list, a button tap, a command or a voice note
+  ends the wait and is handled normally. This is on purpose: a free-text reply must never rename a task by accident.
+- **Sunday review** (`sendReview`): Sundays at `NUDGE_REVIEW_TIME` (default 17:00 local) one message with done / open / untouched-7+-days
+  and a list of the 10 oldest (tap = the usual Done / Tomorrow / Delete). Data: `weekReview()` in `tasks.ts`. Window closed or an
+  empty week = skipped (no template). Claims are `waSchedule/{waId}_{date}_stale|review`, once a day like check-in/recap.
+- **Opt out:** *review off* / *review on* (also `/review off`) sets `waLinks.reviews`; it silences both the stale nudge and the review.
+  Onboarding and muted users get neither.
+- **Top 3 for today:** the morning pick (`focusPick`, `focusPrompt`, `focusSummary`) re-offers the remaining tasks after each pick with a
+  *That's enough* row (`checkin:focusdone`), then shows the numbered "Your 3 for today" (so `done 1` works). `today` lists focus tasks
+  first with a star; finishing the last one says so (`completeByIds`). A friend's progress ("Ali: ⭐ 2/3 focus") comes from
+  `friendsActivity().focus` (only focus tasks the viewer may see; no extra reads).
+- **Done already** (two-minute rule): a single plain task added for today comes back with *Done already ✅* next to *Undo* (the tap is
+  the existing `done:<id>` button). In Gemini's `add_tasks`, `already_done: true` ("just paid rent") adds and ticks in one go.
+- Tests: `npx tsx scripts/tests/test_gtd.mts` (bot, no emulator) and
+  `FIRESTORE_PORT=8485 bash scripts/test-emulator.sh scripts/tests/test_gtd_server.mts` (stale picking, review, scheduler, friend focus).
+  Run the emulator suites one per `test-emulator.sh` call: chained, they share state and `test_tasks` can fail.
+- **Someday/Maybe (parked tasks):** `task.parkedAt` (set = parked). A parked task is out of Today (`shouldShowInTodayView`), has no reminder or
+  focus, is never a stale candidate, is not counted as open in the review, and must stay hidden from friends. Repeating tasks cannot
+  be parked. Domain: `parkTask` / `unparkTask` / `listParked` / `parkedDueForAsk` in `lib/server/tasks.ts` (`unparkTask` puts it on today and
+  rests it from stale nudges for a week; an undo of a park restores its old day). WhatsApp: the *Someday 💤* button (task detail and the
+  stale nudge: Next step / Someday / Drop it; the Sunday review rows `rv:<id>` open Done / Someday / Drop it), `someday` (list),
+  `someday <idea>` or `/someday <idea>` (add parked), `park 2` (numbers from the last list), `bored` / `/someday pick` (three ideas,
+  smallest first, rotated by day), Gemini `park_tasks` / `show_someday` / `add_tasks.someday`. Plain task detail is now
+  Done / Tomorrow / Someday (Delete is *delete 2* or the *Drop it* button on stale tasks).
+- **Yearly question:** Sundays after the review (`sendParkedAsk`, claim kind `parkedask`, free window only): the oldest parked task whose
+  `max(parkedAt, parkedAskedAt)` is 365+ days old gets *Do it today / Keep parked / Drop it*. `parkedAskedAt` is stamped when the
+  question is sent, so one task is asked about at most once a year and one task per Sunday. Parked tasks never expire otherwise.
+- Not done: the native app has no stale/review/Someday UI yet; the old PWA is retired. Friends' feeds in the clients must skip parked tasks.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

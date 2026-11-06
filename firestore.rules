@@ -22,6 +22,12 @@ service cloud.firestore {
         userId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends;
     }
     
+    // Did `userId` block the caller? blocks/{userId}.uids is written by the server only (lib/server/moderation.ts).
+    function blockedBy(userId) {
+      return exists(/databases/$(database)/documents/blocks/$(userId)) &&
+        get(/databases/$(database)/documents/blocks/$(userId)).data.get('uids', []).hasAny([request.auth.uid]);
+    }
+    
     // Helper function to check if user is admin
     function isAdmin() {
       return isAuthenticated() && 
@@ -94,10 +100,12 @@ service cloud.firestore {
       // read all their tasks. Cannot be locked down yet: the PWA's addFriend (hooks/useFriends.ts) writes the OTHER
       // user's friends array from the client. Move friend adds to a callable function (consent via friendInvites),
       // switch the PWA to it, then delete this branch.
+      // A person this user BLOCKED (blocks/{userId}.uids, lib/server/moderation.ts) may not use the second branch.
       allow update: if isAuthenticated() && (
         isOwner(userId) || 
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
-         request.resource.data.friends is list)
+         request.resource.data.friends is list &&
+         !blockedBy(userId))
       );
       
       // Only admins can delete user profiles (for account deletion)
@@ -322,6 +330,29 @@ service cloud.firestore {
     // Calendar connections: the Google refresh token lives here, so no client may read it. Feed token -> uid lookup too.
     match /calendarLinks/{id} { allow read, write: if false; }
     match /calendarFeeds/{id} { allow read, write: if false; }
+
+    // Safety (App Store 1.2, lib/server/moderation.ts). The app files reports through POST /api/app/report (Admin SDK);
+    // this create-only rule is its offline fallback. Nobody but the server reads, edits or deletes a report.
+    match /reports/{id} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.keys().hasOnly(['reporterUid', 'targetUid', 'kind', 'reason', 'note', 'taskId', 'commentId',
+          'contentSeen', 'status', 'createdAt', 'source']) &&
+        request.resource.data.keys().hasAll(['reporterUid', 'targetUid', 'kind', 'reason', 'status', 'createdAt']) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.targetUid is string && request.resource.data.targetUid != request.auth.uid &&
+        request.resource.data.kind in ['comment', 'user'] &&
+        request.resource.data.reason in ['spam', 'harassment', 'inappropriate', 'other'] &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt is int &&
+        request.resource.data.get('note', '') is string && request.resource.data.get('note', '').size() <= 500 &&
+        request.resource.data.get('contentSeen', '') is string && request.resource.data.get('contentSeen', '').size() <= 1000;
+      allow read, update, delete: if false;
+    }
+    // Who `userId` blocked: only they may read it (the app hides those people's comments); only the server writes.
+    match /blocks/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if false;
+    }
 
     // Friend invites: created/answered server-side only; the two people involved may read.
     match /friendInvites/{id} {

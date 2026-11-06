@@ -61,7 +61,7 @@ assert.equal(entries[0].endMs! - entries[0].startMs!, H);
 assert.match(buildIcs(entries, { name: 'Nudge', now }), /SUMMARY:Physio/);
 
 // not a meeting: GET /api/meetings does not list it, GET /api/events does
-let g = await GET_MEETINGS(new Request('http://x/api/meetings', { headers: auth() }));
+let g: Response = await GET_MEETINGS(new Request('http://x/api/meetings', { headers: auth() }));
 assert.equal((await g.json()).meetings.length, 0);
 g = await GET(new Request('http://x/api/events', { headers: auth() }));
 let list = (await g.json()).events;

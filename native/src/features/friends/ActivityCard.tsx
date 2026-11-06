@@ -109,6 +109,7 @@ export function QuietRow({ feed, presence, nudgeSent, nudgeBusy, pending, onNudg
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={`Open ${friend.displayName}`}
         onPress={() => router.push(`/friend/${friend.id}`)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}
       >

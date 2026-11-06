@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFriends } from '@/hooks/useFriends';
 import { useTaskSocial } from '@/hooks/useTaskSocial';
@@ -35,8 +35,7 @@ export default function Encourage() {
   };
 
   return (
-    <SheetScaffold title={`Encourage ${name}`}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <SheetScaffold title={`Encourage ${name}`} avoidKeyboard>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 28 }}>
           {ENCOURAGEMENTS.map((m) => (
             <Pressable
@@ -59,7 +58,6 @@ export default function Encourage() {
             <Button label="Send" icon="send" fullWidth disabled={!custom.trim() || !!sending} loading={!!sending && sending === custom.trim()} onPress={() => send(custom.trim())} />
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
     </SheetScaffold>
   );
 }

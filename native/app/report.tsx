@@ -2,7 +2,7 @@
 // commentId (comment). Sends POST /api/app/report (src/lib/safetyApi.ts); the owner is alerted on WhatsApp and reviews
 // within 24 h. After sending, offers to block the person too.
 import React, { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useBlocks } from '@/hooks/useBlocks';
 import { useFriends } from '@/hooks/useFriends';
@@ -92,10 +92,10 @@ export default function Report() {
   return (
     <SheetScaffold
       title={kind === 'comment' ? 'Report comment' : `Report ${first(name)}`}
+      avoidKeyboard
       footer={<Button label="Send report" variant="danger" fullWidth disabled={!reason} loading={busy} onPress={() => void send()} />}
     >
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 12 }}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 12 }}>
           {comment ? (
             <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, gap: 4 }}>
               <Text variant="caption" tone="muted">{comment.userName}</Text>
@@ -125,8 +125,7 @@ export default function Report() {
             maxLength={500}
           />
           <Text variant="caption" tone="muted">We review every report within 24 hours and remove content or accounts that break the rules.</Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SheetScaffold>
   );
 }

@@ -120,7 +120,7 @@ export default function AddFriend() {
   };
 
   return (
-    <SheetScaffold title="Add a friend">
+    <SheetScaffold title="Add a friend" avoidKeyboard>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 18, paddingBottom: 32 }}>
         <Card padding={18}>
           <Text variant="label" tone="muted" align="center" style={{ marginBottom: 12 }}>Your friend code</Text>

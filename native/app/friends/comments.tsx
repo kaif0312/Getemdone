@@ -69,7 +69,7 @@ export default function Comments() {
   const grouped = groupReactions(reactions, uid);
 
   return (
-    <SheetScaffold title="Comments" avoidKeyboard>
+    <SheetScaffold title="Comments">
       <View style={{ flex: 1 }}>
         <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, gap: 6, marginBottom: 12 }}>
           <Text variant="bodyStrong" numberOfLines={2}>{title}</Text>

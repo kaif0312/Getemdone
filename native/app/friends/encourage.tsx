@@ -35,7 +35,7 @@ export default function Encourage() {
   };
 
   return (
-    <SheetScaffold title={`Encourage ${name}`} avoidKeyboard>
+    <SheetScaffold title={`Encourage ${name}`}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10, paddingBottom: 28 }}>
           {ENCOURAGEMENTS.map((m) => (
             <Pressable

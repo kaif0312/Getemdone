@@ -92,7 +92,6 @@ export default function Report() {
   return (
     <SheetScaffold
       title={kind === 'comment' ? 'Report comment' : `Report ${first(name)}`}
-      avoidKeyboard
       footer={<Button label="Send report" variant="danger" fullWidth disabled={!reason} loading={busy} onPress={() => void send()} />}
     >
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 12 }}>

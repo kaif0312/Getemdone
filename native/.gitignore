@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+expo-env.d.ts
+.DS_Store
+!.env
+
+# Apple signing material (never commit; lives in ~/.secrets/nudge)
+credentials.json
+*.p8
+*.p12
+*.mobileprovision

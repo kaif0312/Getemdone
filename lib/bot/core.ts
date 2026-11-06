@@ -11,6 +11,7 @@ import {
   askNextStep, focusPick, focusPrompt, focusSummary, pickedFocus, takeStep,
   addParked, keepParked, parkByIds, somedayList, somedayPick, unparkById,
 } from './actions';
+import { addEventCommand, eventFast, listEventsText } from './events';
 import { cancelMeetingCommand, meetCommand, meetingsCommand } from './meet';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
@@ -104,6 +105,7 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   if (fast && fast.t !== 'step' && ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined;
   if (fast) await runFast(ctx, fast);
   else if (await takeStep(ctx, msg.type === 'text' ? msg.text : undefined)) { /* the reply was the first step */ }
+  else if (await eventFast(ctx, msg.type === 'text' ? msg.text : undefined)) { /* a clear event phrase or "cancel <event>": no model call */ }
   else await runGemini(ctx, msg);
   const memed = await runMeme(ctx);
   if (!memed && ctx.sticker) await sendSticker(d, msg.from, ctx.sticker);
@@ -299,6 +301,8 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'addTask':
       if (!f.text) await ctx.text(ctx.t('taskUsage')); else await addTaskCommand(ctx, f.text);
       return;
+    case 'events': await ctx.text(await listEventsText(ctx)); return;
+    case 'addEvent': await addEventCommand(ctx, f.text); return;
     case 'meet': await meetCommand(ctx, f.text); return;
     case 'meetings': await meetingsCommand(ctx); return;
     case 'cancelMeeting': await cancelMeetingCommand(ctx, f.n); return;

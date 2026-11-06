@@ -1,5 +1,6 @@
 // Gemini function declarations.
 import type { FunctionDecl } from './types';
+import { EVENT_TOOLS } from './events';
 
 const S = { type: 'STRING' };
 const N = { type: 'NUMBER' };
@@ -208,6 +209,7 @@ export const TOOLS: FunctionDecl[] = [
       required: ['moment'],
     },
   },
+  ...EVENT_TOOLS,
   {
     name: 'reply',
     description: 'Say something to the user: chit-chat, an answer, a clarifying question, or a one-line confirmation in their language.',

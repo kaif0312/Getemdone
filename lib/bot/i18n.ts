@@ -75,7 +75,7 @@ export function isLangCommand(s: string): boolean {
 type Entry = Record<Lang, string>;
 const e = (en: string, hi: string, ur: string, ml: string): Entry => ({ en, hi, ur, ml });
 
-const HELP_SLASH = '/task <text>, /today, /done 2, /undo, /week, /files, /meds, /meet, /language, /help';
+const HELP_SLASH = '/task <text>, /event <text>, /events, /today, /done 2, /undo, /week, /files, /meds, /meet, /language, /help';
 
 export const STR = {
   apology: e(
@@ -106,6 +106,7 @@ export const STR = {
     [
       '*What I can do* 👇',
       '• Add tasks: "gym 6pm, call mom, deck by Fri"',
+      '• Add events (a time with a length): "physio today 4:30pm for 1 hour", "music class every Tuesday 6pm for 1h". *cancel physio* removes one, *events* lists them',
       '• *today* - your list, then tap a task',
       '• *done 2* or *done 1,3* - tick off',
       '• *someday* - ideas you are keeping for later: "someday learn guitar" parks one, *park 2* parks item 2, *bored* suggests three',
@@ -133,6 +134,7 @@ export const STR = {
     [
       '*मैं क्या-क्या कर सकता हूँ* 👇',
       '• टास्क जोड़ें: "gym 6pm, call mom, deck by Fri"',
+      '• इवेंट जोड़ें (समय और अवधि): "physio today 4:30pm for 1 hour"। *cancel physio* से हटाएँ, *events* से देखें',
       '• *today* - आज की लिस्ट, फिर किसी टास्क पर टैप करें',
       '• *done 2* या *done 1,3* - पूरा हुआ टिक करें',
       '• *undo* - आख़िरी बदलाव वापस लें',
@@ -152,6 +154,7 @@ export const STR = {
     [
       '*میں کیا کیا کر سکتا ہوں* 👇',
       '• ٹاسک شامل کریں: "gym 6pm, call mom, deck by Fri"',
+      '• ایونٹ شامل کریں (وقت اور دورانیہ): "physio today 4:30pm for 1 hour"۔ *cancel physio* سے ہٹائیں، *events* سے دیکھیں',
       '• *today* - آج کی فہرست، پھر کسی ٹاسک پر ٹیپ کریں',
       '• *done 2* یا *done 1,3* - مکمل شدہ پر ٹک کریں',
       '• *undo* - آخری تبدیلی واپس لیں',
@@ -171,6 +174,7 @@ export const STR = {
     [
       '*എനിക്ക് ചെയ്യാവുന്നത്* 👇',
       '• ടാസ്ക് ചേർക്കാം: "gym 6pm, call mom, deck by Fri"',
+      '• ഇവന്റ് ചേർക്കാം (സമയവും ദൈർഘ്യവും): "physio today 4:30pm for 1 hour". *cancel physio* ഒഴിവാക്കും, *events* കാണിക്കും',
       '• *today* - ഇന്നത്തെ ലിസ്റ്റ്, എന്നിട്ട് ഒരു ടാസ്കിൽ അമർത്തുക',
       '• *done 2* അല്ലെങ്കിൽ *done 1,3* - തീർന്നത് ടിക്ക് ചെയ്യാം',
       '• *undo* - അവസാനത്തെ മാറ്റം തിരിച്ചെടുക്കാം',
@@ -458,6 +462,85 @@ export const STR = {
     '⚠️ किस समय याद दिलाऊँ? उदाहरण: "8am and 9pm"।',
     '⚠️ کس وقت یاد دلاؤں؟ مثلاً "8am and 9pm"۔',
     '⚠️ ഏത് സമയത്താണ് ഓർമ്മിപ്പിക്കേണ്ടത്? ഉദാ: "8am and 9pm".',
+  ),
+  // ---- Events (2026-11-07): a timed thing with a length. Not a task: nothing to tick off. ----
+  evSet: e(
+    '📅 *{title}* — {when}, {range}',
+    '📅 *{title}* — {when}, {range}',
+    '📅 *{title}* — {when}، {range}',
+    '📅 *{title}* — {when}, {range}',
+  ),
+  evNudge: e(
+    "I'll nudge you at {at}. (reply 'cancel {name}' to remove)",
+    "मैं {at} पर याद दिलाऊँगा। (हटाने के लिए 'cancel {name}' लिखें)",
+    "میں {at} پر یاد دلاؤں گا۔ (ہٹانے کے لیے 'cancel {name}' لکھیں)",
+    "{at}-ന് ഞാൻ ഓർമ്മിപ്പിക്കാം. (ഒഴിവാക്കാൻ 'cancel {name}' എന്ന് അയക്കൂ)",
+  ),
+  evNoNudge: e(
+    "(reply 'cancel {name}' to remove)",
+    "(हटाने के लिए 'cancel {name}' लिखें)",
+    "(ہٹانے کے لیے 'cancel {name}' لکھیں)",
+    "(ഒഴിവാക്കാൻ 'cancel {name}' എന്ന് അയക്കൂ)",
+  ),
+  evNext: e('Next: {when}, {range}.', 'अगला: {when}, {range}।', 'اگلا: {when}، {range}۔', 'അടുത്തത്: {when}, {range}.'),
+  evEveryDay: e('every day', 'हर दिन', 'ہر روز', 'എല്ലാ ദിവസവും'),
+  evEveryWeekday: e('every weekday', 'हर कार्यदिवस', 'ہر ورکنگ ڈے', 'എല്ലാ പ്രവൃത്തിദിവസവും'),
+  evEveryDays: e('every {days}', 'हर {days}', 'ہر {days}', 'എല്ലാ {days}'),
+  evCancelled: e(
+    '❌ Cancelled *{title}* ({when}). The reminders are removed.',
+    '❌ *{title}* रद्द किया ({when})। याद दिलाने वाले हटा दिए।',
+    '❌ *{title}* منسوخ کر دیا ({when})۔ یاد دہانیاں ہٹا دی گئیں۔',
+    '❌ *{title}* റദ്ദാക്കി ({when}). ഓർമ്മപ്പെടുത്തലുകളും നീക്കി.',
+  ),
+  evCancelledSeries: e(
+    '❌ Cancelled *{title}* ({rule}). Every future one is removed.',
+    '❌ *{title}* रद्द किया ({rule})। आगे के सभी हटा दिए।',
+    '❌ *{title}* منسوخ کر دیا ({rule})۔ آگے کے سب ہٹا دیے گئے۔',
+    '❌ *{title}* റദ്ദാക്കി ({rule}). ഇനിയുള്ളതെല്ലാം നീക്കി.',
+  ),
+  evMoved: e(
+    '📅 Moved *{title}* to {when}, {range}.',
+    '📅 *{title}* को {when}, {range} पर कर दिया।',
+    '📅 *{title}* کو {when}، {range} پر کر دیا۔',
+    '📅 *{title}* {when}, {range}-ലേക്ക് മാറ്റി.',
+  ),
+  evNotFound: e(
+    "I couldn't find an upcoming event called {name}.",
+    'मुझे "{name}" नाम का कोई आने वाला इवेंट नहीं मिला।',
+    'مجھے "{name}" نام کا کوئی آنے والا ایونٹ نہیں ملا۔',
+    '"{name}" എന്ന പേരിൽ വരാനിരിക്കുന്ന ഇവന്റ് കണ്ടെത്താനായില്ല.',
+  ),
+  evWhich: e('Which one? {list}', 'कौन सा? {list}', 'کون سا؟ {list}', 'ഏതാണ്? {list}'),
+  evPast: e(
+    'That time has already passed. When should it be?',
+    'वह समय निकल चुका है। कब रखूँ?',
+    'وہ وقت گزر چکا ہے۔ کب رکھوں؟',
+    'ആ സമയം കഴിഞ്ഞു. എപ്പോഴാണ് വേണ്ടത്?',
+  ),
+  evFailed: e(
+    '⚠️ I could not set that event. Please try again.',
+    '⚠️ यह इवेंट नहीं बन पाया। कृपया फिर कोशिश करें।',
+    '⚠️ یہ ایونٹ نہیں بن سکا۔ براہِ کرم دوبارہ کوشش کریں۔',
+    '⚠️ ആ ഇവന്റ് സെറ്റ് ചെയ്യാനായില്ല. ദയവായി വീണ്ടും ശ്രമിക്കൂ.',
+  ),
+  evUnavailable: e(
+    'Events are not available right now.',
+    'इवेंट अभी उपलब्ध नहीं हैं।',
+    'ایونٹس ابھی دستیاب نہیں ہیں۔',
+    'ഇവന്റുകൾ ഇപ്പോൾ ലഭ്യമല്ല.',
+  ),
+  evListHead: e('*Your next events* 📅', '*आपके अगले इवेंट* 📅', '*آپ کے اگلے ایونٹس* 📅', '*നിങ്ങളുടെ അടുത്ത ഇവന്റുകൾ* 📅'),
+  evListNone: e(
+    'No upcoming events. Tell me one, like "physio tomorrow 4:30pm for 1 hour".',
+    'कोई आने वाला इवेंट नहीं। मुझे बताइए, जैसे "physio tomorrow 4:30pm for 1 hour"।',
+    'کوئی آنے والا ایونٹ نہیں۔ مجھے بتائیں، جیسے "physio tomorrow 4:30pm for 1 hour"۔',
+    'വരാനിരിക്കുന്ന ഇവന്റുകൾ ഒന്നുമില്ല. ഒന്ന് പറയൂ, ഉദാ: "physio tomorrow 4:30pm for 1 hour".',
+  ),
+  evSeriesMove: e(
+    'A repeating event can only change its time or length. To change the days, cancel it and set a new one.',
+    'दोहराने वाले इवेंट का सिर्फ़ समय या अवधि बदल सकती है। दिन बदलने के लिए इसे रद्द करके नया बनाइए।',
+    'دہرائے جانے والے ایونٹ کا صرف وقت یا دورانیہ بدلا جا سکتا ہے۔ دن بدلنے کے لیے اسے منسوخ کر کے نیا بنائیں۔',
+    'ആവർത്തിക്കുന്ന ഇവന്റിന്റെ സമയമോ ദൈർഘ്യമോ മാത്രമേ മാറ്റാനാകൂ. ദിവസങ്ങൾ മാറ്റാൻ റദ്ദാക്കി പുതിയത് ഉണ്ടാക്കൂ.',
   ),
 } as const satisfies Record<string, Entry>;
 

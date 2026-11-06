@@ -17,6 +17,7 @@ import { listVaultFiles } from '@/lib/vault/audit';
 import * as calLink from '@/lib/server/calendarLink';
 import * as gcal from '@/lib/server/googleCal';
 import * as meetings from '@/lib/server/meetings';
+import * as events from '@/lib/server/events';
 import type { BotDeps } from './types';
 import { sendCalendarImage } from '@/lib/calendar/send';
 
@@ -40,6 +41,13 @@ export const defaultDeps: BotDeps = {
     sendStickerId: media.sendStickerId,
   },
   calendar: { tasks: tasks.listCalendar, sendImage: sendCalendarImage },
+  events: {
+    create: events.createEvent,
+    listUpcoming: events.listUpcomingEvents,
+    update: events.updateEvent,
+    cancel: events.cancelEvent,
+    isBadRequest: (e) => e instanceof meetings.BadRequest,
+  },
   meetings: {
     create: meetings.createMeeting,
     listUpcoming: meetings.listUpcomingMeetings,

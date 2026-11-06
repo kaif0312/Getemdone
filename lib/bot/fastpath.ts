@@ -7,6 +7,8 @@ export type Fast =
   | { t: 'today' }
   | { t: 'addTask'; text: string }
   | { t: 'files' }
+  | { t: 'events' }
+  | { t: 'addEvent'; text: string }
   | { t: 'sync'; arg: string }
   | { t: 'calendar'; view: 'month' | 'week'; offset: number }
   | { t: 'unknownCmd'; cmd: string }
@@ -99,6 +101,7 @@ function fromReply(id: string): Fast | null {
 /** Commands that take the rest of the line as written (not lower-cased). */
 const ADD_CMDS = new Set(['task', 'add']);
 const FILE_CMDS = new Set(['files', 'vault']);
+const EVENT_CMDS = new Set(['event', 'events']);
 const SOMEDAY_CMDS = new Set(['someday', 'park', 'maybe']);
 
 /** "/someday" -> list, "/someday pick" -> 3 ideas, "/someday 2" -> park item 2 of the list, "/someday learn guitar" -> park that. */
@@ -141,6 +144,7 @@ export function parseSlash(text: string): { rest: string } | { fast: Fast } | nu
   if (cmd === 'meetings') return { fast: { t: 'meetings' } };
   if (cmd === 'cancel') { const n = parseCancelMeeting(arg); if (n !== null) return { fast: { t: 'cancelMeeting', n } }; }
   if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
+  if (EVENT_CMDS.has(cmd)) return { fast: arg ? { t: 'addEvent', text: arg } : { t: 'events' } };
   if (SOMEDAY_CMDS.has(cmd)) return { fast: somedayFast(arg) };
   if (SYNC_CMDS.has(cmd)) return { fast: { t: 'sync', arg: arg.toLowerCase() } };
   if (CAL_CMDS.has(cmd)) return { fast: parseCalendar(cmd, arg) ?? { t: 'calendar', view: 'month', offset: 0 } };
@@ -163,6 +167,7 @@ export function parseFast(msg: InboundMessage): Fast | null {
   if (t === 'start') return { t: 'unmute' };
   if (/^(help|menu|\?)$/.test(t)) return { t: 'help' };
   if (/^(sync|sync calendar|calendar sync|connect (google )?calendar|sync (to )?google calendar|add (my tasks )?to (my |google )?calendar)$/.test(t)) return { t: 'sync', arg: '' };
+  if (/^(events|my events|upcoming events|show events|show my events)$/.test(t)) return { t: 'events' };
   if (t === 'week') return { t: 'week' };
   const cal = /^(?:show |open |see |my )?(calendar|cal|agenda|schedule|month)(?: view)?(?:\s+(.+))?$/.exec(t) ?? /^(week|next week|this week)\s+(?:calendar|agenda|schedule)$/.exec(t);
   if (cal) return cal[2] === undefined && /^(week|next week|this week)$/.test(cal[1]) ? parseCalendar('calendar', cal[1]) : parseCalendar(cal[1], cal[2] ?? '');

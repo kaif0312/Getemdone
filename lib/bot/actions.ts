@@ -12,6 +12,7 @@ import { raise, type MemeRequest } from './memes';
 import { REMIND_LEAD_MIN } from '@/lib/server/reminders';
 import { agendaText, buildMonth, buildWeek } from '@/lib/calendar/events';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
+import { createEventFromDraft, draftFromItem } from './events';
 import { LANGS, LANG_NAMES, langOf, t as tr, type Key, type Lang, type Params } from './i18n';
 
 export const MAX_LIST = 10;
@@ -409,7 +410,11 @@ function addMinutes(hhmm: string, min: number): string {
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 }
 
-export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
+/**
+ * add_tasks items -> tasks. A timed item that the rules call an EVENT (a stated length or an event-like word: "class 4pm for 45 min",
+ * "physio 4:30pm") becomes an event instead (lib/bot/events.ts), unless `forceTask` ("/task" always adds a task).
+ */
+export async function addItems(ctx: Ctx, raw: unknown, opts: { forceTask?: boolean } = {}): Promise<string[]> {
   const arr = Array.isArray(raw) ? raw : [];
   const items = arr
     .map((it) => {
@@ -432,6 +437,16 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     .filter((x): x is NonNullable<typeof x> => !!x)
     .slice(0, 15);
   if (!items.length) return [];
+  const eventLines: string[] = [];
+  if (!opts.forceTask && ctx.d.events) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      const draft = draftFromItem(items[i]);
+      if (!draft) continue;
+      items.splice(i, 1);
+      eventLines.unshift(...await createEventFromDraft(ctx, draft));
+    }
+    if (!items.length) return eventLines;
+  }
   const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked })));
   ctx.rememberTasks(created);
   // "I already called mom": the task is logged and ticked in one go (the two-minute rule), so the day's streak counts it.
@@ -455,7 +470,7 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
   // Two-minute rule: one plain task for today gets a "Done already" tap (a timed or recurring one is not "already").
   const only = created.length === 1 && pending.length === 1 ? pending[0] : null; // a parked or finished task gets no tap
   if (only && (!only.deferredTo || only.deferredTo.slice(0, 10) === ctx.today) && !only.deferredTo?.includes('T') && !only.recurrence) ctx.doneAlready = only.id;
-  return lines;
+  return [...eventLines, ...lines];
 }
 
 /** Numbered today list (open tasks); sets session.lastList. List message when >1, buttons when 1. */

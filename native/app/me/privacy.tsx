@@ -1,13 +1,15 @@
 // Me > Privacy and security: Face ID lock (users.biometricEnabled, verified before enabling), default task visibility,
-// who sees fitness, what Nudge keeps, erase the WhatsApp chat memory, delete account.
+// who sees fitness, blocked people (report + block, App Store 1.2), what Nudge keeps, erase the WhatsApp chat memory, delete account.
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
+import { useBlocks } from '@/hooks/useBlocks';
 import { useFitness } from '@/hooks/useFitness';
 import { auth } from '@/lib/firebase';
+import { SAFETY_LINE } from '@/lib/safetyApi';
 import { Card, haptic, Text, useToast } from '@/ui';
 import { Group, OptionRow, Row, SettingsPage, SwitchRow } from '@/features/settings/ui';
 
@@ -16,6 +18,7 @@ export default function Privacy() {
   const toast = useToast();
   const { profile, updateProfile, user } = useAuth();
   const { goals } = useFitness();
+  const { blocked } = useBlocks();
   const [busy, setBusy] = useState(false);
   const lockOn = !!profile?.biometricEnabled;
   const vis = profile?.defaultVisibility ?? 'everyone';
@@ -74,6 +77,9 @@ export default function Privacy() {
       </Group>
       <Group title="Fitness">
         <Row icon="eye" tone="accent" title="Who sees my fitness" value={goals?.visibility === 'private' ? 'Only me' : 'Friends'} onPress={() => router.push('/progress/goals')} />
+      </Group>
+      <Group title="Safety" footer={`${SAFETY_LINE} Report or block from a person's profile, or hold one of their comments.`}>
+        <Row icon="shield" tone="danger" title="Blocked people" value={blocked.length ? String(blocked.length) : 'None'} onPress={() => router.push('/me/blocked')} />
       </Group>
       <Card padding={16}>
         <Text variant="subheading">What Nudge keeps</Text>

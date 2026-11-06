@@ -9,6 +9,7 @@ import {
 } from '@expo-google-fonts/nunito';
 import { AppLock } from '@/components/AppLock';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
+import { BlocksProvider } from '@/hooks/useBlocks';
 import { EncryptionProvider } from '@/hooks/useEncryption';
 import { FitnessProvider } from '@/hooks/useFitness';
 import { FriendsProvider } from '@/hooks/useFriends';
@@ -61,6 +62,10 @@ function Navigator() {
           <Stack.Screen name="friends/comments" options={sheetOptions({ detents: [0.7, 0.94] }, colors)} />
           <Stack.Screen name="friends/encourage" options={sheetOptions({ detents: [0.7] }, colors)} />
           <Stack.Screen name="friends/remove" options={sheetOptions({ detents: [0.42] }, colors)} />
+          {/* Safety (App Store 1.2): report a comment or person, block a person, the blocked list. */}
+          <Stack.Screen name="report" options={sheetOptions({ detents: [0.8, 0.94] }, colors)} />
+          <Stack.Screen name="block" options={sheetOptions({ detents: [0.5] }, colors)} />
+          <Stack.Screen name="me/blocked" options={{ presentation: 'card' }} />
           {/* Progress + Me (nudge-progress): sheets, then Me sub-pages as plain cards. */}
           <Stack.Screen name="progress/log-workout" options={sheetOptions({ detents: [0.85, 1] }, colors)} />
           <Stack.Screen name="progress/log-metric" options={sheetOptions({ detents: [0.62, 1] }, colors)} />
@@ -93,6 +98,7 @@ export default function RootLayout() {
             <ConfettiProvider>
               <AuthProvider>
                 <EncryptionProvider>
+                  <BlocksProvider>
                   <TasksProvider>
                     <FriendsProvider>
                       <NotificationsInboxProvider>
@@ -106,6 +112,7 @@ export default function RootLayout() {
                       </NotificationsInboxProvider>
                     </FriendsProvider>
                   </TasksProvider>
+                  </BlocksProvider>
                 </EncryptionProvider>
               </AuthProvider>
             </ConfettiProvider>

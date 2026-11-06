@@ -150,3 +150,18 @@ Verified: `tsc` clean, `npm run test:crypto` 138/138, `expo export` ios + androi
 Talks to the web app's `POST/GET /api/app/calendar` (design and owner steps: web repo `docs/CALENDAR.md`). Google consent opens in the browser via
 `Linking`, then returns on `nudge://me/calendar?connected=1`; the screen also refreshes when the app comes to the foreground. No new native module: OTA-able.
 Same thing on WhatsApp: `/sync`. Added the `refresh` icon to `src/ui/Icon.tsx`.
+
+## Safety: report + block (2026-11-06, App Store guideline 1.2)
+- Server contract: the web repo's AGENTS.md "Safety" (`POST /api/app/report`, `POST /api/app/block`, `reports/{id}`, `blocks/{uid}`).
+  Client: `src/lib/safetyApi.ts` (a report that cannot reach the server is written straight to `reports` with `source:'app'`; rules allow create only).
+- `useBlocks()` (`src/hooks/useBlocks.tsx`, provider in `_layout.tsx` ABOVE Tasks/Friends/Inbox): live `blocks/{me}.uids` + optimistic overlay;
+  `block(uid)` / `unblock(uid)`. `useTasks`, `useFriends` and `useNotificationsInbox` hide blocked people's comments, reactions (also on comments),
+  quotes of their comments, incoming requests and notifications (`src/features/safety/filter.ts`, display only; `scripts/test_safety_filter.mts`).
+- UI: sheets `/report?kind=comment|user&uid&name&taskId&commentId` (reason picker + note; "other" needs a note; then offers Block) and `/block?uid&name`
+  (confirm, then `dismissAll`); page `/me/blocked` (Privacy and security > Safety > Blocked people, Unblock). Friend profile: Remove friend / Report /
+  Block. Comments (task detail thread and `/friends/comments`): hold someone else's comment, or tap its "Report", for Report comment / Block
+  (`src/features/safety/commentMenu.ts`, an `Alert`; web goes straight to the report sheet). `SAFETY_LINE` ("Report or block anyone who bothers
+  you; we review reports within 24 hours.") shows under comments, on the friend profile, on Privacy and on Blocked people.
+- Invite error `blocked` -> "You blocked them. Unblock ... first."; someone who blocked you looks like "No one has that code."
+- Needs the server PR live and `firestore.rules` deployed (`blocks` read, `reports` fallback). Not checked on a device yet: Alert menu, sheet over sheet
+  (report from the comments sheet), `dismissAll` after Block from inside comments.

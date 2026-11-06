@@ -11,6 +11,7 @@ import { collection, deleteDoc, doc, limit, onSnapshot, orderBy, query, updateDo
 import { db } from '@/lib/firebase';
 import type { InAppNotification } from '@/lib/types';
 import { useAuth } from './useAuth';
+import { useBlocks } from './useBlocks';
 import { useEncryption } from './useEncryption';
 
 const MAX_NOTIFICATIONS = 100;
@@ -58,7 +59,13 @@ function useInboxState() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, enc.isInitialized]);
 
-  const unread = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+  // Notifications from people I blocked are not shown (they stay in Firestore; unblocking brings them back).
+  const { blockedSet } = useBlocks();
+  const visible = useMemo(
+    () => (blockedSet.size ? notifications.filter((n) => !n.fromUserId || !blockedSet.has(n.fromUserId)) : notifications),
+    [notifications, blockedSet],
+  );
+  const unread = useMemo(() => visible.filter((n) => !n.read).length, [visible]);
 
   const markRead = useCallback(async (id: string) => {
     await updateDoc(doc(db, 'notifications', id), { read: true });
@@ -80,7 +87,7 @@ function useInboxState() {
     await deleteDoc(doc(db, 'notifications', id));
   }, []);
 
-  return useMemo(() => ({ notifications, unread, loading, markRead, markAllRead, remove }), [notifications, unread, loading, markRead, markAllRead, remove]);
+  return useMemo(() => ({ notifications: visible, unread, loading, markRead, markAllRead, remove }), [visible, unread, loading, markRead, markAllRead, remove]);
 }
 
 export type UseNotificationsInbox = ReturnType<typeof useInboxState>;

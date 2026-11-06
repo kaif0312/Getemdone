@@ -6,6 +6,7 @@ import { useFriends } from '@/hooks/useFriends';
 import { formatElapsed, presenceElapsedSeconds, usePresence } from '@/hooks/usePresence';
 import { useToday } from '@/hooks/useToday';
 import { addDays, dayOfWeek, localDate, weekStart } from '@/lib/dates';
+import { SAFETY_LINE } from '@/lib/safetyApi';
 import { BackButton } from '@/features/friends/BackButton';
 import { useNudges } from '@/features/friends/hooks';
 import { describeWorkout, first, isForToday } from '@/features/friends/logic';
@@ -225,15 +226,35 @@ export default function FriendProfile() {
         )}
       </Card>
 
-      <Button
-        label="Remove friend"
-        variant="ghost"
-        onPress={() => {
-          haptic.select();
-          router.push({ pathname: '/friends/remove', params: { uid: friend.id } });
-        }}
-        style={{ alignSelf: 'center', marginTop: 8 }}
-      />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4, marginTop: 8 }}>
+        <Button
+          label="Remove friend"
+          variant="ghost"
+          onPress={() => {
+            haptic.select();
+            router.push({ pathname: '/friends/remove', params: { uid: friend.id } });
+          }}
+        />
+        <Button
+          label="Report"
+          icon="flag"
+          variant="ghost"
+          onPress={() => {
+            haptic.select();
+            router.push({ pathname: '/report', params: { kind: 'user', uid: friend.id, name: friend.displayName } });
+          }}
+        />
+        <Button
+          label="Block"
+          icon="shield"
+          variant="ghost"
+          onPress={() => {
+            haptic.select();
+            router.push({ pathname: '/block', params: { uid: friend.id, name: friend.displayName } });
+          }}
+        />
+      </View>
+      <Text variant="caption" tone="faint" align="center" style={{ paddingHorizontal: 12 }}>{SAFETY_LINE}</Text>
     </Screen>
   );
 }

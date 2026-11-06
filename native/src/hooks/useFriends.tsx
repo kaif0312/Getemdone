@@ -19,6 +19,8 @@ import type { FriendGroup, Task, TaskVisibility } from '@/lib/types';
 import type { FriendTask, UserDoc } from '@/lib/types-extra';
 import { canViewTask } from '@/lib/visibility';
 import { useAuth } from './useAuth';
+import { useBlocks } from './useBlocks';
+import { stripBlocked } from '@/features/safety/filter';
 import { useEncryption } from './useEncryption';
 
 export const FRIEND_TASK_WINDOW_DAYS = 30;
@@ -234,13 +236,30 @@ function useFriendsState() {
     [uid],
   );
 
+  // Blocked people (useBlocks): their comments/reactions on friends' tasks and their requests are hidden.
+  const { blockedSet } = useBlocks();
+  const visibleFriendTasks = useMemo(
+    () =>
+      blockedSet.size
+        ? friendTasks.map((t) => {
+            const s = stripBlocked(t, blockedSet);
+            return s === t ? t : { ...s, raw: stripBlocked(t.raw, blockedSet) };
+          })
+        : friendTasks,
+    [friendTasks, blockedSet],
+  );
+  const visibleInvites = useMemo(
+    () => (blockedSet.size ? incomingInvites.filter((i) => !blockedSet.has(i.fromUid)) : incomingInvites),
+    [incomingInvites, blockedSet],
+  );
+
   return useMemo(
     () => ({
-      friends, loading, friendTasks, tasksLoading, incomingInvites,
+      friends, loading, friendTasks: visibleFriendTasks, tasksLoading, incomingInvites: visibleInvites,
       searchByFriendCode, searchByEmail, addFriend, removeFriend, acceptInvite, updateFriendGroups, updateDefaultVisibility,
     }),
     [
-      friends, loading, friendTasks, tasksLoading, incomingInvites,
+      friends, loading, visibleFriendTasks, tasksLoading, visibleInvites,
       searchByFriendCode, searchByEmail, addFriend, removeFriend, acceptInvite, updateFriendGroups, updateDefaultVisibility,
     ],
   );

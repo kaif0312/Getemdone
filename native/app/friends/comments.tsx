@@ -7,6 +7,8 @@ import { useTaskSocial } from '@/hooks/useTaskSocial';
 import { useTasks } from '@/hooks/useTasks';
 import type { Comment } from '@/lib/types';
 import { groupReactions, timeAgo } from '@/features/friends/logic';
+import { openCommentMenu } from '@/features/safety/commentMenu';
+import { SAFETY_LINE } from '@/lib/safetyApi';
 import { Avatar, CoachSticker, haptic, Icon, SheetScaffold, Text, useToast, useTheme, fonts, radius } from '@/ui';
 
 interface Row extends Comment {
@@ -54,8 +56,12 @@ export default function Comments() {
     });
   };
 
-  const del = (c: Comment) => {
-    if (c.userId !== uid || !taskId) return;
+  const del = (c: Row) => {
+    if (!taskId) return;
+    if (c.userId !== uid) {
+      if (!c.pending) openCommentMenu(taskId, c); // someone else's: report / block
+      return;
+    }
     haptic.warning();
     void social.deleteComment(taskId, c.id).catch(() => toast.show("Couldn't delete.", { kind: 'error' }));
   };
@@ -83,10 +89,13 @@ export default function Comments() {
               <Text variant="caption" tone="muted">Say something.</Text>
             </View>
           ) : null}
+          {rows.length > 0 ? (
+            <Text variant="caption" tone="faint">{`Hold a comment to report it. ${SAFETY_LINE}`}</Text>
+          ) : null}
           {rows.map((c) => {
             const mine = c.userId === uid;
             return (
-              <Pressable key={c.id} onLongPress={() => del(c)} delayLongPress={450} accessibilityHint={mine ? 'Hold to delete' : undefined}>
+              <Pressable key={c.id} onLongPress={() => del(c)} delayLongPress={450} accessibilityHint={mine ? 'Hold to delete' : 'Hold to report or block'}>
                 <View style={{ flexDirection: 'row', gap: 10, opacity: c.pending ? 0.6 : 1 }}>
                   <Avatar name={c.userName} photoURL={c.photoURL} size={34} />
                   <View style={{ flex: 1, gap: 2 }}>

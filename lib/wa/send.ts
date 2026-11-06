@@ -7,6 +7,9 @@ const dryRun = () => process.env.NUDGE_WA_DRY_RUN === '1';
 const graphBase = () => `https://graph.facebook.com/${graphVersion()}`;
 
 const outbox: { kind: string; to: string; payload: unknown }[] = [];
+let lastError = '';
+/** Why the latest send failed ("131047: ..."), or '' - for callers that record failures. */
+export const lastSendError = (): string => lastError;
 let fakeCounter = 0;
 
 /** Truncate to n chars (by code point), ending with an ellipsis when cut. */
@@ -18,6 +21,7 @@ function clip(s: string, n: number): string {
 
 /** POST a message payload to /{phone-id}/messages. Returns the wamid, or null on any failure. */
 async function post(kind: string, to: string, body: Record<string, unknown>): Promise<string | null> {
+  lastError = '';
   if (dryRun()) {
     outbox.push({ kind, to, payload: body });
     return `wamid.DRY${++fakeCounter}`;
@@ -26,6 +30,7 @@ async function post(kind: string, to: string, body: Record<string, unknown>): Pr
   const phoneId = process.env.WA_PHONE_NUMBER_ID;
   if (!token || !phoneId) {
     console.error('[wa/send] WA_TOKEN or WA_PHONE_NUMBER_ID is not set');
+    lastError = 'not_configured';
     return null;
   }
   try {
@@ -40,6 +45,7 @@ async function post(kind: string, to: string, body: Record<string, unknown>): Pr
     };
     if (!res.ok || json.error) {
       const code = json.error?.code;
+      lastError = `${code ?? res.status}: ${(json.error?.message ?? '').slice(0, 200)}`;
       console.error(
         `[wa/send] ${kind} failed (${res.status}) code=${code}${code === 131047 ? ' (outside 24h window)' : ''}: ${json.error?.message ?? ''}`,
       );
@@ -48,6 +54,7 @@ async function post(kind: string, to: string, body: Record<string, unknown>): Pr
     return json.messages?.[0]?.id ?? null;
   } catch (e) {
     console.error(`[wa/send] ${kind} threw`, e);
+    lastError = 'threw';
     return null;
   }
 }

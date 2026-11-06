@@ -347,3 +347,21 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   them meetings still save and remind (`calendar:'not_connected'`, no `meetUrl`). `--port N` (loopback) needs `http://localhost:N/oauth2callback` added to the client's redirect URIs.
 - Deploy needed: `firestore.rules` + `firestore.indexes.json` (`node scripts/deploy_rules.mjs ...`; the index via `firebase deploy --only firestore:indexes`).
 - Tests: `npx tsx scripts/tests/test_meetings.mts`; `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetings_store.mts`.
+
+## Meetings over WhatsApp (2026-11-06, branch `meetings-wa`): invites, reminders, cancellations to attendees
+- `lib/server/meetingInvites.ts`: `inviteAttendees(m)`, `remindAttendees(m, minutesBefore)`, `cancelAttendees(m)` (all never throw, return per-person results),
+  `remindForTask`. Attendees need only `{name?, waId}` (`waId` = digits, 8-15; `--with "Shamly +91..."` in `scripts/meeting.mjs`). The bot agent calls `createMeeting`
+  / `cancelMeeting` as before: invites and cancel notes are sent from inside them.
+- Rules: skips the owner (uid, or the owner's linked number) and anyone with `waLinks/{waId}.muted` (STOP; recorded `skipped_muted`). One message per person per
+  meeting and kind: doc `meetingInvites/{meetingId}_{waId}` (`_r{minutes}` reminder, `_cancel`), `status` sent | failed | skipped_*, `error` = Meta code + message
+  (`lib/wa/send.ts lastSendError`). Only a `failed` doc may be retried. Inside the person's 24 h window: free text (+ "Join meeting" URL button); else the template, one
+  global daily slot (`waCaps`, `NUDGE_MAX_TEMPLATES_PER_DAY`), slot given back on failure. Language = the person's `waLinks.lang`, else `en`.
+- Reminders: `reminders.ts sendClaimed` calls `remindForTask` after the owner's own reminder task fires (tag `meeting`; meeting found by `reminderTaskIds`), so
+  attendees get the same 30 / 10 min reminders. Cancel tells only those whose invite is `sent`.
+- Templates (UTILITY, en/hi/ur/ml, Hindi/Urdu/Malayalam written by Claude: have a native speaker read them): `nudge_meeting_invite` (inviter, title, date, time, link),
+  `nudge_meeting_reminder` (title, time, link), `nudge_meeting_cancelled` (inviter, title, date, time). The Meet link is in the body (no button).
+  **NOT SUBMITTED YET.** Owner submits: `WA_TOKEN=<business token> node scripts/create_wa_templates.mjs --commit --only nudge_meeting_invite,nudge_meeting_reminder,nudge_meeting_cancelled`
+  (dry run = same without `--commit`; add `--lang en` for English only). Meta review of UTILITY templates takes minutes to about a day; the status shows in WhatsApp
+  Manager. Until approved, template sends fail (e.g. 132001) and are logged on the `meetingInvites` doc as `failed` with the error; the meeting itself is unaffected.
+  If Meta re-classes one as MARKETING, add its name to the category list in the script (as for `nudge_checkin`).
+- Tests: `npx tsx scripts/tests/test_meeting_invites.mts` (fake sender and store, no network).

@@ -27,6 +27,7 @@ import * as sendMod from '../wa/send';
 import * as sessionsMod from '../wa/sessions';
 import { BUTTON_IDS, type WaLink } from '../wa/types';
 import { langOf, t, type Lang } from '../bot/i18n';
+import { remindForTask } from './meetingInvites';
 
 export type ReminderChannel = 'auto' | 'app' | 'whatsapp' | 'both';
 export const REMINDER_CHANNELS: ReminderChannel[] = ['auto', 'app', 'whatsapp', 'both'];
@@ -341,6 +342,7 @@ async function sendClaimed(c: Candidate, prefsCache: Map<string, UserPrefs>, now
     throw e;
   }
   if (out === 'failed') await tasksCol().doc(c.task.id).update({ remindSentFor: FieldValue.delete() });
+  else await remindForTask(c.task.id, c.task.tags, c.eventAt, c.fireAt); // meeting reminders also reach the attendees' WhatsApp
   return out;
 }
 

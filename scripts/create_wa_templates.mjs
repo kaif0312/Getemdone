@@ -58,6 +58,24 @@ const templates = [
   tpl('nudge_med_reminder', 'ur', 'Nudge کی طرف سے دوا کی یاد دہانی: {{1}}، {{2}} لینے کا وقت ہو گیا ہے ({{3}})۔ دوا لینے کے بعد نیچے "لے لی" کا بٹن دبائیں۔', ['امی', 'BP کی گولی', '8:00 AM'], ['لے لی', 'بعد میں']),
   tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്ന് മരുന്ന് ഓർമ്മ: {{1}}, {{2}} കഴിക്കാൻ സമയമായിട്ടോ ({{3}}). കഴിച്ചിട്ട് താഴെ "കഴിച്ചു" അമർത്തണേ.', ['അമ്മേ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നെ കഴിക്കാം']),
 
+  // ---- meetings (2026-11-06; sent by lib/server/meetingInvites.ts). The Meet link goes in the body (a URL button would need a fixed
+  //      base URL); the body must not start or end with a variable. Vars: invite = inviter, title, date, time, link;
+  //      reminder = title, time, link; cancelled = inviter, title, date, time.
+  tpl('nudge_meeting_invite', 'en', 'Nudge meeting invite: {{1}} invited you to "{{2}}" on {{3}} at {{4}}. Join with this link: {{5}} (opens Google Meet).', ['Ibrahim', 'Project sync', 'Sat 7 Nov', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_invite', 'hi', 'Nudge मीटिंग निमंत्रण: {{1}} ने आपको "{{2}}" के लिए {{3}} को {{4}} पर आमंत्रित किया है। इस लिंक से जुड़ें: {{5}} (Google Meet खुलेगा)।', ['इब्राहिम', 'प्रोजेक्ट सिंक', 'शनि 7 नवं', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_invite', 'ur', 'Nudge میٹنگ دعوت: {{1}} نے آپ کو "{{2}}" کے لیے {{3}} کو {{4}} پر مدعو کیا ہے۔ اس لنک سے شامل ہوں: {{5}} (Google Meet کھلے گا)۔', ['ابراہیم', 'پروجیکٹ سنک', 'ہفتہ 7 نومبر', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_invite', 'ml', 'Nudge മീറ്റിംഗ് ക്ഷണം: {{1}} നിങ്ങളെ "{{2}}" എന്ന മീറ്റിംഗിലേക്ക് {{3}} ന് {{4}} ക്ക് ക്ഷണിച്ചിരിക്കുന്നു. ഈ ലിങ്കിൽ ചേരാം: {{5}} (Google Meet തുറക്കും).', ['ഇബ്രാഹിം', 'പ്രോജക്ട് സിങ്ക്', 'ശനി 7 നവം', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+
+  tpl('nudge_meeting_reminder', 'en', 'Meeting reminder from Nudge: "{{1}}" starts at {{2}}. Join with this link: {{3}} (opens Google Meet).', ['Project sync', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_reminder', 'hi', 'Nudge की ओर से मीटिंग रिमाइंडर: "{{1}}" {{2}} पर शुरू होगी। इस लिंक से जुड़ें: {{3}} (Google Meet खुलेगा)।', ['प्रोजेक्ट सिंक', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_reminder', 'ur', 'Nudge کی طرف سے میٹنگ کی یاد دہانی: "{{1}}" {{2}} پر شروع ہوگی۔ اس لنک سے شامل ہوں: {{3}} (Google Meet کھلے گا)۔', ['پروجیکٹ سنک', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+  tpl('nudge_meeting_reminder', 'ml', 'Nudge-ൽ നിന്നുള്ള മീറ്റിംഗ് ഓർമ്മപ്പെടുത്തൽ: "{{1}}" {{2}} ക്ക് തുടങ്ങും. ഈ ലിങ്കിൽ ചേരാം: {{3}} (Google Meet തുറക്കും).', ['പ്രോജക്ട് സിങ്ക്', '11:00 PM (Asia/Kolkata)', 'https://meet.google.com/abc-defg-hij']),
+
+  tpl('nudge_meeting_cancelled', 'en', 'Nudge meeting update: {{1}} cancelled "{{2}}", which was planned for {{3}} at {{4}}. You do not need to do anything.', ['Ibrahim', 'Project sync', 'Sat 7 Nov', '11:00 PM']),
+  tpl('nudge_meeting_cancelled', 'hi', 'Nudge मीटिंग अपडेट: {{1}} ने "{{2}}" रद्द कर दी है, जो {{3}} को {{4}} पर तय थी। आपको कुछ करने की ज़रूरत नहीं है।', ['इब्राहिम', 'प्रोजेक्ट सिंक', 'शनि 7 नवं', '11:00 PM']),
+  tpl('nudge_meeting_cancelled', 'ur', 'Nudge میٹنگ اپ ڈیٹ: {{1}} نے "{{2}}" منسوخ کر دی ہے، جو {{3}} کو {{4}} پر طے تھی۔ آپ کو کچھ کرنے کی ضرورت نہیں ہے۔', ['ابراہیم', 'پروجیکٹ سنک', 'ہفتہ 7 نومبر', '11:00 PM']),
+  tpl('nudge_meeting_cancelled', 'ml', 'Nudge മീറ്റിംഗ് അപ്ഡേറ്റ്: {{1}} "{{2}}" എന്ന മീറ്റിംഗ് റദ്ദാക്കി. ഇത് {{3}} ന് {{4}} ക്ക് നിശ്ചയിച്ചതായിരുന്നു. നിങ്ങൾ ഒന്നും ചെയ്യേണ്ടതില്ല.', ['ഇബ്രാഹിം', 'പ്രോജക്ട് സിങ്ക്', 'ശനി 7 നവം', '11:00 PM']),
+
   // ---- to the family member when a dose is still not confirmed and their own window is closed (vars: person, medicines, time)
   tpl('nudge_med_alert', 'en', 'Medicine check from Nudge: {{1}} has not confirmed {{2}} due at {{3}}. Please check on them.', ['Amma', 'BP tablet', '8:00 AM']),
 ];

@@ -402,6 +402,13 @@ export async function setReminderChannelAction(ctx: Ctx, channel?: string): Prom
   return [ctx.t(CHANNEL_KEY[c])];
 }
 
+/** "16:00" + 45 -> "16:45" (wraps past midnight). */
+function addMinutes(hhmm: string, min: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = (h * 60 + m + min) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
 export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
   const arr = Array.isArray(raw) ? raw : [];
   const items = arr
@@ -416,6 +423,7 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
         when,
         dueDate: due ? zonedToMs(due, ctx.tz) ?? undefined : undefined,
         recurrenceText: str(o.recurrence),
+        durationMin: (() => { const d = num(o.duration_min); return d && d > 0 && d <= 1440 ? Math.round(d) : undefined; })(),
         ...reminderFor(ctx, o, when, due),
         alreadyDone: o.already_done === true && !str(o.recurrence),
         parked: o.someday === true && !str(o.recurrence) && o.already_done !== true,
@@ -438,7 +446,8 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const w = whenLabel(t.deferredTo, ctx.today, ctx.lang);
     const due = t.dueDate ? ctx.t('dueOn', { when: whenLabel(new Date(t.dueDate).toLocaleDateString('en-CA', { timeZone: ctx.tz }), ctx.today, ctx.lang) || ctx.t('today') }) : '';
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
-    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
+    const span = t.durationMin && t.deferredTo?.includes('T') ? `–${time12(addMinutes(t.deferredTo.split('T')[1], t.durationMin))}` : '';
+    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w}${span})` : ''}${due}${rem}`);
   }
   for (const t of parkedNew) lines.push(`💤 Parked: ${t.text} (find it with *someday*)`);
   if (finished.length) lines.push(...await completeByIds(ctx, finished.map((t) => t.id)));

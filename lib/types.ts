@@ -265,6 +265,8 @@ export interface Task {
   skipRollover?: boolean; // If true, don't auto-rollover to next day
   notes?: string; // Personal notes/description for the task
   attachments?: Attachment[]; // Media attachments (max 3)
+  /** Length in minutes, set by the WhatsApp bot for timed items ("class 4pm for 45 min"). */
+  durationMin?: number;
   /** Emoji tags (max 5 per task) */
   tags?: string[];
   /** Subtasks (one level only, no sub-subtasks) */

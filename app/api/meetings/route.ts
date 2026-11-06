@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authenticate } from '@/lib/server/meetingsApi';
 import { BadRequest, createMeeting, listUpcomingMeetings } from '@/lib/server/meetings';
+import { createEvent } from '@/lib/server/events';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -18,6 +19,10 @@ export async function POST(req: Request) {
   const uid = await authenticate(req, raw, body);
   if (!uid) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE });
   try {
+    if (body.kind === 'event') { // kind 'event' = an Event (no Meet, no attendees); same as POST /api/events
+      const { event } = await createEvent(uid, body);
+      return NextResponse.json({ ...event, calendar: 'ok' }, { status: 201, headers: NO_STORE });
+    }
     const { meeting, calendar } = await createMeeting(uid, body);
     return NextResponse.json({ ...meeting, calendar }, { status: 201, headers: NO_STORE });
   } catch (e) {

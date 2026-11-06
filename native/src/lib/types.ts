@@ -269,6 +269,8 @@ export interface Task {
   skipRollover?: boolean; // If true, don't auto-rollover to next day
   notes?: string; // Personal notes/description for the task
   attachments?: Attachment[]; // Media attachments (max 3)
+  /** Reminder-only task of an event (the event's id): never shown (lib/types.ts has the source of this field). */
+  reminderOf?: string;
   /** Emoji tags (max 5 per task) */
   tags?: string[];
   /** Subtasks (one level only, no sub-subtasks) */

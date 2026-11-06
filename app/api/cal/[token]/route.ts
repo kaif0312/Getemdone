@@ -1,7 +1,7 @@
 // Personal calendar feed: GET /api/cal/<token>.ics. Subscribe to it in Google / Apple / Outlook calendar.
 // The unguessable token is the only credential (no login: calendar apps cannot sign in), so it is rotatable
 // (POST /api/app/calendar {action:'feed.rotate'} or "/sync reset" on WhatsApp). Unknown token = 404, same as a typo.
-import { eventsForTasks } from '@/lib/server/calendarEvents';
+import { calendarEntries } from '@/lib/server/calendarEvents';
 import { uidForFeedToken } from '@/lib/server/calendarLink';
 import { buildIcs } from '@/lib/server/ics';
 import { realStore } from '@/lib/server/googleCal';
@@ -15,9 +15,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   const uid = await uidForFeedToken(token);
   if (!uid) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
   try {
-    const { tasks, tz } = await realStore.openTasks(uid);
+    const { tasks, tz, events } = await realStore.openTasks(uid);
     const now = Date.now();
-    const body = buildIcs(eventsForTasks(tasks, tz, now), { name: 'Nudge', now, url: 'https://getemdone.vercel.app' });
+    const body = buildIcs(calendarEntries({ tasks, events, tz, now }), { name: 'Nudge', now, url: 'https://getemdone.vercel.app' });
     return new Response(body, {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',

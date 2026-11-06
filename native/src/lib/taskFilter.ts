@@ -46,6 +46,11 @@ export function shouldShowInTodayView(task: Task, todayStr: string): boolean {
     return false;
   }
 
+  // Reminder-only tasks of an event are not tasks the user can do or tick off
+  if (task.reminderOf) {
+    return false;
+  }
+
   // Parked (Someday/Maybe) tasks never show in Today until they are picked up again
   if (task.parkedAt) {
     return false;

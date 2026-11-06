@@ -86,7 +86,7 @@ function useTasksState() {
         const decrypted = await Promise.all(
           snap.docs
             .map((d) => ({ id: d.id, ...d.data() }) as Task)
-            .filter((t) => t.deleted !== true)
+            .filter((t) => t.deleted !== true && !t.reminderOf) // reminder-only tasks of events are not tasks
             .map(async (task) => decryptOwn(task)),
         );
         if (mine !== seq) return; // a newer snapshot already started

@@ -224,7 +224,8 @@ export async function getMeeting(id: string): Promise<Meeting | null> {
 /** Scheduled meetings of `uid` that have not ended, soonest first. Index: ownerUid + startAt (firestore.indexes.json). */
 export async function listUpcomingMeetings(uid: string, limit = 20, now: number = Date.now()): Promise<Meeting[]> {
   const snap = await col().where('ownerUid', '==', uid).where('startAt', '>=', new Date(now - 3_600_000).toISOString()).orderBy('startAt').limit(Math.min(Math.max(limit, 1), 100) + 20).get();
-  return snap.docs.map((d) => publicOf(d.data())).filter((m) => m.status === 'scheduled' && Date.parse(m.endAt) >= now).slice(0, limit);
+  // Events (kind 'event') live in the same collection but have their own list (lib/server/events.ts): not meetings.
+  return snap.docs.map((d) => publicOf(d.data())).filter((m) => m.kind !== 'event' && m.status === 'scheduled' && Date.parse(m.endAt) >= now).slice(0, limit);
 }
 
 export async function cancelMeeting(uid: string, id: string): Promise<{ meeting: Meeting; calendar: CalendarStatus } | null> {
@@ -232,6 +233,11 @@ export async function cancelMeeting(uid: string, id: string): Promise<{ meeting:
   const s = await ref.get();
   if (!s.exists || s.data()?.ownerUid !== uid) return null;
   const d = s.data() as MeetingDoc;
+  if (d.kind === 'event') { // events cancel through their own module (reminders, series)
+    const { cancelEvent } = await import('./events');
+    const ev = await cancelEvent(uid, id);
+    return ev ? { meeting: ev, calendar: 'ok' } : null;
+  }
   const calendar: CalendarStatus = d.gcalEventId ? await deleteGcalEvent(d.gcalEventId) : 'ok';
   await Promise.all((d.reminderTaskIds ?? []).map((t) => deleteTask(uid, t).catch(() => undefined)));
   const patch = { status: 'cancelled' as const, updatedAt: new Date().toISOString(), reminderTaskIds: [] };

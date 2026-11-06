@@ -12,7 +12,7 @@
 // tokens, read + create) is separate and untouched.
 import { createHash, createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import type { Task } from '@/lib/types';
-import { eventsForTasks, type CalEvent } from './calendarEvents';
+import { calendarEntries, type CalEvent } from './calendarEvents';
 import {
   clearGoogle, connectedUids, getCalendarLink, origin, patchGoogle, saveGoogle,
   type CalendarLink, type GoogleLink,
@@ -130,6 +130,7 @@ export function googleBody(e: CalEvent, tz: string): Record<string, unknown> {
     id: eventId(e.taskId),
     summary: e.title,
     ...(e.notes ? { description: e.notes } : {}),
+    ...(e.location ? { location: e.location } : {}),
     ...(e.date
       ? { start: { date: e.date }, end: { date: new Date(Date.parse(e.date + 'T00:00:00Z') + 86_400_000).toISOString().slice(0, 10) }, transparency: 'transparent' }
       : { start: { dateTime: new Date(e.startMs!).toISOString(), timeZone: tz }, end: { dateTime: new Date(e.endMs ?? e.startMs! + 1_800_000).toISOString(), timeZone: tz } }),
@@ -177,8 +178,8 @@ export async function disconnect(uid: string, deps: GoogleDeps = realDeps): Prom
 export interface SyncStore {
   getLink(uid: string): Promise<CalendarLink>;
   patchGoogle(uid: string, patch: Partial<GoogleLink>): Promise<void>;
-  /** Open tasks of the user + their timezone. */
-  openTasks(uid: string): Promise<{ tasks: Task[]; tz: string }>;
+  /** Open tasks of the user + their timezone, and their live events (kind 'event'; optional so older fakes keep compiling). */
+  openTasks(uid: string): Promise<{ tasks: Task[]; tz: string; events?: import('../meetings/types').Meeting[] }>;
 }
 
 export const realStore: SyncStore = {
@@ -188,7 +189,8 @@ export const realStore: SyncStore = {
     const { adminDb } = await import('./firebaseAdmin');
     const { getTimezone } = await import('./users');
     const snap = await adminDb().collection('tasks').where('userId', '==', uid).where('completed', '==', false).get();
-    return { tasks: snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Task, 'id'>) })), tz: await getTimezone(uid) };
+    const { eventsForMirror } = await import('./events');
+    return { tasks: snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Task, 'id'>) })), tz: await getTimezone(uid), events: await eventsForMirror(uid) };
   },
 };
 
@@ -213,8 +215,8 @@ export async function syncUser(uid: string, deps: GoogleDeps = realDeps, store: 
     return none('error', (e as Error).message);
   }
 
-  const { tasks, tz } = await store.openTasks(uid);
-  const desired = new Map(eventsForTasks(tasks, tz, deps.now()).map((e) => [e.taskId, e]));
+  const { tasks, tz, events } = await store.openTasks(uid);
+  const desired = new Map(calendarEntries({ tasks, events, tz, now: deps.now() }).map((e) => [e.taskId, e]));
   const synced = { ...link.synced };
   const res = none('ok');
   let budget = MAX_WRITES_PER_SYNC;

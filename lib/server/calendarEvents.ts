@@ -8,6 +8,8 @@
 // Not shown: completed, deleted, recurring templates (their instances are separate tasks), tasks with no time, and
 // anything outside the window (yesterday .. +90 days).
 import type { Task } from '@/lib/types';
+import type { Meeting } from '../meetings/types';
+import { occurrencesBetween } from '../events/rules';
 import { zonedToMs } from '../bot/format';
 
 export const EVENT_MINUTES = 30;
@@ -23,6 +25,7 @@ export interface CalEvent {
   /** "YYYY-MM-DD" for an all-day event (end is exclusive, the day after). */
   date?: string;
   notes?: string;
+  location?: string;
   /** Changes whenever anything shown changes: the sync patches only on a changed hash. */
   hash: string;
 }
@@ -57,7 +60,7 @@ function localHm(ms: number, tz: string): string {
 }
 
 export function eventForTask(task: Task, tz: string): CalEvent | null {
-  if (task.completed || task.deleted || task.recurrence) return null;
+  if (task.completed || task.deleted || task.recurrence || task.reminderOf) return null; // reminderOf: the reminder-only task of an event (the event itself is mirrored)
   const title = titleOf(task);
   const notes = task.notes && !task.notes.startsWith('e1:') ? task.notes.slice(0, 1000) : undefined;
   const make = (e: Omit<CalEvent, 'taskId' | 'title' | 'notes' | 'hash'>): CalEvent => ({
@@ -67,7 +70,7 @@ export function eventForTask(task: Task, tz: string): CalEvent | null {
 
   if (task.deferredTo && /T\d{2}:\d{2}$/.test(task.deferredTo)) {
     const ms = zonedToMs(task.deferredTo, tz);
-    if (ms != null) return make({ startMs: ms, endMs: ms + EVENT_MINUTES * 60_000 });
+    if (ms != null) return make({ startMs: ms, endMs: ms + (task.durationMin && task.durationMin > 0 ? task.durationMin : EVENT_MINUTES) * 60_000 });
   }
   if (task.remindFor) return make({ startMs: task.remindFor, endMs: task.remindFor + EVENT_MINUTES * 60_000 });
   if (task.dueDate) {
@@ -92,6 +95,35 @@ export function eventsForTasks(tasks: Task[], tz: string, now: number): CalEvent
   }
   const key = (e: CalEvent) => e.startMs ?? Date.parse(e.date + 'T00:00:00Z');
   return out.sort((a, b) => key(a) - key(b) || a.taskId.localeCompare(b.taskId));
+}
+
+/**
+ * Events (kind 'event' docs) as calendar entries with their REAL length. A repeating event is expanded into one entry per
+ * occurrence inside the window; the key is `ev:<id>[:<startMs>]` so the Google sync keeps one Google event per occurrence.
+ */
+export function eventsForEvents(events: Meeting[], now: number): CalEvent[] {
+  const from = now - WINDOW_PAST_DAYS * DAY;
+  const to = now + WINDOW_FUTURE_DAYS * DAY;
+  const out: CalEvent[] = [];
+  for (const ev of events) {
+    if (ev.kind !== 'event' || ev.status !== 'scheduled') continue;
+    const title = (ev.title || '').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Event';
+    for (const o of occurrencesBetween(ev, from, to, 120)) {
+      out.push({
+        taskId: ev.repeat ? `ev:${ev.id}:${o.startMs}` : `ev:${ev.id}`,
+        title, startMs: o.startMs, endMs: o.endMs, notes: ev.notes, location: ev.location,
+        hash: fnv(JSON.stringify([title, ev.notes ?? '', ev.location ?? '', o.startMs, o.endMs])),
+      });
+    }
+  }
+  return out;
+}
+
+/** Everything the calendar mirror (ICS feed + Google) shows for one user: timed tasks and events, soonest first. */
+export function calendarEntries(src: { tasks: Task[]; events?: Meeting[]; tz: string; now: number }): CalEvent[] {
+  const key = (e: CalEvent) => e.startMs ?? Date.parse(e.date + 'T00:00:00Z');
+  return [...eventsForTasks(src.tasks, src.tz, src.now), ...eventsForEvents(src.events ?? [], src.now)]
+    .sort((a, b) => key(a) - key(b) || a.taskId.localeCompare(b.taskId));
 }
 
 export { addDaysStr };

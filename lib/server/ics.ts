@@ -58,6 +58,7 @@ export function buildIcs(events: CalEvent[], opts: IcsOptions): string {
     lines.push(`SUMMARY:${icsText(e.title)}`);
     const desc = [e.notes, opts.url ? `Open in Nudge: ${opts.url}` : ''].filter(Boolean).join('\n');
     if (desc) lines.push(`DESCRIPTION:${icsText(desc)}`);
+    if (e.location) lines.push(`LOCATION:${icsText(e.location)}`);
     // All-day deadlines should not block the day; timed tasks are "busy" like any meeting.
     lines.push(`TRANSP:${e.date ? 'TRANSPARENT' : 'OPAQUE'}`, 'END:VEVENT');
   }

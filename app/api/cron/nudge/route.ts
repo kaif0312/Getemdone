@@ -4,6 +4,7 @@ import { runSchedule } from '@/lib/server/scheduler';
 import { runReminders } from '@/lib/server/reminders';
 import { runMeds } from '@/lib/server/meds';
 import { runCalendarSync } from '@/lib/server/googleCal';
+import { rollEventReminders } from '@/lib/server/events';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,12 +27,17 @@ async function handle(req: Request) {
       console.error('[cron/nudge] meds', e);
       return { error: 'meds_failed' };
     });
+    // Repeating events: reminder tasks move to the next occurrence (own try/catch). Before the calendar sync so it sees them.
+    const events = await rollEventReminders(now).catch((e) => {
+      console.error('[cron/nudge] events', e);
+      return { error: 'events_failed' };
+    });
     // Google Calendar sync for connected users: own try/catch as well.
     const calendar = await runCalendarSync().catch((e) => {
       console.error('[cron/nudge] calendar', e);
       return { error: 'calendar_failed' };
     });
-    return NextResponse.json({ ok: true, ...counts, reminders, meds, calendar });
+    return NextResponse.json({ ok: true, ...counts, reminders, meds, events, calendar });
   } catch (e) {
     console.error('[cron/nudge]', e);
     return NextResponse.json({ ok: false, error: 'schedule_failed' }, { status: 500 });

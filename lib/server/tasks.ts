@@ -26,6 +26,8 @@ export interface NewTaskInput {
   recurrenceText?: string; // e.g. "every monday" -> utils/recurrence.parseRecurrenceFromText
   /** Someday/Maybe: created already parked (no day, no reminder). */
   parked?: boolean;
+  /** Reminder-only task of an event (task.reminderOf): hidden from lists and the calendar mirror. */
+  reminderOf?: string;
 }
 
 const tasksCol = () => adminDb().collection('tasks');
@@ -94,6 +96,7 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
       ...(item.durationMin ? { durationMin: item.durationMin } : {}),
       ...(recurrence ? { recurrence } : {}),
       ...(tags.length ? { tags } : {}),
+      ...(item.reminderOf ? { reminderOf: item.reminderOf } : {}),
     };
     const ref = tasksCol().doc();
     batch.set(ref, doc);
@@ -116,7 +119,7 @@ function inUserZone(task: Task, tz: string): Task {
 
 async function allTasks(uid: string): Promise<Task[]> {
   const snap = await tasksCol().where('userId', '==', uid).get();
-  return snap.docs.map((d) => toTask(d.id, d.data())).filter((t) => t.deleted !== true);
+  return snap.docs.map((d) => toTask(d.id, d.data())).filter((t) => t.deleted !== true && !t.reminderOf); // reminder-only tasks of events are not tasks
 }
 
 /** Tasks for the user's local today, same rules as utils/taskFilter.shouldShowInTodayView, ordered like the app. */

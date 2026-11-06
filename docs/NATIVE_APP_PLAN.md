@@ -132,6 +132,24 @@ admin dashboard (stays web).
   submitted to Beta App Review (WAITING_FOR_REVIEW). Public link `https://testflight.apple.com/join/AxP91AxU` (limit 100)
   is enabled; it admits testers only after Beta App Review approves the build. How-to replay:
   `~/.claude/scripts/browser-flows/apple-asc-new-app-testflight.md`.
+- 2026-11-06 App Store 1.0 (cl-nudge-appstore): build 1.0.0 (3) from `633df8a` already contains Delete account
+  (`c87704e`), so no rebuild. Filled by ASC API (`~/.claude/scripts/browser-flows/apple-asc/store_fill.mjs`): subtitle
+  "Social to-dos with a coach", privacy URL `/privacy`, Productivity + Lifestyle, no third-party content, age rating
+  (all NONE; messaging + user-generated content = yes, friends only; medical = none; health/wellness = no), copyright
+  "2026 Iskaria", release type MANUAL (owner taps "Release this version" after approval), build 3 selected, description
+  (Play text minus medicine reminders; Gemini + not E2EE + no ads), keywords, promo text, support/marketing URL
+  `https://getemdone.vercel.app` (`/support` is 404), review details (play.reviewer demo login, notes: Use email,
+  WhatsApp optional, Remove friend, Delete account path), Free, all 175 territories, 7 screenshots 1290x2796.
+  App Privacy (browser only) NOT published yet: ASC web session in Chrome had expired, owner sign-in needed. Review
+  submission `reviewSubmissions` staged (READY_FOR_REVIEW, empty); adding the version fails only with
+  `APP_DATA_USAGES_REQUIRED`. After App Privacy: `node review_submit.mjs stage` then `submit` (flow:
+  `browser-flows/apple-asc-app-store-submit.md`). App Privacy answers to publish (all: App Functionality only,
+  linked to the user, NOT used for tracking; no analytics/crash SDK in `native/`): Contact Info = Name, Email Address,
+  Phone Number; User Content = Photos or Videos, Customer Support (bug reports), Other User Content (tasks, comments,
+  reactions); Health & Fitness = Fitness (workouts the user logs); Identifiers = User ID, Device ID (push token).
+  Review risks: guideline 1.2 (UGC: no report-content/block button,
+  only Remove friend), 4.8 (WhatsApp sign-in; e-mail sign-in exists), AES-GCM decrypt code with E2EE off vs
+  encryption-exempt answer.
 - Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
   FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), friends' emails on the tester lists
   (Play + TestFlight external group). The list below is the original.

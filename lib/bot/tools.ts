@@ -151,7 +151,7 @@ export const TOOLS: FunctionDecl[] = [
   },
   {
     name: 'set_language',
-    description: 'Switch the language the bot answers in, when the user asks for it ("reply in Malayalam", "hindi mein bolo", "speak Urdu").',
+    description: 'Switch the language the bot answers in, ONLY when the user explicitly asks for it ("reply in Malayalam", "hindi mein bolo", "speak Urdu"). Never because of their accent or a greeting: a spoken "hi" is a greeting, not the language code hi.',
     parameters: {
       type: 'OBJECT',
       properties: { language: { ...S, enum: ['en', 'hi', 'ur', 'ml'], description: 'en English, hi Hindi, ur Urdu, ml Malayalam' } },

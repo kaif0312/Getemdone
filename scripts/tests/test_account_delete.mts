@@ -122,6 +122,12 @@ async function seed() {
   await set('appLogins/pollB', { uid: 'bob', status: 'consumed' });
   await set('betaWhitelist/alice@x.com', { email: 'alice@x.com' });
   await set('betaWhitelist/bob@x.com', { email: 'bob@x.com' });
+  // safety: reports alice filed go, reports about her (bob's) stay; her block list goes, bob's (that names alice) stays
+  await set('reports/r1', { reporterUid: 'alice', targetUid: 'carol', kind: 'user', reason: 'spam', status: 'open', createdAt: 1 });
+  await set('reports/r2', { reporterUid: 'bob', targetUid: 'alice', kind: 'user', reason: 'harassment', status: 'open', createdAt: 1 });
+  await set('blocks/alice', { uids: ['carol'], updatedAt: 1 });
+  await set('blocks/bob', { uids: ['alice'], updatedAt: 1 });
+  await set('blocks/alice2', { uids: ['bob'], updatedAt: 1 });
 }
 
 const exists = async (p: string) => (await db.doc(p).get()).exists;
@@ -136,7 +142,7 @@ async function assertAliceGone() {
     'calendarLinks/alice', 'calendarFeeds/tokA', 'calendarFeeds/tokOld', 'medPlans/m1', 'medDoses/m1_2026-11-06_0800',
     'waLinks/9222', 'waSessions/9222', 'waSchedule/9222_2026-11-06_checkin', 'waReminderCaps/9222_2026-11-06',
     'waReminderCaps/med_9222_2026-11-06', 'waSeen/fwdnote:9222:2026-11-06', 'vaultUploads/wamid.9222', 'learningLog/l1',
-    'waLinkCodes/ABC234', 'appLogins/pollA', 'betaWhitelist/alice@x.com',
+    'waLinkCodes/ABC234', 'appLogins/pollA', 'betaWhitelist/alice@x.com', 'reports/r1', 'blocks/alice',
   ]) assert.equal(await exists(p), false, `${p} should be deleted`);
   for (const f of ['attachments/ta1/f1', 'attachments/ta1/f1_thumb', 'profilePictures/alice', 'bugReports/alice/i1']) {
     assert.equal(storage.has(f), false, `storage ${f} should be deleted`);
@@ -153,7 +159,7 @@ async function assertOthersIntact() {
     'users/bob', 'users/carol', 'users/alice2', 'tasks/tb1', 'tasks/tb2', 'tasks/tc1', 'notifications/n3', 'bugReports/b2',
     'friendInvites/i3', 'nudgeLimits/bob_carol_2026-11-06', 'userKeys/bob', 'fitness/bob/days/2026-11-05', 'presence/bob',
     'calendarFeeds/tokB', 'medPlans/m2', 'medDoses/m2_2026-11-06_0800', 'waLinkCodes/XYZ234', 'appLogins/pollB',
-    'betaWhitelist/bob@x.com', 'learningLog/l2', 'waSeen/wamid.unrelated',
+    'betaWhitelist/bob@x.com', 'learningLog/l2', 'waSeen/wamid.unrelated', 'reports/r2', 'blocks/bob', 'blocks/alice2',
   ]) assert.equal(await exists(p), true, `${p} must survive`);
   // carol's number 9111 (alice's stale pointer) and bob's 92220 (shared prefix) are untouched
   for (const w of ['9111', '92220']) {
@@ -190,6 +196,9 @@ assert.deepEqual(r.waIds, ['9222']);
 assert.deepEqual(r.skippedWaIds, ['9111']);
 assert.deepEqual(googleDisconnected, ['alice']);
 assert.equal(r.deleted.tasks, 2);
+assert.equal(r.deleted.reports, 1);
+assert.equal(r.deleted.blocks, 1);
+assert.deepEqual((await db.doc('blocks/bob').get()).data()?.uids, ['alice'], "others' block lists are not edited");
 assert.equal(r.kept.length > 0, true);
 console.log('ok 1: deletes alice, keeps bob/carol/alice2 + reused and prefix-sharing numbers');
 

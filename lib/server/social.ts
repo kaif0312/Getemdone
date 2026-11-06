@@ -11,6 +11,7 @@ import { capDate, releaseTemplateSlot, reserveTemplateSlot } from './waCaps';
 import * as usersMod from './users';
 import * as linksMod from '../wa/links';
 import * as sendMod from '../wa/send';
+import { blockBetween } from './moderation';
 
 export interface FriendLite { uid: string; displayName: string; waLinked: boolean; }
 export interface FriendActivity {
@@ -362,6 +363,10 @@ export async function inviteFriend(
   if (!toUid) return { ok: false, reason: 'not_found' };
   if (toUid === uid) return { ok: false, reason: 'self' };
   if ((me.friends ?? []).includes(toUid)) return { ok: false, reason: 'already_friends' };
+  // Blocks (lib/server/moderation.ts): the blocker is told, the blocked person just finds no one.
+  const bl = await blockBetween(uid, toUid);
+  if (bl.aBlockedB) return { ok: false, reason: 'blocked' };
+  if (bl.bBlockedA) return { ok: false, reason: 'not_found' };
   const dupe = await db
     .collection('friendInvites')
     .where('fromUid', '==', uid)
@@ -418,20 +423,25 @@ export async function inviteFriendForApp(uid: string, target: { code: string } |
 export async function answerInvite(uid: string, inviteId: string, accept: boolean): Promise<void> {
   const db = adminDb();
   const ref = db.doc(`friendInvites/${inviteId}`);
-  const fromUid = await db.runTransaction(async (tx) => {
+  const { fromUid, added } = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) throw new Error('invite_not_found');
     const inv = snap.data() as { fromUid: string; toUid: string; status: string };
     if (inv.toUid !== uid) throw new Error('not_your_invite');
     if (inv.status !== 'pending') throw new Error('invite_already_answered');
-    tx.update(ref, { status: accept ? 'accepted' : 'declined', answeredAt: deps.now() });
-    if (accept) {
+    // A block either way (lib/server/moderation.ts) turns an accept into a decline: no friendship with a blocked person.
+    const [b1, b2] = await Promise.all([tx.get(db.doc(`blocks/${uid}`)), tx.get(db.doc(`blocks/${inv.fromUid}`))]);
+    const blocked =
+      ((b1.data()?.uids as string[] | undefined) ?? []).includes(inv.fromUid) || ((b2.data()?.uids as string[] | undefined) ?? []).includes(uid);
+    const yes = accept && !blocked;
+    tx.update(ref, { status: yes ? 'accepted' : 'declined', answeredAt: deps.now() });
+    if (yes) {
       tx.update(db.doc(`users/${inv.fromUid}`), { friends: FieldValue.arrayUnion(uid) });
       tx.update(db.doc(`users/${uid}`), { friends: FieldValue.arrayUnion(inv.fromUid) });
     }
-    return inv.fromUid;
+    return { fromUid: inv.fromUid, added: yes };
   });
-  if (accept) {
+  if (added) {
     try {
       const [me, link] = await Promise.all([loadUser(uid), deps.getLinkByUid(fromUid)]);
       if (link && !link.muted && deps.windowOpen(link.lastInboundAt, deps.now())) {

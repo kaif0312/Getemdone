@@ -3,7 +3,7 @@
 // retries, and the next run picks up where the last one stopped. The Auth user is deleted LAST, so a retry is always possible.
 //
 // Safety rules (deleting someone else's data is the worst outcome):
-// - Only docs keyed by this uid, or whose owner field (`userId`, `fromUserId`, `fromUid`/`toUid`, `ownerUid`, `uid`, `from`/`to`)
+// - Only docs keyed by this uid, or whose owner field (`userId`, `fromUserId`, `fromUid`/`toUid`, `ownerUid`, `uid`, `from`/`to`, `reporterUid`)
 //   equals this uid, are deleted. Other people's docs are only UPDATED, and only to remove this uid
 //   (friends arrays, friendKeys.<uid>, this person's comments/reactions on friends' tasks).
 // - WhatsApp-number data (waSessions, waSchedule, waReminderCaps, waSeen fwdnote, vaultUploads, learningLog) is deleted only for
@@ -185,6 +185,8 @@ export async function deleteAccount(uid: string, d: DeleteDeps = deps): Promise<
   add(deleted, 'friendInvites', await deleteQuery(db().collection('friendInvites').where('toUid', '==', uid)));
   add(deleted, 'nudgeLimits', await deleteQuery(db().collection('nudgeLimits').where('from', '==', uid)));
   add(deleted, 'nudgeLimits', await deleteQuery(db().collection('nudgeLimits').where('to', '==', uid)));
+  // Safety reports this person FILED (reports about them stay: the owner's moderation record) and their block list.
+  add(deleted, 'reports', await deleteQuery(db().collection('reports').where('reporterUid', '==', uid)));
 
   // ---- other people: remove this uid from friends lists, shared keys, and comments/reactions on their tasks ----
   const reverse = await db().collection('users').where('friends', 'array-contains', uid).get();
@@ -206,7 +208,7 @@ export async function deleteAccount(uid: string, d: DeleteDeps = deps): Promise<
   add(updated, 'tasks.comments', await stripFromFriendTasks(uid, [...friendIds]));
 
   // ---- docs keyed by uid ----
-  for (const p of [`userKeys/${uid}`, `fitnessGoals/${uid}`, `presence/${uid}`, `calendarEventVisibility/${uid}`, `migrationStatus/${uid}`]) {
+  for (const p of [`userKeys/${uid}`, `blocks/${uid}`, `fitnessGoals/${uid}`, `presence/${uid}`, `calendarEventVisibility/${uid}`, `migrationStatus/${uid}`]) {
     add(deleted, p.split('/')[0], await deleteDoc(p));
   }
   for (const col of ['fitness', 'focusSessions', 'calendarEvents']) {

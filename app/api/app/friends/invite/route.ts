@@ -1,11 +1,12 @@
 // Native app: send a friend invite (consent flow). Body { code } (friend code) or { uid }. Bearer = Firebase ID token.
-// 200 { ok:true, inviteId } | 400 bad_request | 401 unauthorized | 404 not_found | 409 self|already_friends|already_invited
+// 200 { ok:true, inviteId } | 400 bad_request | 401 unauthorized | 404 not_found | 409 self|already_friends|already_invited|blocked
+// (blocked = the caller blocked that person; someone who blocked the caller looks like not_found)
 import { inviteFriendForApp } from '@/lib/server/social';
 import { NO_STORE, uidFromRequest } from '@/lib/server/appAuth';
 
 export const runtime = 'nodejs';
 
-const STATUS: Record<string, number> = { not_found: 404, no_user: 401, self: 409, already_friends: 409, already_invited: 409 };
+const STATUS: Record<string, number> = { not_found: 404, no_user: 401, self: 409, already_friends: 409, already_invited: 409, blocked: 409 };
 
 export async function POST(req: Request) {
   const uid = await uidFromRequest(req);

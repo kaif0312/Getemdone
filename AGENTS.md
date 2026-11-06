@@ -327,3 +327,12 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   change row sizes (`npx tsx scripts/try_calendar.mts` writes `tmp-cal/*.png`).
 - Sending: `lib/calendar/send.ts` renders, uploads (`uploadMedia`), sends `sendImageButtons`; any failure returns false and the bot sends a text
   agenda instead. Tests: `scripts/tests/test_calendar_images.mts`.
+
+## Meetings UI (2026-11-06, branch `meetings-ui-web`)
+- Screen `/meetings` (`app/meetings/page.tsx` -> `components/meetings/MeetingsPage.tsx`); detail and new-meeting are sheets driven by `?id=<id>` and `?new=1[&date=YYYY-MM-DD]`. Entry card on `/` = `MeetingsEntryCard` (rendered above the schedule card, so only when the user has tasks, like that block).
+- Looks like the native app, not the PWA: scoped tokens in `components/meetings/nn/nn.css` under `.nn` (dark keys off the PWA's `.dark` on `<html>`), Nunito via `nn/font.ts`, kit in `nn/index.tsx`. **Never use `--nn-*` outside `components/meetings/`; never edit `app/globals.css` / `lib/theme.ts` for it.**
+- Pure logic `components/meetings/view.ts` is shared verbatim with `native/src/features/meetings/view.ts` (everything below line 3 must match). Test: `npx tsx scripts/tests/test_meetings_view.mts`.
+- Data: Firestore listener on `meetings where ownerUid == uid`; on error (rules not deployed) falls back to `GET /api/meetings` every 60 s while visible. Writes only via the API (`components/meetings/api.ts`, `hooks/useMeetings.ts`).
+- Seed for local checks: `scripts/seed_meetings_emulator.mts` (emulators only; also whitelists `kaif@nudge.test`). `lib/firebase.ts` hardcodes emulator ports 8080/9099, so parallel agents share one emulator and can wipe each other's data.
+- Web "Connect Google Calendar" opens WhatsApp `/sync` until the backend supports a web return URL (`Via 'web'`).
+- Local `next dev` with `node_modules` as a junction needs `--webpack` (Turbopack rejects the symlink).

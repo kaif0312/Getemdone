@@ -1,0 +1,153 @@
+/* Native-look tokens for the Meetings UI. SCOPED: everything lives under .nn, nothing leaks into the PWA.
+   Source of truth: native/src/ui/theme.tsx (+ Text, Card, Button, Chip). Never use --nn-* outside components/meetings/. */
+.nn {
+  --nn-bg: #FFF8EC; --nn-surface: #FFFFFF; --nn-surface-alt: #F6EBD5; --nn-border: #EADCC0;
+  --nn-text: #1E1433; --nn-text-muted: #6A5E85; --nn-text-faint: #A398BD; --nn-on-fill: #FFFFFF;
+  --nn-primary: #7B4FD6; --nn-primary-edge: #5B34B0; --nn-primary-soft: #EEE7FB;
+  --nn-accent: #FF6A1F; --nn-accent-edge: #D94E0A; --nn-accent-soft: #FFE8DA;
+  --nn-sun: #F7C04A; --nn-sun-edge: #D99A1E; --nn-sun-soft: #FFF0C9;
+  --nn-success: #2BB673; --nn-success-edge: #1E8F58; --nn-success-soft: #DDF5E8;
+  --nn-danger: #E5484D; --nn-danger-edge: #B8343A; --nn-danger-soft: #FFE3E4;
+  --nn-overlay: rgba(30, 20, 51, 0.45);
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  color: var(--nn-text);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.375;
+}
+.dark .nn {
+  --nn-bg: #140C24; --nn-surface: #21163A; --nn-surface-alt: #2D2050; --nn-border: #3B2D63;
+  --nn-text: #FFF8EC; --nn-text-muted: #B7ABD3; --nn-text-faint: #7F72A3; --nn-on-fill: #FFFFFF;
+  --nn-primary: #8C63E8; --nn-primary-edge: #5B34B0; --nn-primary-soft: #32245C;
+  --nn-accent: #FF6A1F; --nn-accent-edge: #B7440A; --nn-accent-soft: #442416;
+  --nn-sun: #F7C04A; --nn-sun-edge: #B57F14; --nn-sun-soft: #40331A;
+  --nn-success: #34C47F; --nn-success-edge: #1A7A4B; --nn-success-soft: #17382B;
+  --nn-danger: #F0585D; --nn-danger-edge: #9C2B30; --nn-danger-soft: #40191D;
+  --nn-overlay: rgba(0, 0, 0, 0.6);
+}
+.nn, .nn *, .nn *::before, .nn *::after { box-sizing: border-box; }
+.nn button, .nn input, .nn textarea { font-family: inherit; }
+.nn-page { background: var(--nn-bg); min-height: 100dvh; }
+.nn-wrap { max-width: 560px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.nn-stack { display: flex; flex-direction: column; gap: 12px; }
+.nn-row { display: flex; align-items: center; gap: 8px; }
+.nn-clamp1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nn-clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nn-clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* type */
+.nn-title { font-weight: 900; font-size: 28px; line-height: 34px; letter-spacing: -0.3px; margin: 0; }
+.nn-heading { font-weight: 800; font-size: 20px; line-height: 26px; margin: 0; }
+.nn-subheading { font-weight: 800; font-size: 17px; line-height: 22px; margin: 0; }
+.nn-body { font-weight: 600; font-size: 16px; line-height: 22px; margin: 0; }
+.nn-body-strong { font-weight: 800; font-size: 16px; line-height: 22px; margin: 0; }
+.nn-caption { font-weight: 700; font-size: 13px; line-height: 18px; margin: 0; }
+.nn-label { font-weight: 800; font-size: 12px; line-height: 16px; letter-spacing: 0.8px; text-transform: uppercase; margin: 0; }
+.nn-muted { color: var(--nn-text-muted); }
+.nn-faint { color: var(--nn-text-faint); }
+.nn-primary-text { color: var(--nn-primary); }
+.nn-danger-text { color: var(--nn-danger); }
+.nn-accent-text { color: var(--nn-accent); }
+
+/* card */
+.nn-card { background: var(--nn-surface); border: 2px solid var(--nn-border); border-radius: 20px; padding: 16px; box-shadow: 0 4px 0 var(--nn-border); color: inherit; text-align: left; width: 100%; display: block; }
+.nn-card--flat { box-shadow: none; }
+.nn-card--compact { padding: 14px; }
+.nn-card--primary { background: var(--nn-primary-soft); border-color: var(--nn-primary); box-shadow: 0 4px 0 var(--nn-primary-edge); }
+.nn-card--accent { background: var(--nn-accent-soft); border-color: var(--nn-accent); box-shadow: 0 4px 0 var(--nn-accent-edge); }
+.nn-card--sun { background: var(--nn-sun-soft); border-color: var(--nn-sun); box-shadow: 0 4px 0 var(--nn-sun-edge); }
+.nn-card--success { background: var(--nn-success-soft); border-color: var(--nn-success); box-shadow: 0 4px 0 var(--nn-success-edge); }
+.nn-card--danger { background: var(--nn-danger-soft); border-color: var(--nn-danger); box-shadow: 0 4px 0 var(--nn-danger-edge); }
+.nn-card--flat.nn-card--primary, .nn-card--flat.nn-card--accent, .nn-card--flat.nn-card--sun, .nn-card--flat.nn-card--success, .nn-card--flat.nn-card--danger { box-shadow: none; }
+.nn-card--press { cursor: pointer; transition: transform 80ms ease, box-shadow 80ms ease; font: inherit; }
+.nn-card--press:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--nn-border); }
+.nn-card--press.nn-card--primary:active { box-shadow: 0 1px 0 var(--nn-primary-edge); }
+.nn-card--press.nn-card--accent:active { box-shadow: 0 1px 0 var(--nn-accent-edge); }
+.nn-card--press.nn-card--flat:active { transform: none; }
+
+/* button */
+.nn-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; border-radius: 20px; font-weight: 800; font-size: 16px; line-height: 22px; padding: 0 20px; height: 54px; background: var(--nn-primary); color: var(--nn-on-fill); box-shadow: 0 5px 0 var(--nn-primary-edge); transition: transform 80ms ease, box-shadow 80ms ease; margin-bottom: 5px; text-decoration: none; white-space: nowrap; }
+.nn-btn:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+.nn-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.nn-btn--sm { height: 44px; padding: 0 16px; font-size: 14px; }
+.nn-btn--lg { height: 62px; font-size: 18px; }
+.nn-btn--block { width: 100%; }
+.nn-btn--accent { background: var(--nn-accent); box-shadow: 0 5px 0 var(--nn-accent-edge); }
+.nn-btn--success { background: var(--nn-success); box-shadow: 0 5px 0 var(--nn-success-edge); }
+.nn-btn--danger { background: var(--nn-danger); box-shadow: 0 5px 0 var(--nn-danger-edge); }
+.nn-btn--secondary { background: var(--nn-surface); color: var(--nn-primary); border: 2px solid var(--nn-border); box-shadow: 0 5px 0 var(--nn-border); }
+.nn-btn--secondary.nn-btn--danger-text { color: var(--nn-danger); }
+.nn-btn--ghost { background: transparent; color: var(--nn-primary); box-shadow: none; margin-bottom: 0; }
+.nn-btn--ghost:active:not(:disabled) { transform: none; opacity: 0.6; }
+.nn-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid currentColor; border-right-color: transparent; animation: nn-rot 0.8s linear infinite; }
+@keyframes nn-rot { to { transform: rotate(360deg); } }
+
+/* round icon button (header +, sheet X) */
+.nn-round { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; border: 2px solid var(--nn-border); background: var(--nn-surface); color: var(--nn-text); cursor: pointer; flex: none; padding: 0; }
+.nn-round--fill { background: var(--nn-primary); border-color: var(--nn-primary); color: var(--nn-on-fill); }
+.nn-round--alt { background: var(--nn-surface-alt); border: 0; width: 36px; height: 36px; }
+.nn-hit { position: relative; }
+.nn-hit::after { content: ''; position: absolute; inset: -4px; }
+
+/* chip */
+.nn-chip { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--nn-surface-alt); color: var(--nn-text); font-weight: 800; font-size: 15px; line-height: 20px; white-space: nowrap; max-width: 100%; }
+.nn-chip--sm { height: 30px; padding: 0 12px; font-size: 13px; font-weight: 700; }
+button.nn-chip { cursor: pointer; }
+.nn-chip--primary { background: var(--nn-primary-soft); color: var(--nn-primary); }
+.nn-chip--accent { background: var(--nn-accent-soft); color: var(--nn-accent); }
+.nn-chip--success { background: var(--nn-success-soft); color: var(--nn-success); }
+.nn-chip--danger { background: var(--nn-danger-soft); color: var(--nn-danger); }
+.nn-chip--selected.nn-chip--primary, .nn-chip--selected { background: var(--nn-primary); color: var(--nn-on-fill); }
+.nn-chip--selected.nn-chip--accent { background: var(--nn-accent); color: var(--nn-on-fill); }
+.nn-chip--selected.nn-chip--success { background: var(--nn-success); color: var(--nn-on-fill); }
+.nn-avatar { width: 20px; height: 20px; border-radius: 999px; background: var(--nn-primary); color: var(--nn-on-fill); font-size: 9px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.nn-avatar--lg { width: 32px; height: 32px; font-size: 12px; }
+
+/* section header */
+.nn-count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--nn-surface-alt); font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--nn-text); }
+.nn-tile { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; flex: none; background: var(--nn-primary-soft); color: var(--nn-primary); }
+.nn-tile--sun { background: var(--nn-sun); color: #1E1433; }
+
+/* field */
+.nn-field { width: 100%; height: 48px; border-radius: 16px; border: 2px solid var(--nn-border); background: var(--nn-surface); color: var(--nn-text); padding: 0 14px; font-size: 16px; font-weight: 600; outline: none; }
+.nn-field::placeholder { color: var(--nn-text-faint); }
+.nn-field:focus { border-color: var(--nn-primary); }
+textarea.nn-field { height: auto; min-height: 104px; padding: 12px 14px; resize: vertical; line-height: 22px; }
+.nn-group { background: var(--nn-surface); border: 2px solid var(--nn-border); border-radius: 20px; overflow: hidden; }
+.nn-frow { width: 100%; background: transparent; border: 0; padding: 12px 16px; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: inherit; text-align: left; cursor: pointer; }
+.nn-frow + .nn-fbody, .nn-frow--static + .nn-frow--static { border-top: 2px solid var(--nn-border); }
+.nn-group > * + * { border-top: 2px solid var(--nn-border); }
+.nn-fbody { padding: 4px 16px 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.nn-frow--static { cursor: default; align-items: flex-start; flex-direction: column; gap: 2px; }
+
+/* sheet */
+.nn-overlay { position: fixed; inset: 0; background: var(--nn-overlay); z-index: 80; display: flex; align-items: flex-end; justify-content: center; }
+.nn-sheet { background: var(--nn-bg); width: 100%; max-height: 92dvh; border-radius: 28px 28px 0 0; display: flex; flex-direction: column; overflow: hidden; border: 2px solid var(--nn-border); border-bottom: 0; animation: nn-up 200ms ease-out; }
+.nn-sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 8px; }
+.nn-sheet-body { padding: 8px 20px 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.nn-sheet-body > * { flex-shrink: 0; }
+.nn-sheet-foot { padding: 12px 20px calc(16px + env(safe-area-inset-bottom)); border-top: 2px solid var(--nn-border); background: var(--nn-bg); display: flex; flex-direction: column; gap: 8px; }
+@keyframes nn-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (min-width: 640px) {
+  .nn-overlay { align-items: center; }
+  .nn-sheet { width: 480px; max-height: 86dvh; border-radius: 28px; border-bottom: 2px solid var(--nn-border); }
+}
+
+/* states */
+.nn-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 24px 16px; }
+.nn-empty img { display: block; }
+.nn-skeleton { height: 76px; border-radius: 20px; background: var(--nn-surface-alt); animation: nn-pulse 1.2s ease-in-out infinite; }
+@keyframes nn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* toast */
+.nn-toast-host { position: fixed; left: 0; right: 0; bottom: calc(24px + env(safe-area-inset-bottom)); display: flex; justify-content: center; z-index: 120; pointer-events: none; padding: 0 16px; }
+.nn-toast { background: var(--nn-text); color: var(--nn-bg); border-radius: 16px; padding: 12px 16px; font-weight: 800; font-size: 14px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25); max-width: 420px; display: flex; gap: 8px; align-items: center; }
+.nn-toast--success { background: var(--nn-success); color: #fff; }
+.nn-toast--error { background: var(--nn-danger); color: #fff; }
+.nn-toast--info { background: var(--nn-primary); color: #fff; }
+
+.nn a { color: inherit; }
+.nn :focus-visible { outline: 3px solid var(--nn-primary); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nn *, .nn *::before, .nn *::after { transition: none !important; animation: none !important; }
+}

@@ -9,6 +9,9 @@ import { useRouter } from 'expo-router';
 import { BackButton } from '@/features/friends/BackButton';
 import { fmtTime } from '@/features/tasks/helpers';
 import { useTasks } from '@/hooks/useTasks';
+import { useMeetings } from '@/hooks/useMeetings';
+import { DayEvents } from '@/features/events/DayEvents';
+import { eventsOnDay } from '@/features/events/view';
 import { useToday } from '@/hooks/useToday';
 import { getActiveZone } from '@/lib/dates';
 import type { Task } from '@/lib/types';
@@ -134,6 +137,7 @@ export default function CalendarScreen() {
   const { colors } = useTheme();
   const { today } = useToday();
   const { tasks, loading, error, retry, toggleComplete } = useTasks();
+  const { events } = useMeetings(); // events (timed, with a length) are listed with the day's tasks; they have no checkbox
   const [view, setView] = useState<'month' | 'week'>('month');
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState(today);
@@ -149,6 +153,7 @@ export default function CalendarScreen() {
   }, [offset, view, today, month.month]);
 
   const selectedDay = useMemo(() => month.weeks.flat().find((d) => d.date === selected), [month, selected]);
+  const selectedEvents = useMemo(() => eventsOnDay(events, selected, zone), [events, selected, zone]);
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t] as const)), [tasks]);
 
   const onToggle = useCallback(
@@ -219,11 +224,12 @@ export default function CalendarScreen() {
         {nav}
         {week.days.map((d) => (
           <Card key={d.date} style={d.isToday ? { borderColor: colors.accent, borderWidth: 2 } : undefined}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: d.events.length ? 4 : 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: d.events.length || eventsOnDay(events, d.date, zone).length ? 4 : 0 }}>
               <Text variant="heading" tone={d.isToday ? 'accent' : 'default'}>{dayTitle(d.date, today)}</Text>
               <View style={{ flex: 1 }} />
-              {d.events.length ? <Text variant="caption" tone="muted">{`${d.events.filter((e) => e.done).length}/${d.events.length}`}</Text> : <Text variant="caption" tone="faint">Free</Text>}
+              {d.events.length ? <Text variant="caption" tone="muted">{`${d.events.filter((e) => e.done).length}/${d.events.length}`}</Text> : !eventsOnDay(events, d.date, zone).length ? <Text variant="caption" tone="faint">Free</Text> : null}
             </View>
+            <DayEvents occ={eventsOnDay(events, d.date, zone)} zone={zone} past={d.isPast} />
             {d.events.length ? <Rows day={d} onToggle={onToggle} onOpen={onOpen} /> : null}
           </Card>
         ))}
@@ -257,9 +263,10 @@ export default function CalendarScreen() {
             <Button label="Add" icon="plus" size="sm" variant="secondary" onPress={() => router.push({ pathname: '/add', params: { date: selected } })} />
           ) : null}
         </View>
+        {selectedEvents.length ? <DayEvents occ={selectedEvents} zone={zone} past={selectedDay?.isPast} /> : null}
         {selectedDay && selectedDay.events.length ? (
           <Rows day={selectedDay} onToggle={onToggle} onOpen={onOpen} />
-        ) : (
+        ) : selectedEvents.length ? null : (
           <EmptyState pose="sleepy" title="Nothing planned." body="Free day. Add something, or tell the coach on WhatsApp." />
         )}
       </Card>

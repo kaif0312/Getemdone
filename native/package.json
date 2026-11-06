@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test:crypto": "tsx scripts/test_crypto_parity.mts",
+    "test:events": "tsx scripts/test_events_view.mts",
     "seed:emulator": "tsx scripts/seed_emulator.mts"
   },
   "dependencies": {

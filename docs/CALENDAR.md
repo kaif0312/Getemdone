@@ -6,11 +6,13 @@ WhatsApp bot (`/sync`) AND the native app (Me -> Calendar). Capture stays in Wha
 ## What goes into a calendar (`lib/server/calendarEvents.ts`, pure)
 | Task has | Becomes |
 |---|---|
-| `deferredTo` = `YYYY-MM-DDTHH:mm` (user's zone) | 30-min timed event |
+| `deferredTo` = `YYYY-MM-DDTHH:mm` (user's zone) | timed event, `durationMin` long (30 min when none stated) |
 | else `remindFor` | 30-min timed event at the reminder's event time |
 | else `dueDate` with a real time | 15-min timed event |
 | else `dueDate` at 23:59 local (date-only deadline) | all-day "Due: ..." event (not busy) |
-Not shown: completed, deleted, recurring templates, tasks with no time, a bare date, anything outside yesterday..+90 days.
+Not shown: completed, deleted, recurring templates, tasks with no time, a bare date, anything outside yesterday..+90 days, and the reminder-only tasks of events (`task.reminderOf`).
+
+**Events (2026-11-07)**: `meetings` docs with `kind:'event'` are mirrored too (`eventsForEvents`, `calendarEntries`) with their REAL start and end (a 1-hour physio is a 1-hour block, with `LOCATION`). A repeating event is expanded into one entry per occurrence inside the window (ICS UID and Google event id from `ev:<id>:<startMs>`); a one-off is `ev:<id>`. Moving or cancelling an event changes or deletes those entries on the next sync (cancelling one day of a series deletes just that day). A daily event is up to 90 Google events, written at most 60 per run. Design: AGENTS.md "Events".
 `e1:` ciphertext titles show as "Nudge task" (the server cannot read them). Same function feeds both channels, so they match.
 
 ## 1. ICS feed (works everywhere, no sign-in)

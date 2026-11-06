@@ -6,24 +6,34 @@
  *   const { meetings, loading, error, retry, refresh, create, cancel } = useMeetings();
  *
  * `meetings` is raw (cancelled and ended included): filter with upcoming()/groupMeetings() from features/meetings/view.
+ * Events (doc kind 'event', 2026-11-07) arrive on the same listener and are split off into `events` (raw too; expand repeats with
+ * features/events/view). They are never in `meetings`, so the Meetings screens stay meetings only.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cancelMeetingApi, createMeeting, listMeetings, MeetingsApiError } from '@/lib/meetingsApi';
+import { cancelEventApi, createEventApi, listEventsApi, updateEventApi } from '@/lib/eventsApi';
+import { toEventBody, toEventPatch, type EventDraft } from '@/features/events/view';
 import { toCreateBody, type NewMeetingDraft } from '@/features/meetings/view';
-import type { CalendarStatus, Meeting } from '@/lib/meetingsTypes';
+import type { CalendarStatus, Meeting, UpdateEventRequest } from '@/lib/meetingsTypes';
 import { useAuth } from './useAuth';
 
 interface MeetingsApi {
   meetings: Meeting[];
+  /** Events (kind 'event'), raw: cancelled ones included. */
+  events: Meeting[];
   loading: boolean;
   error: boolean;
   retry: () => void;
   refresh: () => Promise<void>;
   create: (draft: NewMeetingDraft) => Promise<{ meeting: Meeting; calendar: CalendarStatus }>;
   cancel: (id: string) => Promise<void>;
+  createEvent: (draft: EventDraft) => Promise<Meeting>;
+  updateEvent: (id: string, patch: UpdateEventRequest) => Promise<Meeting>;
+  /** `date` (YYYY-MM-DD) cancels one day of a repeating event; omitted cancels the event / the whole series. */
+  cancelEvent: (id: string, date?: string) => Promise<void>;
 }
 
 const Ctx = createContext<MeetingsApi | null>(null);
@@ -62,7 +72,8 @@ function useMeetingsState(): MeetingsApi {
 
   const fetchList = useCallback(async () => {
     try {
-      setFallback(await listMeetings());
+      const [ms, es] = await Promise.all([listMeetings(), listEventsApi()]);
+      setFallback([...ms, ...es]);
       setFetchFailed(false);
     } catch (e) {
       console.warn('[meetings] fallback', e instanceof MeetingsApiError ? e.code : e);
@@ -84,10 +95,12 @@ function useMeetingsState(): MeetingsApi {
     return () => { stop(); sub.remove(); };
   }, [uid, listenerFailed, fetchList, attempt]);
 
-  const meetings = useMemo(() => {
+  const all = useMemo(() => {
     const base = (listenerFailed ? fallback : live) ?? [];
     return base.map((m) => (cancelled[m.id] ? { ...m, status: 'cancelled' as const } : m));
   }, [listenerFailed, fallback, live, cancelled]);
+  const meetings = useMemo(() => all.filter((m) => m.kind !== 'event'), [all]);
+  const events = useMemo(() => all.filter((m) => m.kind === 'event'), [all]);
 
   const loading = !!uid && (listenerFailed ? fallback === null && !fetchFailed : live === null);
   const error = listenerFailed && fetchFailed && fallback === null;
@@ -118,7 +131,30 @@ function useMeetingsState(): MeetingsApi {
     }
   }, [fetchList]);
 
-  return { meetings, loading, error, retry, refresh, create, cancel };
+  const createEvent = useCallback(async (draft: EventDraft) => {
+    const r = await createEventApi(toEventBody(draft));
+    if (failedRef.current) void fetchList();
+    return r;
+  }, [fetchList]);
+
+  const updateEvent = useCallback(async (id: string, patch: UpdateEventRequest) => {
+    const r = await updateEventApi(id, patch);
+    if (failedRef.current) void fetchList();
+    return r;
+  }, [fetchList]);
+
+  const cancelEvent = useCallback(async (id: string, date?: string) => {
+    if (!date) setCancelled((c) => ({ ...c, [id]: true }));
+    try {
+      await cancelEventApi(id, date);
+      if (failedRef.current) void fetchList();
+    } catch (e) {
+      setCancelled((c) => { const n = { ...c }; delete n[id]; return n; });
+      throw e;
+    }
+  }, [fetchList]);
+
+  return { meetings, events, loading, error, retry, refresh, create, cancel, createEvent, updateEvent, cancelEvent };
 }
 
 export function MeetingsProvider({ children }: { children: React.ReactNode }) {

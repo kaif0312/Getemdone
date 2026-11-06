@@ -14,7 +14,7 @@ export class MeetingsApiError extends Error {
   }
 }
 
-async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+export async function call<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new MeetingsApiError('unauthorized', 401);
   const ctl = new AbortController();

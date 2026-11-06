@@ -51,6 +51,7 @@ function Navigator() {
           <Stack.Screen name="calendar" options={{ presentation: 'card' }} />
           <Stack.Screen name="meetings/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="meetings/[id]" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
+          <Stack.Screen name="events/[id]" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
           <Stack.Screen name="meetings/new" options={sheetOptions({ detents: [0.92] }, colors)} />
           <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
           <Stack.Screen name="today/more" options={sheetOptions({ detents: 'fitToContents' }, colors)} />

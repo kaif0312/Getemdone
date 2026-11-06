@@ -1,5 +1,6 @@
 /**
- * Add sheet (route /add, formSheet). One field; several lines or ';' make several tasks. Chips: Today / Tomorrow / Pick date,
+ * Add sheet (route /add, formSheet). Task | Event switch: an event (title, day, start, length, repeat) is not a task, see features/events.
+ * Task form: one field; several lines or ';' make several tasks. Chips: Today / Tomorrow / Pick date,
  * time, tag, visibility. The keyboard is up immediately, submit closes the sheet and the rows animate in on Today.
  */
 import React, { useMemo, useRef, useState } from 'react';
@@ -11,6 +12,8 @@ import { useTasks, type NewTaskInput } from '@/hooks/useTasks';
 import { useToday } from '@/hooks/useToday';
 import { addDays } from '@/lib/dates';
 import type { TaskVisibility } from '@/lib/types';
+import KindToggle, { type AddKind } from '@/features/events/KindToggle';
+import NewEventSheet from '@/features/events/NewEventSheet';
 import { Button, Chip, fonts, haptic, radius, SheetScaffold, Text, TextField, useTheme, useToast } from '@/ui';
 import { buildScheduled, defaultTime, fmtDay, fmtTime, parseTaskLines, tagDisplay, toTimestamp } from './helpers';
 import { DatePickerPanel, TagPickerPanel, TimePickerPanel } from './Pickers';
@@ -28,7 +31,9 @@ export default function AddSheet() {
   const { today } = useToday();
   const tomorrow = addDays(today, 1);
   // Optional ?date=YYYY-MM-DD (the Calendar's Add for the selected day); never a past day.
-  const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
+  // Optional ?kind=event opens it on the Event form.
+  const { date: dateParam, kind: kindParam } = useLocalSearchParams<{ date?: string; kind?: string }>();
+  const [kind, setKind] = useState<AddKind>(kindParam === 'event' ? 'event' : 'task');
   const initialDate = typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && dateParam > today ? dateParam : today;
 
   const [text, setText] = useState('');
@@ -66,12 +71,15 @@ export default function AddSheet() {
 
   const vm = VIS_META[effVis.visibility];
 
+  if (kind === 'event') return <NewEventSheet date={typeof dateParam === 'string' ? dateParam : undefined} onKind={setKind} />;
+
   return (
     <SheetScaffold
       title="New task"
       footer={<Button label={lines.length > 1 ? `Add ${lines.length} tasks` : 'Add'} size="lg" fullWidth icon="plus" disabled={lines.length === 0} onPress={submit} />}
     >
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingBottom: 12 }}>
+        <KindToggle value={kind} onChange={setKind} />
         <TextField
           ref={inputRef}
           value={text}

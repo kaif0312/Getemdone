@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Create / list / cancel Nudge meetings from Claude Code (signed API, owner = WhatsApp 916238952660).
-//   node scripts/meeting.mjs create "Meeting with Shamly" "2026-11-07 23:00" [--dur 30] [--tz Asia/Kolkata] [--email a@x.com --name Shamly] [--notes ".."]
+//   node scripts/meeting.mjs create "Meeting with Shamly" "2026-11-07 23:00" [--dur 30] [--tz Asia/Kolkata] [--email a@x.com --name Shamly] [--with "Shamly +91 62389 52660"] [--notes ".."]
 //   node scripts/meeting.mjs list | node scripts/meeting.mjs cancel <id>
 // NUDGE_FORWARD_SECRET comes from the environment or ~/.secrets/nudge/env. Base URL: NUDGE_PUBLIC_URL or https://getemdone.vercel.app.
 import { createHmac } from 'node:crypto';
@@ -31,10 +31,20 @@ async function call(method, path, bodyObj) {
   return j;
 }
 
+/** "Shamly +91 62389 52660" -> {name:'Shamly', waId:'916238952660'}; a bare number gives {waId}. */
+function parseWith(s) {
+  const m = /^(.*?)\s*(\+?[\d][\d\s().-]{6,})$/.exec(s.trim());
+  if (!m) { console.error(`--with needs a phone number: "${s}"`); process.exit(1); }
+  const name = m[1].trim();
+  return { ...(name ? { name } : {}), waId: m[2].replace(/\D/g, '') };
+}
+
 if (cmd === 'create') {
   const [title, start] = pos;
   if (!title || !start) { console.error('usage: create "<title>" "<YYYY-MM-DD HH:mm | ISO>" [--dur n] [--tz z] [--email e --name n] [--notes t]'); process.exit(1); }
   const attendees = opt('--email') || opt('--name') ? [{ ...(opt('--name') ? { name: opt('--name') } : {}), ...(opt('--email') ? { email: opt('--email') } : {}) }] : [];
+  // --with "Shamly +91 62389 52660" (repeatable): name = the words before the number; the number gets the invite on WhatsApp.
+  rest.forEach((a, i) => { if (a === '--with' && rest[i + 1]) attendees.push(parseWith(rest[i + 1])); });
   const m = await call('POST', '/api/meetings', { title, start, createdVia: 'claude-code', ...(opt('--dur') ? { durationMin: Number(opt('--dur')) } : {}), ...(opt('--tz') ? { tz: opt('--tz') } : {}), attendees, ...(opt('--notes') ? { notes: opt('--notes') } : {}) });
   console.log(JSON.stringify(m, null, 2));
 } else if (cmd === 'list') {

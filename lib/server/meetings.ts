@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { adminDb } from './firebaseAdmin';
 import { addTasks, deleteTask } from './tasks';
 import { localTime } from './users';
+import { cancelAttendees, inviteAttendees } from './meetingInvites';
 import {
   DEFAULT_DURATION_MIN, DEFAULT_MEETING_TZ, DEFAULT_REMINDER_MINUTES,
   type CalendarStatus, type CreateMeetingRequest, type Meeting, type MeetingAttendee,
@@ -76,7 +77,12 @@ export function normalizeRequest(b: Partial<CreateMeetingRequest>, now: number =
       o.email = a.email.trim();
     }
     if (typeof a?.uid === 'string' && a.uid) o.uid = a.uid;
-    if (typeof a?.waId === 'string' && a.waId) o.waId = a.waId.replace(/\D/g, '');
+    if ((typeof a?.waId === 'string' && a.waId) || typeof a?.waId === 'number') {
+      const digits = String(a.waId).replace(/\D/g, '');
+      if (digits.length < 8 || digits.length > 15) throw new BadRequest(`bad attendee phone number: ${a.waId}`);
+      o.waId = digits;
+    }
+    if (!o.name && !o.email && !o.uid && !o.waId) throw new BadRequest('attendee needs a name, email, uid or waId');
     return o;
   });
   const rm = b.reminderMinutes === undefined ? DEFAULT_REMINDER_MINUTES : b.reminderMinutes;
@@ -206,6 +212,7 @@ export async function createMeeting(ownerUid: string, req: Partial<CreateMeeting
   }
   const doc: MeetingDoc = { ...meeting, attendeeUids: n.attendees.map((a) => a.uid).filter((u): u is string => !!u), reminderTaskIds };
   await ref.set(doc);
+  await inviteAttendees(meeting); // WhatsApp invites; never throws
   return { meeting, calendar: cal.status };
 }
 
@@ -229,5 +236,7 @@ export async function cancelMeeting(uid: string, id: string): Promise<{ meeting:
   await Promise.all((d.reminderTaskIds ?? []).map((t) => deleteTask(uid, t).catch(() => undefined)));
   const patch = { status: 'cancelled' as const, updatedAt: new Date().toISOString(), reminderTaskIds: [] };
   await ref.update(patch);
-  return { meeting: publicOf({ ...d, ...patch }), calendar };
+  const meeting = publicOf({ ...d, ...patch });
+  await cancelAttendees(meeting); // WhatsApp note to those invited; never throws
+  return { meeting, calendar };
 }

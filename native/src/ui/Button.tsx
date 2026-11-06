@@ -26,6 +26,8 @@ export interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
+  /** Danger-coloured label on secondary/ghost (e.g. Cancel meeting). */
+  destructive?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   accessibilityLabel?: string;
@@ -36,7 +38,7 @@ export interface ButtonProps {
  * Ghost has no edge (text only, fades on press).
  */
 export function Button({
-  label, onPress, variant = 'primary', size = 'md', icon, loading, disabled, fullWidth, style, testID, accessibilityLabel,
+  label, onPress, variant = 'primary', size = 'md', icon, loading, disabled, fullWidth, destructive, style, testID, accessibilityLabel,
 }: ButtonProps) {
   const { colors } = useTheme();
   const reduce = useReduceMotion();
@@ -49,7 +51,7 @@ export function Button({
       case 'accent': return { face: colors.accent, edge: colors.accentEdge, fg: colors.onFill, border: 'transparent' };
       case 'success': return { face: colors.success, edge: colors.successEdge, fg: colors.onFill, border: 'transparent' };
       case 'danger': return { face: colors.danger, edge: colors.dangerEdge, fg: colors.onFill, border: 'transparent' };
-      case 'secondary': return { face: colors.surface, edge: colors.border, fg: colors.primary, border: colors.border };
+      case 'secondary': return { face: colors.surface, edge: colors.border, fg: destructive ? colors.danger : colors.primary, border: colors.border };
       case 'ghost': return { face: 'transparent', edge: 'transparent', fg: colors.primary, border: 'transparent' };
       default: return { face: colors.primary, edge: colors.primaryEdge, fg: colors.onFill, border: 'transparent' };
     }

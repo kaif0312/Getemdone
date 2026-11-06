@@ -13,6 +13,7 @@ import { BlocksProvider } from '@/hooks/useBlocks';
 import { EncryptionProvider } from '@/hooks/useEncryption';
 import { FitnessProvider } from '@/hooks/useFitness';
 import { FriendsProvider } from '@/hooks/useFriends';
+import { MeetingsProvider } from '@/hooks/useMeetings';
 import { NotificationsInboxProvider } from '@/hooks/useNotificationsInbox';
 import { usePushSetup } from '@/hooks/usePush';
 import { StreakProvider } from '@/hooks/useStreak';
@@ -48,6 +49,9 @@ function Navigator() {
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="calendar" options={{ presentation: 'card' }} />
+          <Stack.Screen name="meetings/index" options={{ presentation: 'card' }} />
+          <Stack.Screen name="meetings/[id]" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
+          <Stack.Screen name="meetings/new" options={sheetOptions({ detents: [0.92] }, colors)} />
           <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
           <Stack.Screen name="today/more" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="today/focus" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
@@ -100,6 +104,7 @@ export default function RootLayout() {
                 <EncryptionProvider>
                   <BlocksProvider>
                   <TasksProvider>
+                  <MeetingsProvider>
                     <FriendsProvider>
                       <NotificationsInboxProvider>
                         <FitnessProvider>
@@ -111,6 +116,7 @@ export default function RootLayout() {
                         </FitnessProvider>
                       </NotificationsInboxProvider>
                     </FriendsProvider>
+                  </MeetingsProvider>
                   </TasksProvider>
                   </BlocksProvider>
                 </EncryptionProvider>

@@ -32,7 +32,7 @@ Every screen should nudge people back to WhatsApp for capture ("Tell the coach o
 - **Add** (raised centre button): fast sheet, one text field + chips (Today / Tomorrow / date, time, tag, visibility),
   multi-line = several tasks. Keyboard opens instantly.
 
-**Not in v1** (later, in this order): circles (§4a of the bot plan; needs bot + rules work), home-screen widgets, share
+**Not in v1** (later, in this order): circles (§4a of the bot plan; needs bot + rules work), share
 extension ("send to Nudge"), Apple Health / Health Connect import, Google/Apple sign-in, Google Calendar, task templates,
 admin dashboard (stays web).
 
@@ -159,3 +159,6 @@ admin dashboard (stays web).
   (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`) for Android push; first iOS build
   interactively (`eas build -p ios --profile production`, Apple login creates the bundle id/profile), then
   `eas submit -p ios --latest`; create the Play app and upload the first AAB to Internal testing.
+
+## Home-screen widgets (2026-11-07)
+Pulled forward from "later" on a friend's request: Today / Streak / Quick Add on Android and iOS, app 1.1.0. Detail and limits: `native/AGENTS.md` "Home-screen widgets". Needs a new native build, not OTA.

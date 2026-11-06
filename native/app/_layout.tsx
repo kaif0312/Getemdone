@@ -15,6 +15,7 @@ import { FitnessProvider } from '@/hooks/useFitness';
 import { FriendsProvider } from '@/hooks/useFriends';
 import { NotificationsInboxProvider } from '@/hooks/useNotificationsInbox';
 import { usePushSetup } from '@/hooks/usePush';
+import { useWidgetSync } from '@/features/widgets/useWidgetSync';
 import { StreakProvider } from '@/hooks/useStreak';
 import { TasksProvider } from '@/hooks/useTasks';
 import { configureNotificationHandler } from '@/lib/push';
@@ -27,6 +28,7 @@ function Navigator() {
   const { user, loading } = useAuth();
   const { colors, isDark } = useTheme();
   usePushSetup();
+  useWidgetSync();
 
   useEffect(() => {
     if (!loading) void SplashScreen.hideAsync().catch(() => {});

@@ -48,7 +48,7 @@ export default function Photo() {
   };
 
   return (
-    <SheetScaffold title="Profile photo">
+    <SheetScaffold fit title="Profile photo">
       <View style={{ alignItems: 'center', gap: 14, paddingBottom: 16 }}>
         <Avatar name={profile?.displayName ?? 'You'} photoURL={profile?.photoURL} size={96} />
         <View style={{ alignSelf: 'stretch', gap: 8 }}>

@@ -32,7 +32,7 @@ export default function EditName() {
   };
 
   return (
-    <SheetScaffold title="Your name" footer={<Button label="Save" size="lg" fullWidth loading={busy} disabled={!trimmed || !!error} onPress={save} />}>
+    <SheetScaffold fit title="Your name" footer={<Button label="Save" size="lg" fullWidth loading={busy} disabled={!trimmed || !!error} onPress={save} />}>
       <TextField value={name} onChangeText={setName} placeholder="Your name" autoFocus maxLength={60} returnKeyType="done" onSubmitEditing={save} error={error} autoCapitalize="words" />
     </SheetScaffold>
   );

@@ -6,6 +6,8 @@
  *   3. Open it with router.push('/something') (params via the usual query string).
  *   4. Close it with router.back() (or the scaffold's X).
  * Do not build bottom sheets out of Modal/absolute views: native sheets give detents, gestures and a11y for free.
+ * Detents: a list is collapsed to its largest (see `multiDetent`): iOS lays the content out at the largest detent, so a footer would sit
+ * below the screen edge at a smaller one. For 'fitToContents' sheets pass <SheetScaffold fit>.
  * On web (screenshots) the sheet is shown as a plain modal screen, which is fine for checking layout.
  */
 import React from 'react';
@@ -23,17 +25,26 @@ export interface SheetOptionsInput {
   /** Index of the detent it opens at. */
   initialDetent?: number;
   grabber?: boolean;
+  /**
+   * Keep several detents. Off by default: UIKit lays a form sheet's content out at the LARGEST detent and slides the sheet
+   * down for the smaller ones, so a footer button (SheetScaffold `footer`) or the bottom of a form sits below the screen edge
+   * (cut off, untappable) until the user drags the sheet up. We therefore collapse a list to its largest detent.
+   * Only set this for a sheet whose whole content is a scroll view with nothing pinned to the bottom.
+   */
+  multiDetent?: boolean;
 }
 
 /** Options for <Stack.Screen options={sheetOptions(...)} />. `colors` is optional; pass `useTheme().colors` to paint the sheet. */
 export function sheetOptions(input: SheetOptionsInput = {}, colors?: Colors) {
+  const asked = input.detents ?? [0.55, 1];
+  const detents = Array.isArray(asked) && asked.length > 1 && !input.multiDetent ? [Math.max(...asked)] : asked;
   return {
     presentation: 'formSheet' as const,
     headerShown: false,
     gestureEnabled: true,
     animation: Platform.OS === 'android' ? ('slide_from_bottom' as const) : undefined,
-    sheetAllowedDetents: input.detents ?? [0.55, 1],
-    sheetInitialDetentIndex: input.initialDetent ?? 0,
+    sheetAllowedDetents: detents,
+    sheetInitialDetentIndex: Array.isArray(detents) && detents.length > 1 ? (input.initialDetent ?? 0) : 0,
     sheetGrabberVisible: input.grabber ?? true,
     sheetCornerRadius: 28,
     sheetExpandsWhenScrolledToEdge: true,
@@ -47,15 +58,17 @@ export interface SheetScaffoldProps {
   hideClose?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Set when the sheet is registered with detents 'fitToContents': the scaffold must not stretch with flex:1 (the sheet is measured from its content). */
+  fit?: boolean;
 }
 
 /** Standard sheet chrome: title row with close button, padded body, safe-area footer slot. */
-export function SheetScaffold({ title, hideClose, children, footer }: SheetScaffoldProps) {
+export function SheetScaffold({ title, hideClose, children, footer, fit }: SheetScaffoldProps) {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: fit ? undefined : 1, backgroundColor: colors.bg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 22 : 18, paddingBottom: 8, minHeight: 56 }}>
         <Text variant="heading" style={{ flex: 1 }} numberOfLines={1}>{title}</Text>
         {hideClose ? null : (
@@ -70,7 +83,7 @@ export function SheetScaffold({ title, hideClose, children, footer }: SheetScaff
           </Pressable>
         )}
       </View>
-      <View style={{ flex: 1, paddingHorizontal: 20 }}>{children}</View>
+      <View style={{ flex: fit ? undefined : 1, paddingHorizontal: 20 }}>{children}</View>
       {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) }}>{footer}</View> : null}
     </View>
   );

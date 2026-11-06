@@ -1,0 +1,4218 @@
+{
+ "430:/email": [
+  {
+   "label": "New here? Create an account",
+   "x": 24,
+   "y": 870,
+   "w": 382,
+   "h": 38,
+   "issues": [
+    "small 382x38"
+   ]
+  }
+ ],
+ "430:C:/Program Files/Git/add": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 203,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 262,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 312,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by Missed commitment. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 279,
+    "y": 868,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "COVERED by Me",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 927,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 944,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1021,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1038,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1115,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1132,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1209,
+    "w": 390,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1226,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1379,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1396,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1473,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1473,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1473,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1490,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1613,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1630,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1711,
+    "w": 390,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 390x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1753,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1753,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1753,
+    "w": 390,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1770,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1827,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1827,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1827,
+    "w": 390,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1844,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 105,
+    "y": 1909,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ },
+ "430:/me/sign-out": {
+  "url": "/me/sign-out",
+  "issues": []
+ },
+ "430:/me/name": {
+  "url": "/me/name",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 374,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "430:/today/more": {
+  "url": "/today/more",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 374,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "430:/today": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 203,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 262,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 312,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by Missed commitment. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 763,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Renew the car i"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 279,
+    "y": 868,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "COVERED by Me",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 927,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 927,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 944,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1021,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1021,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1038,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1115,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1115,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1132,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1209,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1209,
+    "w": 390,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1226,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1379,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1379,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1396,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1473,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1473,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1473,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1490,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 158,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 242,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1613,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1613,
+    "w": 390,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1630,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1711,
+    "w": 390,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 390x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1753,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1753,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1753,
+    "w": 390,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1770,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 242,
+    "y": 1827,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 326,
+    "y": 1827,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1827,
+    "w": 390,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1844,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 105,
+    "y": 1909,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ },
+ "390:/email": [
+  {
+   "label": "New here? Create an account",
+   "x": 24,
+   "y": 782,
+   "w": 342,
+   "h": 38,
+   "issues": [
+    "small 342x38"
+   ]
+  }
+ ],
+ "390:C:/Program Files/Git/add": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 163,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 222,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 272,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by Missed commitment. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by DIV:",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by Progress",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by Me",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Renew the car insurance. Open ",
+    "x": 20,
+    "y": 763,
+    "w": 350,
+    "h": 114,
+    "issues": [
+     "COVERED by DIV:",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "COVERED by svg:",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 239,
+    "y": 898,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 957,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 974,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1051,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1068,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1145,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1162,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1239,
+    "w": 350,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1256,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1409,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1426,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1503,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1520,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1643,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1741,
+    "w": 350,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 350x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1783,
+    "w": 350,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1800,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1857,
+    "w": 350,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1874,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 85,
+    "y": 1939,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ },
+ "390:/me/sign-out": {
+  "url": "/me/sign-out",
+  "issues": []
+ },
+ "390:/me/name": {
+  "url": "/me/name",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 334,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "390:/today/more": {
+  "url": "/today/more",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 334,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "390:/today": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 163,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 222,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 272,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by DIV:Missed commitme"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "COVERED by Missed commitment. Open details"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by DIV:",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by Progress",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "COVERED by Me",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Renew the car insurance. Open ",
+    "x": 20,
+    "y": 763,
+    "w": 350,
+    "h": 114,
+    "issues": [
+     "COVERED by DIV:",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "COVERED by svg:",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 239,
+    "y": 898,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 957,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 974,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1051,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1068,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1145,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1162,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1239,
+    "w": 350,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1256,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1409,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1426,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1503,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1520,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 118,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 202,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1643,
+    "w": 350,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1741,
+    "w": 350,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 350x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1783,
+    "w": 350,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1800,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 202,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 286,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1857,
+    "w": 350,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1874,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 85,
+    "y": 1939,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ },
+ "375:/email": [
+  {
+   "label": "New here? Create an account",
+   "x": 24,
+   "y": 629,
+   "w": 327,
+   "h": 38,
+   "issues": [
+    "small 327x38"
+   ]
+  }
+ ],
+ "375:C:/Program Files/Git/add": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 148,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 207,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 257,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Send the invoice to Rahul. Ope",
+    "x": 20,
+    "y": 549,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Missed commitment. Open detail",
+    "x": 20,
+    "y": 643,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Renew the car insurance. Open ",
+    "x": 20,
+    "y": 763,
+    "w": 335,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 224,
+    "y": 898,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 957,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 974,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1051,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1068,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1145,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1162,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1239,
+    "w": 335,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1256,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1409,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1426,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1503,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1520,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1643,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1741,
+    "w": 335,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 335x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1783,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1800,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1857,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1874,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 78,
+    "y": 1939,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ },
+ "375:/me/sign-out": {
+  "url": "/me/sign-out",
+  "issues": []
+ },
+ "375:/me/name": {
+  "url": "/me/name",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 319,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "375:/today/more": {
+  "url": "/today/more",
+  "issues": [
+   {
+    "label": "Close",
+    "x": 319,
+    "y": 18,
+    "w": 36,
+    "h": 36,
+    "issues": [
+     "small 36x36"
+    ]
+   }
+  ]
+ },
+ "375:/today": {
+  "url": "/today",
+  "issues": [
+   {
+    "label": "4 day streak. Open progress",
+    "x": 148,
+    "y": 14,
+    "w": 49,
+    "h": 40,
+    "issues": [
+     "small 49x40"
+    ]
+   },
+   {
+    "label": "Calendar",
+    "x": 207,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "More",
+    "x": 257,
+    "y": 14,
+    "w": 40,
+    "h": 40,
+    "issues": [
+     "small 40x40"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:Send the invoic"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 549,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "COVERED by Send the invoice to Rahul. Open details"
+    ]
+   },
+   {
+    "label": "Send the invoice to Rahul. Ope",
+    "x": 20,
+    "y": 549,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "COVERED by DIV:"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 566,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 643,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Missed commitment. Open detail",
+    "x": 20,
+    "y": 643,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 763,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Renew the car insurance. Open ",
+    "x": 20,
+    "y": 763,
+    "w": 335,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 780,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Move all to tomorrow",
+    "x": 224,
+    "y": 898,
+    "w": 131,
+    "h": 18,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 131x18"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 957,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Book dentist for Friday. Open ",
+    "x": 20,
+    "y": 957,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 974,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1051,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Reply to the landlord. Open de",
+    "x": 20,
+    "y": 1051,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1068,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1145,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Buy a birthday gift for Dev. O",
+    "x": 20,
+    "y": 1145,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1162,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1239,
+    "w": 84,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Prepare the Q4 deck. Open deta",
+    "x": 20,
+    "y": 1239,
+    "w": 335,
+    "h": 114,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1256,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1409,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Call mum. Open details",
+    "x": 20,
+    "y": 1409,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1426,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1503,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Water the plants. Open details",
+    "x": 20,
+    "y": 1503,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1520,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 103,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Someday",
+    "x": 187,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1643,
+    "w": 84,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Plan the weekend trip. Open de",
+    "x": 20,
+    "y": 1643,
+    "w": 335,
+    "h": 84,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark done",
+    "x": 36,
+    "y": 1660,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Done, expanded",
+    "x": 20,
+    "y": 1741,
+    "w": 335,
+    "h": 32,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 335x32"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1783,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Pay the electricity bill. Open",
+    "x": 20,
+    "y": 1783,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1800,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Tomorrow",
+    "x": 187,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Delete",
+    "x": 271,
+    "y": 1857,
+    "w": 84,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Morning walk. Open details",
+    "x": 20,
+    "y": 1857,
+    "w": 335,
+    "h": 64,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   },
+   {
+    "label": "Mark not done",
+    "x": 36,
+    "y": 1874,
+    "w": 30,
+    "h": 30,
+    "issues": [
+     "offscreen",
+     "partly-outside",
+     "small 30x30"
+    ]
+   },
+   {
+    "label": "Faster on WhatsApp. Tell the c",
+    "x": 78,
+    "y": 1939,
+    "w": 219,
+    "h": 44,
+    "issues": [
+     "offscreen",
+     "partly-outside"
+    ]
+   }
+  ]
+ }
+}

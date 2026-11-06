@@ -48,6 +48,7 @@ Copy voice: short, direct, a little strict ("3 left. Move."). Never cutesy, neve
 ### Sheets
 Convention (full text in `src/ui/Sheet.tsx`): a route registered in `app/_layout.tsx` with `options={sheetOptions({ detents: [0.5, 1] }, colors)}`,
 body wrapped in `<SheetScaffold title footer>`, opened with `router.push`, closed with `router.back()`. No hand-made bottom sheets.
+Detents: iOS lays a form sheet out at its LARGEST detent and slides it down for smaller ones, so a footer/bottom control is cut off and untappable at e.g. 0.5. `sheetOptions` therefore collapses a detent list to its largest (opt out with `multiDetent: true`); `fitToContents` sheets use `<SheetScaffold fit>` (no flex:1). Cannot be seen on web: check on a device.
 
 ## Data hooks (`@/hooks/*`), all context-shared (one listener), mounted in `app/_layout.tsx`
 - `useAuth()` -> `{ user, uid, profile (live users/{uid}), loading, isWhitelisted, signIn, signUp, signInWithToken, resetPassword, signOut, updateProfile(patch) }`

@@ -11,7 +11,7 @@ export default function DeleteData() {
   const router = useRouter();
   const toast = useToast();
   return (
-    <SheetScaffold title="Erase WhatsApp chat" hideClose>
+    <SheetScaffold fit title="Erase WhatsApp chat" hideClose>
       <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
         <CoachSticker pose="disappointed" size={120} />
         <Text variant="heading" align="center">Erase what the coach remembers.</Text>

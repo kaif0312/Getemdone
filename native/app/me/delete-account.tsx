@@ -170,7 +170,7 @@ export default function DeleteAccount() {
 
   if (step === 'reauth') {
     return (
-      <SheetScaffold title="Delete account" hideClose>
+      <SheetScaffold fit title="Delete account" hideClose>
         <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
           <CoachSticker pose="clipboard" size={110} />
           <Text variant="heading" align="center">First, confirm it is you.</Text>
@@ -222,7 +222,7 @@ export default function DeleteAccount() {
 
   if (step === 'failed') {
     return (
-      <SheetScaffold title="Delete account" hideClose>
+      <SheetScaffold fit title="Delete account" hideClose>
         <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
           <CoachSticker pose="disappointed" size={110} />
           <Text variant="heading" align="center">Could not delete it right now.</Text>
@@ -242,7 +242,7 @@ export default function DeleteAccount() {
 
   if (step === 'sent' || step === 'nomail') {
     return (
-      <SheetScaffold title="Delete account" hideClose>
+      <SheetScaffold fit title="Delete account" hideClose>
         <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
           <CoachSticker pose={step === 'sent' ? 'waiting' : 'clipboard'} size={110} />
           <Text variant="heading" align="center">{step === 'sent' ? 'Send the e-mail to finish.' : 'No mail app found.'}</Text>
@@ -274,7 +274,7 @@ export default function DeleteAccount() {
 
   const confirming = step === 'confirm';
   return (
-    <SheetScaffold title="Delete account" hideClose>
+    <SheetScaffold fit title="Delete account" hideClose>
       <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
         <CoachSticker pose="disappointed" size={110} />
         <Text variant="heading" align="center">{confirming ? 'Delete your account for good?' : 'This deletes everything.'}</Text>

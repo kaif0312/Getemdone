@@ -146,7 +146,7 @@ Verified: `tsc` clean, `npm run test:crypto` 138/138, `expo export` ios + androi
 - Turning Face ID on in Privacy locks the app at once (AppLock sees the flag flip). Acceptable, verify on device.
 - Focus presence (`nudge_focus_presence_started_at`) and the Nudge throttle are per device, not per account: signing in as someone else on the same phone inherits them.
 - Friends' wall-clock tasks and the "today" of a friend in another zone are shown in YOUR zone.
-- Not built: drag-reorder, document attachments, Google Calendar strip, in-app QR scanning, circles, widgets, share extension.
+- Not built: drag-reorder, document attachments, Google Calendar strip, in-app QR scanning, circles, share extension (widgets: see below).
 
 ## Calendar (Me -> Calendar, 2026-11-05)
 `app/me/calendar.tsx` (container) + `src/features/settings/CalendarView.tsx` (layout, state in / callbacks out) + `useCalendar.ts` + `src/lib/calendarApi.ts`.
@@ -168,3 +168,24 @@ Same thing on WhatsApp: `/sync`. Added the `refresh` icon to `src/ui/Icon.tsx`.
 - Invite error `blocked` -> "You blocked them. Unblock ... first."; someone who blocked you looks like "No one has that code."
 - Needs the server PR live and `firestore.rules` deployed (`blocks` read, `reports` fallback). Not checked on a device yet: Alert menu, sheet over sheet
   (report from the comments sheet), `dismissAll` after Block from inside comments.
+
+## Home-screen widgets (2026-11-07, app version 1.1.0, needs a new native build)
+Asked for by a friend (Dinesh, Android) after seeing TickTick's. Three widgets on each platform, names `NudgeToday` (4x2: today's open tasks), `NudgeStreak`
+(2x2: streak + coach), `NudgeQuickAdd` (2x2: opens Add). Taps are deep links: `nudge://task/<id>`, `add`, `today`, `progress`.
+- **Not OTA-able**: native modules (`react-native-android-widget`, `expo-widgets` + `@expo/ui`) and config plugins. The app version moved to **1.1.0** so
+  `runtimeVersion` (appVersion policy) keeps this JS away from the 1.0.x store builds. Ship through a new Play / TestFlight build, then OTA as usual.
+- **One data source**: `src/features/widgets/snapshot.ts` (pure, `scripts/test_widget_snapshot.mts` / `npm run test:widgets`) turns the live task list + streak into a small
+  JSON `WidgetSnapshot` (open tasks max 8 + the real counts, done count, streak, atRisk, coach pose, day + zone). Same "Today" rules as the Today tab
+  (`shouldShowInTodayView` + `buildSections`, later-day tasks excluded). **A private task is counted but its text is never in the snapshot ("Private task")**.
+  `useWidgetSync()` (mounted in `Navigator`, `app/_layout.tsx`) rebuilds it 1 s after any change and pushes it; signed out = empty snapshot (widgets say "Sign in").
+- **Android** (`src/widgets/android/`): widgets are `react-native-android-widget` primitives (no hooks), drawn light AND dark from the stored snapshot (AsyncStorage
+  `nudge.widget.snapshot`); `handler.tsx` is the headless task handler registered in `index.js` (the new app entry, `main` in package.json). The tick circle
+  (`COMPLETE`) redraws at once, then `completeFromWidget.ts` writes to Firestore with the same fields as `toggleComplete` (recurring: `completedDates`); if the write fails
+  or takes more than 10 s (offline) it is queued (`nudge.widget.pending`) and retried when the app opens. The streak is recomputed by the app when it next opens.
+  A snapshot from an earlier day shows "New day. Open Nudge." instead of yesterday's list. Row count follows the widget height.
+- **iOS** (`src/widgets/ios/`, `expo-widgets` 57): SwiftUI via `@expo/ui`; the layout functions are `'widget'` runtime code (no app imports, no module-scope values), so the app sends
+  ready strings (`iosProps.ts`) with `updateSnapshot`. Today = medium/large, Streak and Quick Add = small. **Limit: an iOS widget tap cannot run app code, so there is no tick
+  on iOS** (rows open the task instead); no coach image on iOS yet. Needs iOS 17+ for `containerBackground`.
+- Widget picker previews (`previewImage`) are not set: take screenshots from the first device build into `assets/widget-preview/` and reference them in `app.json`.
+- **Verified here**: tsc, snapshot test (private text never leaks, caps, tick, stale, signed-out), `expo export` ios + android, `expo prebuild --platform android` (3 providers generated).
+  **Not verified (needs a device)**: how the widgets look, the tick write from a closed app, iOS prebuild (cannot run on Windows; EAS does it), App Group on a real iOS build.

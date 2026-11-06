@@ -3,7 +3,7 @@
     "name": "Nudge",
     "slug": "nudge",
     "scheme": "nudge",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -39,7 +39,9 @@
         "android.permission.VIBRATE",
         "android.permission.USE_FINGERPRINT"
       ],
-      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -79,6 +81,83 @@
           "photosPermission": "Nudge needs your photos so you can set a profile picture and attach images to tasks.",
           "cameraPermission": "Nudge uses the camera to take photos for tasks.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "NudgeToday",
+              "label": "Nudge: Today",
+              "description": "Today's tasks with a tick to finish each one",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "NudgeStreak",
+              "label": "Nudge: Streak",
+              "description": "Your streak and the coach",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "NudgeQuickAdd",
+              "label": "Nudge: Quick add",
+              "description": "One tap to add a task",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 0
+            }
+          ]
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.com.iskaria.nudge",
+          "widgets": [
+            {
+              "name": "NudgeToday",
+              "displayName": "Today",
+              "description": "Today's tasks",
+              "ios": {
+                "supportedFamilies": [
+                  "systemMedium",
+                  "systemLarge"
+                ]
+              }
+            },
+            {
+              "name": "NudgeStreak",
+              "displayName": "Streak",
+              "description": "Your streak",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
+                ]
+              }
+            },
+            {
+              "name": "NudgeQuickAdd",
+              "displayName": "Quick add",
+              "description": "One tap to add a task",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
+                ]
+              }
+            }
+          ]
         }
       ]
     ],

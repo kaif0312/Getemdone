@@ -40,7 +40,7 @@ function minutesOf(hm: string): number { const [h, m] = hm.split(':').map(Number
 function cut(s: string, re: RegExp): string { return s.replace(re, ' '); }
 
 export function parseRepeat(text: string): { repeat?: EventRepeat; rest: string } {
-  let rest = text;
+  const rest = text;
   let m = new RegExp(`\\bevery\\s+(?:other\\s+)?${WD_RE}((?:\\s*(?:,|and|&)\\s*${WD_RE})*)`, 'i').exec(rest);
   if (m) {
     const days = new Set<number>([wdIndex(m[1])]);
@@ -93,7 +93,6 @@ export function parseDuration(text: string): { min: number; rest: string } | nul
   let rest = text;
   let total = 0;
   let found = false;
-  const half = /\b(?:for\s+)?(?:half an? hour|30 ?mins?)\b/i;
   if (/\b(?:for\s+)?half an? hour\b/i.test(rest)) { total += 30; found = true; rest = cut(rest, /\b(?:for\s+)?half an? hour\b/i); }
   const an = /\b(?:for\s+)?an? (?:hour|hr)\b/i;
   if (an.test(rest)) { total += 60; found = true; rest = cut(rest, an); }
@@ -152,7 +151,7 @@ const COMMAND_START = /^(?:please\s+)?(?:move|change|reschedule|postpone|push|sh
 const FILLER = /\b(?:set|add|book|schedule|put|create|make|please|pls|remind me (?:about|of|to)|the event|an event|event|in my (?:calendar|schedule)|on my calendar|starting from|starting|starts|from|at|on|for|every|each|and|to|till|until|@)\b/gi;
 
 function cleanTitle(s: string): string {
-  let t = s.replace(/[,;:()]/g, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').replace(/^[\s\-–—.!?]+|[\s\-–—.!?]+$/g, '').trim();
+  const t = s.replace(/[,;:()]/g, ' ').replace(FILLER, ' ').replace(/\s+/g, ' ').replace(/^[\s\-–—.!?]+|[\s\-–—.!?]+$/g, '').trim();
   if (!t) return '';
   return t.charAt(0).toUpperCase() + t.slice(1);
 }

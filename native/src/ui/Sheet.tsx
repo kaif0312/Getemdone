@@ -8,8 +8,8 @@
  * Do not build bottom sheets out of Modal/absolute views: native sheets give detents, gestures and a11y for free.
  * On web (screenshots) the sheet is shown as a plain modal screen, which is fine for checking layout.
  */
-import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
@@ -47,15 +47,39 @@ export interface SheetScaffoldProps {
   hideClose?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /**
+   * Lift the whole sheet (footer included) above the keyboard. Turn on for sheets with a text field and a footer button / bottom input,
+   * and do NOT also wrap the scaffold in a KeyboardAvoidingView. Sheets that already do that themselves leave it off.
+   */
+  avoidKeyboard?: boolean;
+}
+
+/** True while the software keyboard is up (iOS reports it before the animation, so padding follows it). */
+function useKeyboardUp(enabled: boolean): boolean {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [enabled]);
+  return up;
 }
 
 /** Standard sheet chrome: title row with close button, padded body, safe-area footer slot. */
-export function SheetScaffold({ title, hideClose, children, footer }: SheetScaffoldProps) {
+export function SheetScaffold({ title, hideClose, children, footer, avoidKeyboard }: SheetScaffoldProps) {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const kb = useKeyboardUp(!!avoidKeyboard);
+  // Home-indicator room: under the footer, or under the body when there is no footer (nothing sits in the swipe-home zone).
+  const bottomInset = kb ? 8 : Math.max(insets.bottom, 16);
+  const Root = avoidKeyboard ? KeyboardAvoidingView : View;
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <Root {...(avoidKeyboard ? { behavior: Platform.OS === 'ios' ? ('padding' as const) : undefined } : {})} style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 22 : 18, paddingBottom: 8, minHeight: 56 }}>
         <Text variant="heading" style={{ flex: 1 }} numberOfLines={1}>{title}</Text>
         {hideClose ? null : (
@@ -70,8 +94,8 @@ export function SheetScaffold({ title, hideClose, children, footer }: SheetScaff
           </Pressable>
         )}
       </View>
-      <View style={{ flex: 1, paddingHorizontal: 20 }}>{children}</View>
-      {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) }}>{footer}</View> : null}
-    </View>
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: footer ? 0 : bottomInset }}>{children}</View>
+      {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: bottomInset }}>{footer}</View> : null}
+    </Root>
   );
 }

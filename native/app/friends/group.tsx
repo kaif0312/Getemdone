@@ -67,6 +67,7 @@ export default function GroupEditor() {
   return (
     <SheetScaffold
       title={existing ? 'Edit group' : 'New group'}
+      avoidKeyboard
       footer={
         <View style={{ gap: 8 }}>
           <Button label={existing ? 'Save' : 'Create group'} fullWidth loading={saving} disabled={!canSave} onPress={save} />

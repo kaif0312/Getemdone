@@ -15,6 +15,7 @@ import {
   useConfetti, useReduceMotion, useTheme, useToast, Header,
 } from '@/ui';
 import { clearedLine, leftLine, openCoachWhatsApp } from './copy';
+import { TodayMeetings } from '@/features/meetings/TodayMeetings';
 import { fmtHeaderDate, fmtTime, parseScheduled } from './helpers';
 import { TaskRow } from './TaskRow';
 import { useTodayTasks } from './useTodayTasks';
@@ -194,6 +195,7 @@ export default function TodayScreen() {
     return (
       <Screen header={header}>
         <EmptyState pose="sleepy" title="Nothing on your list." body="Add one here, or just tell the coach on WhatsApp." />
+        <TodayMeetings />
         <View style={{ alignItems: 'center', gap: 12 }}>
           <Button label="Add a task" icon="plus" variant="accent" style={{ alignSelf: 'center' }} onPress={() => router.push('/add')} />
           <Button label="Tell the coach on WhatsApp" variant="secondary" style={{ alignSelf: 'center' }} onPress={openCoachWhatsApp} />
@@ -310,6 +312,8 @@ export default function TodayScreen() {
           </ScrollView>
         </View>
       ) : null}
+
+      <TodayMeetings />
 
       {/* sections */}
       {open.map((sec) => (

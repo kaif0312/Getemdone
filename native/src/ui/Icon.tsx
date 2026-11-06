@@ -58,6 +58,7 @@ const paths = {
   bug: ['M8 2l1.88 1.88M14.12 3.88L16 2', 'M9 7.13v-1a3.003 3.003 0 1 1 6 0v1', 'M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6z', 'M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4M17.2 17c2.1.1 3.8 1.9 3.8 4'],
   shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
   info: ['M12 16v-4M12 8h.01'],
+  video: ['M23 7l-7 5 7 5V7z'],
   phone: ['M12 18h.01'],
   face: ['M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2', 'M9 9v1.5M15 9v1.5M12 9v4.5h-1M9 16c1.5 1.3 4.5 1.3 6 0'],
 } as const;
@@ -88,6 +89,7 @@ function extras(name: IconName, color: string, sw: number) {
     );
     case 'globe': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
     case 'userCheck': return <Circle cx={8.5} cy={7} r={4} stroke={color} strokeWidth={sw} fill="none" />;
+    case 'video': return <Rect x={1} y={5} width={15} height={14} rx={2} stroke={color} strokeWidth={sw} fill="none" />;
     case 'help': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
     case 'info': return <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={sw} fill="none" />;
     case 'phone': return <Rect x={6} y={2} width={12} height={20} rx={3} stroke={color} strokeWidth={sw} fill="none" />;

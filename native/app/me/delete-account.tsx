@@ -4,7 +4,7 @@
 // (password for e-mail accounts, a fresh WhatsApp LOGIN code otherwise) and the delete runs again. Only when the call fails
 // does the screen offer the old fallback: a deletion REQUEST e-mail (uid, e-mail, WhatsApp number), done within 30 days.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { markAccountDeleting, useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,15 @@ import { ACCOUNT_DELETION_EMAIL, DELETE_ACCOUNT_PAGE, deletionRequestMailto } fr
 type Step = 'explain' | 'confirm' | 'reauth' | 'failed' | 'sent' | 'nomail';
 
 const POLL_MS = 2000;
+
+/** Scrolls when the content (or the keyboard) is taller than the sheet, so the buttons are never cut off. */
+function Body({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+      {children}
+    </ScrollView>
+  );
+}
 
 export default function DeleteAccount() {
   const router = useRouter();
@@ -171,7 +180,7 @@ export default function DeleteAccount() {
   if (step === 'reauth') {
     return (
       <SheetScaffold title="Delete account" hideClose>
-        <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+        <Body>
           <CoachSticker pose="clipboard" size={110} />
           <Text variant="heading" align="center">First, confirm it is you.</Text>
           {method === 'password' ? (
@@ -215,7 +224,7 @@ export default function DeleteAccount() {
             <Button label="Request deletion by e-mail" variant={method === 'none' ? 'danger' : 'secondary'} fullWidth disabled={busy} onPress={() => void sendRequest()} />
             <Button label="Keep my account" variant="ghost" fullWidth disabled={busy} onPress={() => router.back()} />
           </View>
-        </View>
+        </Body>
       </SheetScaffold>
     );
   }
@@ -223,7 +232,7 @@ export default function DeleteAccount() {
   if (step === 'failed') {
     return (
       <SheetScaffold title="Delete account" hideClose>
-        <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+        <Body>
           <CoachSticker pose="disappointed" size={110} />
           <Text variant="heading" align="center">Could not delete it right now.</Text>
           <Text tone="muted" align="center">
@@ -235,7 +244,7 @@ export default function DeleteAccount() {
             <Button label="Request deletion by e-mail" variant="secondary" fullWidth disabled={busy} onPress={() => void sendRequest()} />
             <Button label="Keep my account" variant="ghost" fullWidth disabled={busy} onPress={() => router.back()} />
           </View>
-        </View>
+        </Body>
       </SheetScaffold>
     );
   }
@@ -243,7 +252,7 @@ export default function DeleteAccount() {
   if (step === 'sent' || step === 'nomail') {
     return (
       <SheetScaffold title="Delete account" hideClose>
-        <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+        <Body>
           <CoachSticker pose={step === 'sent' ? 'waiting' : 'clipboard'} size={110} />
           <Text variant="heading" align="center">{step === 'sent' ? 'Send the e-mail to finish.' : 'No mail app found.'}</Text>
           <Text tone="muted" align="center">
@@ -267,7 +276,7 @@ export default function DeleteAccount() {
             ) : null}
             <Button label="Done" variant="ghost" fullWidth onPress={() => router.back()} />
           </View>
-        </View>
+        </Body>
       </SheetScaffold>
     );
   }
@@ -275,7 +284,7 @@ export default function DeleteAccount() {
   const confirming = step === 'confirm';
   return (
     <SheetScaffold title="Delete account" hideClose>
-      <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
+      <Body>
         <CoachSticker pose="disappointed" size={110} />
         <Text variant="heading" align="center">{confirming ? 'Delete your account for good?' : 'This deletes everything.'}</Text>
         <Text tone="muted" align="center">
@@ -297,7 +306,7 @@ export default function DeleteAccount() {
           )}
           <Button label="Keep my account" variant="ghost" fullWidth disabled={busy} onPress={() => router.back()} />
         </View>
-      </View>
+      </Body>
     </SheetScaffold>
   );
 }

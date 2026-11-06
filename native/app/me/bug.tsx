@@ -104,7 +104,7 @@ export default function Bug() {
               onPress={() => setShot(null)}
               accessibilityRole="button"
               accessibilityLabel="Remove screenshot"
-              style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center' }}
+              hitSlop={8} style={{ position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center' }}
             >
               <Icon name="x" size={18} color="#FFFFFF" />
             </Pressable>

@@ -75,7 +75,7 @@ function Navigator() {
           <Stack.Screen name="me/bug" options={sheetOptions({ detents: [0.8, 1] }, colors)} />
           <Stack.Screen name="me/sign-out" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="me/delete-data" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
-          <Stack.Screen name="me/delete-account" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="me/delete-account" options={sheetOptions({ detents: [0.85, 1] }, colors)} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />

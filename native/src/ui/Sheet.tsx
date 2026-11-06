@@ -9,7 +9,7 @@
  * On web (screenshots) the sheet is shown as a plain modal screen, which is fine for checking layout.
  */
 import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
@@ -55,7 +55,7 @@ export function SheetScaffold({ title, hideClose, children, footer }: SheetScaff
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 22 : 18, paddingBottom: 8, minHeight: 56 }}>
         <Text variant="heading" style={{ flex: 1 }} numberOfLines={1}>{title}</Text>
         {hideClose ? null : (
@@ -72,6 +72,6 @@ export function SheetScaffold({ title, hideClose, children, footer }: SheetScaff
       </View>
       <View style={{ flex: 1, paddingHorizontal: 20 }}>{children}</View>
       {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 16) }}>{footer}</View> : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

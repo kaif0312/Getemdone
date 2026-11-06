@@ -21,6 +21,8 @@ export interface NewTaskInput {
   /** Reminder fire time, unix ms (task.remindAt). `remindFor` = the event time the reminder is about. See lib/server/reminders.ts. */
   remindAt?: number;
   remindFor?: number;
+  /** Length in minutes (task.durationMin), for timed items like a class. */
+  durationMin?: number;
   recurrenceText?: string; // e.g. "every monday" -> utils/recurrence.parseRecurrenceFromText
   /** Someday/Maybe: created already parked (no day, no reminder). */
   parked?: boolean;
@@ -89,6 +91,7 @@ export async function addTasks(uid: string, items: NewTaskInput[]): Promise<Task
       ...(item.remindAt && !parkedNow ? { remindAt: item.remindAt, ...(item.remindFor ? { remindFor: item.remindFor } : {}) } : {}),
       ...(item.when && !parkedNow ? { deferredTo: item.when } : {}),
       ...(parkedNow ? { parkedAt: Date.now() } : {}),
+      ...(item.durationMin ? { durationMin: item.durationMin } : {}),
       ...(recurrence ? { recurrence } : {}),
       ...(tags.length ? { tags } : {}),
     };

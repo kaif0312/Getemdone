@@ -256,6 +256,27 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   device still open with a valid ID token (up to 1 h) could re-create `presence`/`userKeys` stubs after the final sweep.
 - The old admin-only callable `deleteUserAccount` (functions/) is untouched and covers fewer collections.
 
+## Safety: report + block (2026-11-06, App Store guideline 1.2)
+- `lib/server/moderation.ts`. `POST /api/app/report` body `{kind:'comment'|'user', targetUid, reason:'spam'|'harassment'|'inappropriate'|'other',
+  note?, taskId?, commentId?, contentSeen?}` (Bearer ID token; taskId + commentId required for a comment) -> `200 {ok, reportId}` | `400 bad_request` |
+  `401` | `404 not_found` | `409 self` | `429 rate_limited` (20 per reporter per rolling 24 h). Writes `reports/{id}` (`reporterUid, targetUid, kind,
+  reason, note, taskId, commentId, commentFound, contentSeen` = what the app showed, `contentStored` = the comment text read on the server,
+  `status:'open', createdAt, source:'api', alert`) and WhatsApps the owner (`NUDGE_REPORT_ALERT_WA`, default `916238952660`): free text inside his
+  24 h window (`waLinks/<wa>.lastInboundAt`), else (or when the text fails) the approved `nudge_reminder` template with "<Reason> report <id>: review
+  it in the reports collection". `alert` = `text|template|failed`.
+- **Acting on a report (owner, within 24 h):** open `reports/<id>` in the Firebase console; remove the comment from `tasks/<taskId>.comments`,
+  and for a repeat offender disable the Auth user (or run account deletion for them); set `status:'closed'` + a note. No admin UI yet.
+- `POST /api/app/block` body `{uid, block?: boolean = true}` -> `200 {ok}` | `400` | `401` | `404 not_found` (block only) | `409 self`. Block =
+  `blocks/{me}.uids` arrayUnion + friendship removed both ways + pending invites either way `declined` (`declinedBy:'block'`); unblock only removes
+  the entry. `inviteFriend` refuses: `409 blocked` to the blocker, `404 not_found` to the blocked person; `answerInvite` turns an accept into a
+  decline when a block exists. The app hides blocked people's comments, reactions and notifications (client-side, reversible).
+- Rules (`firestore.rules`): `reports` create-only for the reporter (the app's offline fallback, `source:'app'`), no client reads; `blocks/{uid}`
+  read by uid only, server-written; the users friends-only branch is refused for someone the target blocked. Deploy with
+  `node scripts/deploy_rules.mjs --key ~/.secrets/nudge/firebase-sa.json [--commit]` (Rules API, dry run by default).
+- Account deletion deletes the reports a person FILED and `blocks/{uid}`; reports ABOUT them and others' block lists naming them stay.
+- Tests: `FIRESTORE_PORT=8685 bash scripts/test-emulator.sh scripts/tests/test_moderation.mts`; rules:
+  `FIRESTORE_RULES=1 FIRESTORE_PORT=8785 bash scripts/test-emulator.sh scripts/tests/test_rules_moderation.mts`.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

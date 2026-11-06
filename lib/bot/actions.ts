@@ -12,6 +12,7 @@ import { raise, type MemeRequest } from './memes';
 import { REMIND_LEAD_MIN } from '@/lib/server/reminders';
 import { agendaText, buildMonth, buildWeek } from '@/lib/calendar/events';
 import { addDays, clip, fmtNum, num, str, taskLine, time12, validTime, validWhen, whenLabel, zonedToMs } from './format';
+import { createEventFromDraft, draftFromItem } from './events';
 import { LANGS, LANG_NAMES, langOf, t as tr, type Key, type Lang, type Params } from './i18n';
 
 export const MAX_LIST = 10;
@@ -402,7 +403,18 @@ export async function setReminderChannelAction(ctx: Ctx, channel?: string): Prom
   return [ctx.t(CHANNEL_KEY[c])];
 }
 
-export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
+/** "16:00" + 45 -> "16:45" (wraps past midnight). */
+function addMinutes(hhmm: string, min: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = (h * 60 + m + min) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+/**
+ * add_tasks items -> tasks. A timed item that the rules call an EVENT (a stated length or an event-like word: "class 4pm for 45 min",
+ * "physio 4:30pm") becomes an event instead (lib/bot/events.ts), unless `forceTask` ("/task" always adds a task).
+ */
+export async function addItems(ctx: Ctx, raw: unknown, opts: { forceTask?: boolean } = {}): Promise<string[]> {
   const arr = Array.isArray(raw) ? raw : [];
   const items = arr
     .map((it) => {
@@ -416,6 +428,7 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
         when,
         dueDate: due ? zonedToMs(due, ctx.tz) ?? undefined : undefined,
         recurrenceText: str(o.recurrence),
+        durationMin: (() => { const d = num(o.duration_min); return d && d > 0 && d <= 1440 ? Math.round(d) : undefined; })(),
         ...reminderFor(ctx, o, when, due),
         alreadyDone: o.already_done === true && !str(o.recurrence),
         parked: o.someday === true && !str(o.recurrence) && o.already_done !== true,
@@ -424,6 +437,16 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     .filter((x): x is NonNullable<typeof x> => !!x)
     .slice(0, 15);
   if (!items.length) return [];
+  const eventLines: string[] = [];
+  if (!opts.forceTask && ctx.d.events) {
+    for (let i = items.length - 1; i >= 0; i--) {
+      const draft = draftFromItem(items[i]);
+      if (!draft) continue;
+      items.splice(i, 1);
+      eventLines.unshift(...await createEventFromDraft(ctx, draft));
+    }
+    if (!items.length) return eventLines;
+  }
   const created = await ctx.d.addTasks(ctx.uid, items.map(({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked }) => ({ text, when, dueDate, recurrenceText, remindAt, remindFor, parked })));
   ctx.rememberTasks(created);
   // "I already called mom": the task is logged and ticked in one go (the two-minute rule), so the day's streak counts it.
@@ -438,7 +461,8 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
     const w = whenLabel(t.deferredTo, ctx.today, ctx.lang);
     const due = t.dueDate ? ctx.t('dueOn', { when: whenLabel(new Date(t.dueDate).toLocaleDateString('en-CA', { timeZone: ctx.tz }), ctx.today, ctx.lang) || ctx.t('today') }) : '';
     const rem = t.remindAt ? ` · ⏰ ${time12(ctx.d.localTime(ctx.tz, t.remindAt))}` : '';
-    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w})` : ''}${due}${rem}`);
+    const span = t.durationMin && t.deferredTo?.includes('T') ? `–${time12(addMinutes(t.deferredTo.split('T')[1], t.durationMin))}` : '';
+    lines.push(`${n > 0 ? n + '.' : '•'} ${t.text}${w ? ` (${w}${span})` : ''}${due}${rem}`);
   }
   for (const t of parkedNew) lines.push(`💤 Parked: ${t.text} (find it with *someday*)`);
   if (finished.length) lines.push(...await completeByIds(ctx, finished.map((t) => t.id)));
@@ -446,7 +470,7 @@ export async function addItems(ctx: Ctx, raw: unknown): Promise<string[]> {
   // Two-minute rule: one plain task for today gets a "Done already" tap (a timed or recurring one is not "already").
   const only = created.length === 1 && pending.length === 1 ? pending[0] : null; // a parked or finished task gets no tap
   if (only && (!only.deferredTo || only.deferredTo.slice(0, 10) === ctx.today) && !only.deferredTo?.includes('T') && !only.recurrence) ctx.doneAlready = only.id;
-  return lines;
+  return [...eventLines, ...lines];
 }
 
 /** Numbered today list (open tasks); sets session.lastList. List message when >1, buttons when 1. */

@@ -523,7 +523,7 @@ export function useTasks() {
       // Process full own-tasks snapshot and decrypt every task
       for (const docSnap of snapshot.docs) {
         const task = { id: docSnap.id, ...docSnap.data() } as Task;
-        if (task.deleted === true) continue;
+        if (task.deleted === true || task.reminderOf) continue; // reminder-only tasks of events are not tasks
         try {
           task.text = await decrypt(task.text);
           if (task.notes) task.notes = await decrypt(task.notes);

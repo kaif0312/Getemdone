@@ -327,3 +327,80 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   change row sizes (`npx tsx scripts/try_calendar.mts` writes `tmp-cal/*.png`).
 - Sending: `lib/calendar/send.ts` renders, uploads (`uploadMedia`), sends `sendImageButtons`; any failure returns false and the bot sends a text
   agenda instead. Tests: `scripts/tests/test_calendar_images.mts`.
+
+## Meetings (2026-11-06, branch `meetings-backend`): Google Meet + Nudge doc + reminders
+- Contract: `lib/meetings/types.ts` (`Meeting`, shared with PWA / native). Firestore `meetings/{id}`, Admin-written only; rules let the owner and
+  `attendeeUids` read; index `ownerUid + startAt`. Server: `lib/server/meetings.ts` (`createMeeting`, `listUpcomingMeetings`, `getMeeting`,
+  `cancelMeeting`, pure `parseStart` / `normalizeRequest` / `reminderText`), auth in `lib/server/meetingsApi.ts`. No UI yet (native has no meeting hooks).
+- Routes (same for web and native): `POST /api/meetings` body `{title, start, durationMin?=30, tz?='Asia/Kolkata', attendees?, notes?, reminderMinutes?=[30,10],
+  createdVia}` -> `201 {...Meeting, calendar:'ok'|'not_connected'|'error'}`; `GET /api/meetings?limit=` -> `{meetings}` (upcoming, scheduled);
+  `GET /api/meetings/[id]`; `DELETE /api/meetings/[id]` -> cancelled Meeting + `calendar` (deletes the Calendar event and the reminders). 400 `bad_request`, 401, 404.
+- Auth: EITHER `Authorization: Bearer <Firebase ID token>` (own meetings only) OR header `x-nudge-signature` = hex HMAC-SHA256(`NUDGE_FORWARD_SECRET`,
+  raw body for POST / `pathname+search` for GET and DELETE); body or query carries `ts` (ms, within 5 min) and `ownerWa` (digits) or `ownerUid`.
+  CLI for Claude Code: `node scripts/meeting.mjs create "Meeting with Shamly" "2026-11-07 23:00" --email a@x.com` (also `list`, `cancel <id>`).
+- Reminders: one reminder-only private task (tag `meeting`, text "Title at 11:00 PM <meet link>") per `reminderMinutes`, via `addTasks` -> QStash exact
+  time + the 15-min cron, so push / WhatsApp / caps are `reminders.ts` unchanged. Reminders already in the past are dropped. Push text clips the link.
+- Google: env `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET`, `GCAL_REFRESH_TOKEN` (scope `calendar.events`, owner's primary calendar, Meet via
+  `conferenceData.createRequest`, invites `sendUpdates=all`). The existing calendar sync only has `calendar.app.created` (secondary "Nudge" calendar) and the PWA's
+  tokens are client-encrypted, so a new token is needed: `node scripts/mint_gcal_token.mjs --paste` (reuses the registered getemdone redirect, no console change;
+  sign in as ikaif0312@gmail.com, Allow, paste the landing URL) writes `~/.secrets/nudge/gcal.env`; then set the three vars in Vercel and redeploy. Without
+  them meetings still save and remind (`calendar:'not_connected'`, no `meetUrl`). `--port N` (loopback) needs `http://localhost:N/oauth2callback` added to the client's redirect URIs.
+- Deploy needed: `firestore.rules` + `firestore.indexes.json` (`node scripts/deploy_rules.mjs ...`; the index via `firebase deploy --only firestore:indexes`).
+- WhatsApp: `/meet <title> <when> [with <name>] [for N min]` (alias `/meeting`; Gemini with ONLY the `create_meeting` tool, emails not literally typed are dropped; zone = the user's `waLinks.timezone`, default Asia/Kolkata), `/meetings` (next 5), `/cancel meeting <n>` (index of that list; plain `/cancel` stays unknown). Code `lib/bot/meet.ts`, deps `BotDeps.meetings` call `lib/server/meetings.ts` directly with `createdVia:'bot'`. Replies are English only. Test: `NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_meet_bot.mts`.
+- Tests: `npx tsx scripts/tests/test_meetings.mts`; `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetings_store.mts`.
+
+## Meetings over WhatsApp (2026-11-06, branch `meetings-wa`): invites, reminders, cancellations to attendees
+- `lib/server/meetingInvites.ts`: `inviteAttendees(m)`, `remindAttendees(m, minutesBefore)`, `cancelAttendees(m)` (all never throw, return per-person results),
+  `remindForTask`. Attendees need only `{name?, waId}` (`waId` = digits, 8-15; `--with "Shamly +91..."` in `scripts/meeting.mjs`). The bot agent calls `createMeeting`
+  / `cancelMeeting` as before: invites and cancel notes are sent from inside them.
+- Rules: skips the owner (uid, or the owner's linked number) and anyone with `waLinks/{waId}.muted` (STOP; recorded `skipped_muted`). One message per person per
+  meeting and kind: doc `meetingInvites/{meetingId}_{waId}` (`_r{minutes}` reminder, `_cancel`), `status` sent | failed | skipped_*, `error` = Meta code + message
+  (`lib/wa/send.ts lastSendError`). Only a `failed` doc may be retried. Inside the person's 24 h window: free text (+ "Join meeting" URL button); else the template, one
+  global daily slot (`waCaps`, `NUDGE_MAX_TEMPLATES_PER_DAY`), slot given back on failure. Language = the person's `waLinks.lang`, else `en`.
+- Reminders: `reminders.ts sendClaimed` calls `remindForTask` after the owner's own reminder task fires (tag `meeting`; meeting found by `reminderTaskIds`), so
+  attendees get the same 30 / 10 min reminders. Cancel tells only those whose invite is `sent`.
+- Templates (UTILITY, en/hi/ur/ml, Hindi/Urdu/Malayalam written by Claude: have a native speaker read them): `nudge_meeting_invite` (inviter, title, date, time, link),
+  `nudge_meeting_reminder` (title, time, link), `nudge_meeting_cancelled` (inviter, title, date, time). The Meet link is in the body (no button).
+  **NOT SUBMITTED YET.** Owner submits: `WA_TOKEN=<business token> node scripts/create_wa_templates.mjs --commit --only nudge_meeting_invite,nudge_meeting_reminder,nudge_meeting_cancelled`
+  (dry run = same without `--commit`; add `--lang en` for English only). Meta review of UTILITY templates takes minutes to about a day; the status shows in WhatsApp
+  Manager. Until approved, template sends fail (e.g. 132001) and are logged on the `meetingInvites` doc as `failed` with the error; the meeting itself is unaffected.
+  If Meta re-classes one as MARKETING, add its name to the category list in the script (as for `nudge_checkin`).
+- Tests: `npx tsx scripts/tests/test_meeting_invites.mts` (fake sender and store, no network).
+
+## Events (2026-11-07, branch `events`): tasks to complete, events that happen at a time
+Like Google Tasks and Google Calendar: a TASK is something to complete (checkable); an EVENT has a start and a length and just passes (class, appointment,
+physio, flight). "physio today 4:30pm for 1 hour" is an event, not a task. Same behaviour on WhatsApp and in the app.
+- **Rule** (`lib/events/rules.ts` `classifyItem`, pure): event = an explicit START TIME and (a stated length, an end time "4:30-5:30", or an event-like noun: class,
+  appointment, physio, meeting, session, lesson, flight, dinner, match...). "call mom 6pm", "gym 6pm", a bare "pay rent 5pm" stay tasks; a repeat alone does not make an
+  event ("gym every day 6pm" is a repeating TASK). `/task` always adds a task, `/event` always an event.
+- **Model**: an event is a `meetings/{id}` doc with `kind:'event'` (missing kind = meeting, so old docs are valid): title, startAt/endAt/tz, notes, location,
+  `reminderMinutes` (default `[30]`, else `[10]` if 30 min is already past, else none), `attendees: []`, NO Meet link, never needs the owner's Google token.
+  `lib/server/events.ts`: `createEvent`, `updateEvent`, `cancelEvent(uid, id, {date?})`, `listUpcomingEvents`, `eventsForMirror`, `rollEventReminders`.
+  `listUpcomingMeetings` skips events, so the Meetings list and `/meetings` stay meetings only. `DELETE /api/meetings/<id>` of an event delegates to `cancelEvent`.
+- **API** (same auth as meetings, `lib/server/meetingsApi.ts`): `POST /api/events` (or `POST /api/meetings` with `kind:'event'`) body `{title, start, durationMin?=60, tz?, repeat?,
+  notes?, location?, reminderMinutes?, createdVia}`; `GET /api/events?limit=` -> `{events:[{...Meeting, next:{startAt,endAt}|null}]}`; `GET|PATCH|DELETE /api/events/<id>`
+  (PATCH = only the given fields; `repeat:null` removes it; DELETE `?date=YYYY-MM-DD` cancels one day of a repeating event). Types: `lib/meetings/types.ts`
+  (`UpdateEventRequest`, `EventItem`). Additive only: installed apps and the meetings contract are untouched.
+- **Repeat model (decision)**: ONE doc with `repeat: {freq:'daily'|'weekdays'|'weekly', days?:[0-6], until?:'YYYY-MM-DD'}` anchored at startAt/endAt (the first occurrence, wall clock in
+  `tz`, DST-safe) plus `exceptions: ['YYYY-MM-DD']` for single cancelled days. Occurrences are expanded on demand (`occurrencesBetween`): lists, the calendar mirror (yesterday..+90 days)
+  and reminders. A new series is aligned to its first matching day (`alignSeries`). Moving a series changes its time or length, not its days (cancel + recreate for that).
+  No per-occurrence docs (a daily event would be 365 a year) and no `RRULE` (Google/ICS get expanded occurrences, which keeps one code path and the real length).
+- **Reminders**: reminder-only tasks with `task.reminderOf = <event id>` (hidden: `utils/taskFilter.ts`, `lib/server/tasks.ts allTasks`, both `useTasks` hooks, the calendar mirror), via
+  `addTasks` -> QStash exact time + the 15-min cron, so delivery is `reminders.ts` unchanged. A repeating event has reminder tasks for its NEXT occurrence only (`remindersFor` = its
+  start); `rollEventReminders` (in `app/api/cron/nudge`, every 15 min, reads the recurring docs `recurring==true && status=='scheduled'`, no new index) moves them forward once that
+  occurrence has started, claimed in a transaction so two cron runs cannot double-create. Create / update / cancel-one do the same at once.
+- **Calendar mirror**: `calendarEvents.ts eventsForEvents` + `calendarEntries({tasks, events, tz, now})` feed BOTH the ICS feed and the Google sync (key `ev:<id>` or `ev:<id>:<startMs>`), with
+  the real end time and `LOCATION`. A task with `durationMin` also uses its real length now (was a fixed 30 min). Reminder tasks are never mirrored (no duplicate). A daily event is up to
+  90 Google events; the sync writes at most 60 per run, the rest follows on the next 15-min tick.
+- **Bot** (`lib/bot/events.ts`): tools `create_event` / `move_event` / `cancel_event` / `list_events`; `eventFast` handles clear English phrases ("physio today 4:30pm for 1 hour",
+  "music class every tuesday 6pm for 1h", "cancel physio") with NO model call (`lib/events/parse.ts`; anything that reads like a sentence, a list, a second time or another language goes to Gemini);
+  `addItems` routes a timed add_tasks item that the rules call an event to `createEventFromDraft` (a model slip cannot make "class 4pm for 45 min" a task). `/event <text>`, `/events`, "events".
+  Reply, in the user's language and zone: `📅 *Physio* — today, 4:30–5:30 PM` + `I'll nudge you at 4:00 PM. (reply 'cancel physio' to remove)`; a series says `every Tuesday` + `Next: ...`.
+  Strings `ev*` in `lib/bot/i18n.ts` (hi/ur/ml written by Claude: have a native speaker read them). "cancel <x>" only takes the event path when an upcoming event matches; otherwise it goes to the model.
+  No Meet or attendee logic for events (that is `/meet`). Dep `BotDeps.events` (optional, so fakes compile; absent = timed items stay tasks).
+- **Native** (`native/src/features/events/`): Add sheet has a Task | Event switch (`?kind=event` opens on Event), `EventForm` (title, day, start, length, repeat, reminder, place, notes), `TodayEvents`
+  block (now + next 48 h), `DayEvents` rows in Calendar (month day card + week agenda), `EventDetailSheet` (`app/events/[id].tsx`: edit, cancel; a series: cancel this day / the series). Data: `useMeetings()` now also
+  returns `events` / `createEvent` / `updateEvent` / `cancelEvent` (one Firestore listener, split by `kind`). Pure rules copy: `native/src/lib/eventsRules.ts` must equal `lib/events/rules.ts`
+  after its first line (`test_events.mts` fails otherwise); types copy `native/src/lib/meetingsTypes.ts`. Web PWA: no events UI (meetings-ui-web is not in this branch).
+- Tests: `NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_events.mts` (rules, reader, classification table, repeat/DST, mirror + ICS, bot with fake deps);
+  `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_events_store.mts` (store, routes, reminders, hidden tasks, roll, cancel one/all, mirror).

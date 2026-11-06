@@ -354,6 +354,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Meetings (lib/server/meetings.ts): the owner and listed attendee uids may read; only the Admin SDK writes.
+    match /meetings/{id} {
+      allow read: if isAuthenticated() &&
+        (resource.data.get('ownerUid', '') == request.auth.uid || request.auth.uid in resource.data.get('attendeeUids', []));
+      allow write: if false;
+    }
+
     // Friend invites: created/answered server-side only; the two people involved may read.
     match /friendInvites/{id} {
       allow read: if isAuthenticated() &&

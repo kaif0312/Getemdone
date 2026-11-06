@@ -1,5 +1,6 @@
 // Gemini function declarations.
 import type { FunctionDecl } from './types';
+import { EVENT_TOOLS } from './events';
 
 const S = { type: 'STRING' };
 const N = { type: 'NUMBER' };
@@ -20,6 +21,7 @@ export const TOOLS: FunctionDecl[] = [
               when: { ...S, description: 'Day (and time) to do it: YYYY-MM-DD or YYYY-MM-DDTHH:mm in the user\'s local zone. Omit for today.' },
               due: { ...S, description: 'Hard deadline, YYYY-MM-DD or YYYY-MM-DDTHH:mm (only when the user says "by"/"due")' },
               recurrence: { ...S, description: 'Repeat rule in plain English, e.g. "every monday", "daily"' },
+              duration_min: { ...N, description: 'How long it lasts in minutes ("for 45 mins" -> 45, "1.5 hours" -> 90). Only when the user states a length.' },
               remind_before_min: { ...N, description: 'Only if the user asks to be reminded N minutes before the time ("remind me 30 min before"). A task with a clock time already gets a 15 min reminder by default.' },
               remind_at: { ...S, description: 'Only if the user names the reminder moment itself ("remind me at 5pm"): YYYY-MM-DDTHH:mm in the user local zone' },
               no_reminder: { type: 'BOOLEAN', description: 'true if the user says they do not want a reminder for this task' },
@@ -207,6 +209,7 @@ export const TOOLS: FunctionDecl[] = [
       required: ['moment'],
     },
   },
+  ...EVENT_TOOLS,
   {
     name: 'reply',
     description: 'Say something to the user: chit-chat, an answer, a clarifying question, or a one-line confirmation in their language.',

@@ -13,6 +13,7 @@ import { setCoachAction } from './actions';
 import { MOMENTS, type MemeFormat, type Moment } from './memes';
 import { TOOLS } from './tools';
 import { str } from './format';
+import { cancelEventByRef, createEventFromDraft, draftFromArgs, listEventsText, moveEventByRef } from './events';
 
 const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 const MAX_CALLS = 8;
@@ -95,6 +96,10 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         }
         case 'show_someday': if (a.pick === true) await somedayPick(ctx); else await somedayList(ctx); hasOwnReply = true; break;
         case 'list_today': showList = true; break;
+        case 'create_event': { const d = draftFromArgs(a); lines.push(...(d ? await createEventFromDraft(ctx, d) : [ctx.t('evFailed')])); break; }
+        case 'move_event': lines.push(...await moveEventByRef(ctx, a)); break;
+        case 'cancel_event': lines.push(...await cancelEventByRef(ctx, str(a.ref) ?? '')); break;
+        case 'list_events': await ctx.text(await listEventsText(ctx)); hasOwnReply = true; break;
         case 'log_workout': {
           const w = parseWorkout(a);
           lines.push(...(w ? await logWorkoutAction(ctx, w) : ['⚠️ What workout was it?']));
@@ -174,6 +179,6 @@ export async function addTaskCommand(ctx: Ctx, text: string): Promise<void> {
     }
   }
   if (!items.length) items = text.split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((s) => ({ text: s }));
-  const lines = await addItems(ctx, items);
+  const lines = await addItems(ctx, items, { forceTask: true }); // /task always adds a TASK, even with a time and a length
   await flush(ctx, lines.length ? lines : [didntCatch(ctx)]);
 }

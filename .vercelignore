@@ -11,3 +11,6 @@ docs/
 
 # Ignore scripts
 scripts/
+
+# Expo app (separate build, EAS)
+native/

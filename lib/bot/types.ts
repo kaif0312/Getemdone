@@ -69,6 +69,25 @@ export interface CalendarDeps {
   sendImage(to: string, view: 'month' | 'week', model: import('@/lib/calendar/events').MonthModel | import('@/lib/calendar/events').WeekModel, caption: string, buttons: { id: string; title: string }[]): Promise<boolean>;
 }
 
+/** Google Meet meetings (lib/server/meetings.ts). Optional so older test fakes keep compiling; absent = /meet says it is unavailable. */
+export interface MeetingBotDeps {
+  create(uid: string, req: Partial<import('@/lib/meetings/types').CreateMeetingRequest>, now?: number): Promise<{ meeting: import('@/lib/meetings/types').Meeting; calendar: import('@/lib/meetings/types').CalendarStatus }>;
+  listUpcoming(uid: string, limit?: number, now?: number): Promise<import('@/lib/meetings/types').Meeting[]>;
+  cancel(uid: string, id: string): Promise<{ meeting: import('@/lib/meetings/types').Meeting; calendar: import('@/lib/meetings/types').CalendarStatus } | null>;
+  /** True for the server's validation errors (their message is safe to show the user). */
+  isBadRequest(e: unknown): boolean;
+}
+
+/** Events: timed things with a length (lib/server/events.ts). Optional so older test fakes keep compiling; absent = the bot keeps adding timed items as tasks. */
+export interface EventBotDeps {
+  create(uid: string, req: Partial<import('@/lib/meetings/types').CreateMeetingRequest>, now?: number): Promise<{ event: import('@/lib/meetings/types').Meeting }>;
+  listUpcoming(uid: string, limit?: number, now?: number): Promise<import('@/lib/meetings/types').EventItem[]>;
+  update(uid: string, id: string, patch: import('@/lib/meetings/types').UpdateEventRequest, now?: number): Promise<import('@/lib/meetings/types').Meeting | null>;
+  cancel(uid: string, id: string, opts?: { date?: string }, now?: number): Promise<import('@/lib/meetings/types').Meeting | null>;
+  /** True for the server's validation errors. */
+  isBadRequest(e: unknown): boolean;
+}
+
 export interface BotDeps {
   now(): number;
   gemini(req: GeminiRequest): Promise<GeminiResult>;
@@ -84,6 +103,8 @@ export interface BotDeps {
   /** Optional so older test fakes keep compiling; when absent, stickers are simply skipped. */
   sendSticker?: typeof Send.sendSticker;
   calendar?: CalendarDeps;
+  meetings?: MeetingBotDeps;
+  events?: EventBotDeps;
   /** Meme/GIF/sticker sending; absent = no memes (tests that do not care, or no providers). */
   memes?: MemeDeps;
   /** Medicine reminders (lib/server/meds.ts). Optional so older test fakes keep compiling. */

@@ -3,7 +3,7 @@
  * time, tag, visibility. The keyboard is up immediately, submit closes the sheet and the rows animate in on Today.
  */
 import React, { useMemo, useRef, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { usePush } from '@/hooks/usePush';
@@ -67,6 +67,8 @@ export default function AddSheet() {
   const vm = VIS_META[effVis.visibility];
 
   return (
+    // The keyboard is up at once (autoFocus): lift the footer's Add button above it instead of leaving it under the keys.
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <SheetScaffold
       title="New task"
       footer={<Button label={lines.length > 1 ? `Add ${lines.length} tasks` : 'Add'} size="lg" fullWidth icon="plus" disabled={lines.length === 0} onPress={submit} />}
@@ -127,5 +129,6 @@ export default function AddSheet() {
         ) : null}
       </ScrollView>
     </SheetScaffold>
+    </KeyboardAvoidingView>
   );
 }

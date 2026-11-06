@@ -68,9 +68,11 @@ export function fmtDayTime(ts: number, today: string): string {
 }
 
 /** Header date: 'Wednesday, 5 November'. */
-export function fmtHeaderDate(today: string): string {
+export function fmtHeaderDate(today: string, short = false): string {
   const [, m, d] = today.split('-').map(Number);
   const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // short = narrow phones (the header buttons leave ~140pt for the subtitle): 'Sat, 7 Nov'.
+  if (short) return `${names[dayOfWeek(today)].slice(0, 3)}, ${d} ${MONTH_LONG[m - 1].slice(0, 3)}`;
   return `${names[dayOfWeek(today)]}, ${d} ${MONTH_LONG[m - 1]}`;
 }
 

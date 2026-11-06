@@ -51,9 +51,9 @@ export function TaskReactions({ task }: { task: FriendTask }) {
             accessibilityRole="button"
             accessibilityLabel={`${g.emoji} ${g.count}${g.mine ? ', yours' : ''}`}
             onPress={() => react(g.emoji)}
-            hitSlop={6}
+            hitSlop={5}
             style={{
-              height: 30, paddingHorizontal: 10, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 4,
+              height: 34, paddingHorizontal: 10, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: 4,
               backgroundColor: g.mine ? colors.primarySoft : colors.surfaceAlt, borderWidth: 2, borderColor: g.mine ? colors.primary : 'transparent',
             }}
           >
@@ -68,8 +68,8 @@ export function TaskReactions({ task }: { task: FriendTask }) {
             haptic.select();
             setOpen((o) => !o);
           }}
-          hitSlop={8}
-          style={{ height: 30, width: 36, borderRadius: radius.pill, backgroundColor: open ? colors.primarySoft : colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+          hitSlop={5}
+          style={{ height: 34, width: 40, borderRadius: radius.pill, backgroundColor: open ? colors.primarySoft : colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
         >
           <Icon name="smile" size={16} color={open ? colors.primary : colors.textMuted} />
         </Pressable>
@@ -80,8 +80,8 @@ export function TaskReactions({ task }: { task: FriendTask }) {
             haptic.select();
             router.push({ pathname: '/friends/comments', params: { taskId: task.id } });
           }}
-          hitSlop={8}
-          style={{ height: 30, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, flexDirection: 'row', alignItems: 'center', gap: 5 }}
+          hitSlop={5}
+          style={{ height: 34, minWidth: 40, justifyContent: 'center', paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt, flexDirection: 'row', alignItems: 'center', gap: 5 }}
         >
           <Icon name="message" size={15} color={colors.textMuted} />
           {comments ? <Text variant="caption" tone="muted" style={{ fontFamily: 'Nunito_800ExtraBold' }}>{comments}</Text> : null}
@@ -100,7 +100,7 @@ export function TaskReactions({ task }: { task: FriendTask }) {
               accessibilityLabel={`React ${e}`}
               onPress={() => react(e)}
               style={{
-                width: 44, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
+                width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
                 backgroundColor: myEmoji === e ? colors.primarySoft : 'transparent',
               }}
             >

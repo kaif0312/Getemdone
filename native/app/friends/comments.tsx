@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
@@ -70,7 +70,7 @@ export default function Comments() {
 
   return (
     <SheetScaffold title="Comments">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: radius.md, padding: 12, gap: 6, marginBottom: 12 }}>
           <Text variant="bodyStrong" numberOfLines={2}>{title}</Text>
           {grouped.length ? (
@@ -110,7 +110,7 @@ export default function Comments() {
             );
           })}
         </ScrollView>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 4 }}>
           <TextInput
             value={text}
             onChangeText={setText}
@@ -135,7 +135,7 @@ export default function Comments() {
             <Icon name="send" size={20} color={text.trim() ? colors.onFill : colors.textFaint} />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </SheetScaffold>
   );
 }

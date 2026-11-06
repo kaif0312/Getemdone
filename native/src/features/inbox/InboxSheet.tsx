@@ -37,6 +37,10 @@ function Row({ n, onOpen, onRemove }: { n: InAppNotification; onOpen: () => void
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${n.title}. ${n.message}`}
+        accessibilityActions={[{ name: 'remove', label: 'Remove' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'remove') onRemove();
+        }}
         onPress={onOpen}
         style={{
           flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, minHeight: 64, borderRadius: radius.lg, borderWidth: 2,

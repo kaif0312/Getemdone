@@ -67,6 +67,7 @@ export default function AddSheet() {
   const vm = VIS_META[effVis.visibility];
 
   return (
+    // The keyboard is up at once (autoFocus): SheetScaffold lifts the footer's Add button above it (do not add a KeyboardAvoidingView here).
     <SheetScaffold
       title="New task"
       footer={<Button label={lines.length > 1 ? `Add ${lines.length} tasks` : 'Add'} size="lg" fullWidth icon="plus" disabled={lines.length === 0} onPress={submit} />}

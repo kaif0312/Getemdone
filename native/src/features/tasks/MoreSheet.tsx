@@ -35,7 +35,7 @@ export default function MoreSheet() {
   const { tasks } = useTasks();
   const parked = listParked(tasks).length;
   return (
-    <SheetScaffold title="More">
+    <SheetScaffold fit title="More">
       <View style={{ gap: 10 }}>
         <Row icon="archive" label="Someday" hint={parked ? `${parked} parked. Ideas to keep, no nagging.` : 'Ideas to keep for later, no nagging.'} onPress={() => router.replace('/today/someday')} />
         <Row icon="moon" label="Evening recap" hint="What got done. Roll the rest." onPress={() => router.replace('/today/recap')} />

@@ -36,7 +36,6 @@ function Navigator() {
   // Stack.Protected guard that is still `false` would be redirected away and lost. The splash screen covers this wait.
   if (loading) return null;
 
-  const sheet = sheetOptions({}, colors);
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -44,38 +43,38 @@ function Navigator() {
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(tabs)" />
           {/* Sheets: see native/src/ui/Sheet.tsx for the convention. */}
-          <Stack.Screen name="add" options={sheetOptions({ detents: [0.5, 0.92] }, colors)} />
+          <Stack.Screen name="add" options={sheetOptions({ detents: [0.92] }, colors)} />
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="calendar" options={{ presentation: 'card' }} />
-          <Stack.Screen name="inbox" options={{ ...sheet, sheetAllowedDetents: [0.9] }} />
+          <Stack.Screen name="inbox" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="today/more" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
-          <Stack.Screen name="today/focus" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
-          <Stack.Screen name="today/recap" options={sheetOptions({ detents: [0.75, 0.95] }, colors)} />
-          <Stack.Screen name="today/bin" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
-          <Stack.Screen name="today/someday" options={sheetOptions({ detents: [0.7, 0.95] }, colors)} />
+          <Stack.Screen name="today/focus" options={sheetOptions({ detents: [0.95] }, colors)} />
+          <Stack.Screen name="today/recap" options={sheetOptions({ detents: [0.95] }, colors)} />
+          <Stack.Screen name="today/bin" options={sheetOptions({ detents: [0.95] }, colors)} />
+          <Stack.Screen name="today/someday" options={sheetOptions({ detents: [0.95] }, colors)} />
           {/* Friends (native/app/friends/*): sheets + the groups page */}
           <Stack.Screen name="friends/add" options={sheetOptions({ detents: [0.94] }, colors)} />
-          <Stack.Screen name="friends/requests" options={sheetOptions({ detents: [0.6, 0.94] }, colors)} />
+          <Stack.Screen name="friends/requests" options={sheetOptions({ detents: [0.94] }, colors)} />
           <Stack.Screen name="friends/groups" options={{ presentation: 'card' }} />
-          <Stack.Screen name="friends/group" options={sheetOptions({ detents: [0.8, 0.94] }, colors)} />
-          <Stack.Screen name="friends/comments" options={sheetOptions({ detents: [0.7, 0.94] }, colors)} />
+          <Stack.Screen name="friends/group" options={sheetOptions({ detents: [0.94] }, colors)} />
+          <Stack.Screen name="friends/comments" options={sheetOptions({ detents: [0.94] }, colors)} />
           <Stack.Screen name="friends/encourage" options={sheetOptions({ detents: [0.7] }, colors)} />
-          <Stack.Screen name="friends/remove" options={sheetOptions({ detents: [0.42] }, colors)} />
+          <Stack.Screen name="friends/remove" options={sheetOptions({ detents: [0.5] }, colors)} />
           {/* Safety (App Store 1.2): report a comment or person, block a person, the blocked list. */}
-          <Stack.Screen name="report" options={sheetOptions({ detents: [0.8, 0.94] }, colors)} />
-          <Stack.Screen name="block" options={sheetOptions({ detents: [0.5] }, colors)} />
+          <Stack.Screen name="report" options={sheetOptions({ detents: [0.94] }, colors)} />
+          <Stack.Screen name="block" options={sheetOptions({ detents: [0.55] }, colors)} />
           <Stack.Screen name="me/blocked" options={{ presentation: 'card' }} />
           {/* Progress + Me (nudge-progress): sheets, then Me sub-pages as plain cards. */}
-          <Stack.Screen name="progress/log-workout" options={sheetOptions({ detents: [0.85, 1] }, colors)} />
-          <Stack.Screen name="progress/log-metric" options={sheetOptions({ detents: [0.62, 1] }, colors)} />
-          <Stack.Screen name="progress/goals" options={sheetOptions({ detents: [0.8, 1] }, colors)} />
+          <Stack.Screen name="progress/log-workout" options={sheetOptions({ detents: [1] }, colors)} />
+          <Stack.Screen name="progress/log-metric" options={sheetOptions({ detents: [1] }, colors)} />
+          <Stack.Screen name="progress/goals" options={sheetOptions({ detents: [1] }, colors)} />
           <Stack.Screen name="me/name" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="me/photo" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
-          <Stack.Screen name="me/bug" options={sheetOptions({ detents: [0.8, 1] }, colors)} />
+          <Stack.Screen name="me/bug" options={sheetOptions({ detents: [1] }, colors)} />
           <Stack.Screen name="me/sign-out" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="me/delete-data" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
-          <Stack.Screen name="me/delete-account" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
+          <Stack.Screen name="me/delete-account" options={sheetOptions({ detents: [0.9] }, colors)} />
         </Stack.Protected>
         <Stack.Protected guard={!user}>
           <Stack.Screen name="(auth)" />

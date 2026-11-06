@@ -10,7 +10,7 @@ export default function SignOut() {
   const { signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   return (
-    <SheetScaffold title="Sign out" hideClose>
+    <SheetScaffold fit title="Sign out" hideClose>
       <View style={{ alignItems: 'center', gap: 8, paddingBottom: 12 }}>
         <CoachSticker pose="disappointed" size={120} />
         <Text variant="heading" align="center">Leaving already?</Text>

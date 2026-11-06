@@ -46,8 +46,11 @@ check-off = `AnimatedCheckbox` + haptic; list cleared = `confetti.fire()` + coac
 Copy voice: short, direct, a little strict ("3 left. Move."). Never cutesy, never long. Every screen nudges back to WhatsApp for capture where it fits.
 
 ### Sheets
-Convention (full text in `src/ui/Sheet.tsx`): a route registered in `app/_layout.tsx` with `options={sheetOptions({ detents: [0.5, 1] }, colors)}`,
+Convention (full text in `src/ui/Sheet.tsx`): a route registered in `app/_layout.tsx` with `options={sheetOptions({ detents: [0.9] }, colors)}`,
 body wrapped in `<SheetScaffold title footer>`, opened with `router.push`, closed with `router.back()`. No hand-made bottom sheets.
+- **One detent per sheet** (2026-11-07 UI audit, "can't be clicked" on iPhone 16 Plus): iOS lays a form sheet out at its LARGEST detent and slides it down for smaller ones, so a footer/bottom control is cut off and untappable at e.g. 0.5. `sheetOptions` collapses a list to its largest (opt out with `multiDetent: true`, only for a pure scroll list with nothing pinned at the bottom); `_layout.tsx` lists single values. `fitToContents` sheets use `<SheetScaffold fit>` (no flex:1).
+- **Keyboard: `SheetScaffold` avoids it once** (KeyboardAvoidingView, padding on iOS; Android resizes the window). Never wrap a scaffold in another KeyboardAvoidingView (double padding); a sheet that handles it itself passes `avoidKeyboard={false}`. Footer-less sheets get the home-indicator inset under the body.
+- Detents, keyboard lift and the sheet-over-sheet case cannot be seen on web: check on a device.
 
 ## Data hooks (`@/hooks/*`), all context-shared (one listener), mounted in `app/_layout.tsx`
 - `useAuth()` -> `{ user, uid, profile (live users/{uid}), loading, isWhitelisted, signIn, signUp, signInWithToken, resetPassword, signOut, updateProfile(patch) }`

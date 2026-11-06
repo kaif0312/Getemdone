@@ -62,6 +62,7 @@ import { groupTasksByTag, loadCollapsedSections, saveCollapsedSections, sectionK
 import { canViewTask } from '@/utils/visibility';
 import SortableTagBar from '@/components/SortableTagBar';
 import TodaysScheduleCard from '@/components/TodaysScheduleCard';
+import MeetingsEntryCard from '@/components/meetings/MeetingsEntryCard';
 import MorningFocusSheet from '@/components/MorningFocusSheet';
 import EveningRecapSheet from '@/components/EveningRecapSheet';
 import { useMorningFocusRitual } from '@/hooks/useMorningFocusRitual';
@@ -1278,6 +1279,7 @@ function MainApp() {
               
               return (
                 <div className="mb-6">
+                  <MeetingsEntryCard />
                   {calendarNeedsReconnect && (
                     <div className="flex items-center justify-between gap-3 px-3 py-2.5 mb-3 rounded-lg bg-warning-bg border border-warning-border">
                       <span className="text-[13px] text-warning-text">Google Calendar session expired</span>

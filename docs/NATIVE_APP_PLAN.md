@@ -147,8 +147,8 @@ admin dashboard (stays web).
   linked to the user, NOT used for tracking; no analytics/crash SDK in `native/`): Contact Info = Name, Email Address,
   Phone Number; User Content = Photos or Videos, Customer Support (bug reports), Other User Content (tasks, comments,
   reactions); Health & Fitness = Fitness (workouts the user logs); Identifiers = User ID, Device ID (push token).
-  Review risks: guideline 1.2 (UGC: no report-content/block button,
-  only Remove friend), 4.8 (WhatsApp sign-in; e-mail sign-in exists), AES-GCM decrypt code with E2EE off vs
+  Review risks: guideline 1.2 (UGC; 2026-11-06: Report + Block built, branch `native-report-block` + server `report-block`,
+  see native/AGENTS.md "Safety"; needs a new build before review), 4.8 (WhatsApp sign-in; e-mail sign-in exists), AES-GCM decrypt code with E2EE off vs
   encryption-exempt answer.
 - Still open: `functions:sendPushNotification` deploy (needs `firebase login`; the service account lacks actAs),
   FCM V1 key on EAS (`eas credentials -p android` -> FCM V1 -> `~/.secrets/nudge/firebase-sa.json`), friends' emails on the tester lists

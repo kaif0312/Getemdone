@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase';
 import { API_BASE } from '@/lib/config';
 
 export type InviteError =
-  | 'not_found' | 'self' | 'already_friends' | 'already_invited' | 'unauthorized' | 'bad_request' | 'network' | 'failed';
+  | 'not_found' | 'self' | 'already_friends' | 'already_invited' | 'blocked' | 'unauthorized' | 'bad_request' | 'network' | 'failed';
 export type AnswerError = 'not_your_invite' | 'invite_not_found' | 'invite_already_answered' | 'unauthorized' | 'network' | 'failed';
 
 async function post<T extends { ok?: boolean; error?: string }>(path: string, body: unknown): Promise<T> {
@@ -51,6 +51,7 @@ export function inviteErrorText(e: InviteError | AnswerError): string {
     case 'self': return "That's your own code.";
     case 'already_friends': return 'Already friends.';
     case 'already_invited': return 'Request already sent. Wait for them.';
+    case 'blocked': return 'You blocked them. Unblock in Me > Privacy and security first.';
     case 'invite_already_answered': return 'Already answered.';
     case 'invite_not_found':
     case 'not_your_invite': return 'That request is gone.';

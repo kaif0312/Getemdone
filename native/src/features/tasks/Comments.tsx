@@ -6,6 +6,8 @@ import { useTaskSocial } from '@/hooks/useTaskSocial';
 import type { Comment, Reaction } from '@/lib/types';
 import { Avatar, haptic, Icon, radius, Text, useTheme, useToast, fonts } from '@/ui';
 import { fmtAgo } from './helpers';
+import { openCommentMenu } from '@/features/safety/commentMenu';
+import { SAFETY_LINE } from '@/lib/safetyApi';
 
 export const QUICK_EMOJI = ['👍', '❤️', '🔥', '💪', '😂', '👏'];
 
@@ -84,7 +86,13 @@ export function CommentsThread({ taskId, comments, onReply }: { taskId: string; 
         const mine = c.userId === uid;
         const grouped = groupReactions(c.reactions, uid);
         return (
-          <View key={c.id} style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable
+            key={c.id}
+            onLongPress={mine ? undefined : () => openCommentMenu(taskId, c)}
+            delayLongPress={450}
+            accessibilityHint={mine ? undefined : 'Hold to report or block'}
+            style={{ flexDirection: 'row', gap: 10 }}
+          >
             <Avatar name={c.userName} photoURL={c.photoURL} size={34} />
             <View style={{ flex: 1, gap: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
@@ -130,7 +138,16 @@ export function CommentsThread({ taskId, comments, onReply }: { taskId: string; 
                   >
                     <Text variant="caption" tone="muted">Delete</Text>
                   </Pressable>
-                ) : null}
+                ) : (
+                  <Pressable
+                    hitSlop={10}
+                    accessibilityLabel={`Report or block ${c.userName}`}
+                    onPress={() => openCommentMenu(taskId, c)}
+                    style={{ minHeight: 28, justifyContent: 'center' }}
+                  >
+                    <Text variant="caption" tone="muted">Report</Text>
+                  </Pressable>
+                )}
               </View>
               {pickerFor === c.id ? (
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -150,9 +167,10 @@ export function CommentsThread({ taskId, comments, onReply }: { taskId: string; 
                 </View>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         );
       })}
+      {sorted.some((c) => c.userId !== uid) ? <Text variant="caption" tone="faint">{`Hold a comment to report it. ${SAFETY_LINE}`}</Text> : null}
     </View>
   );
 }

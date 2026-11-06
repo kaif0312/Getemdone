@@ -21,6 +21,8 @@ import { db, storage } from '@/lib/firebase';
 import { getDateString, getTodayString } from '@/lib/taskFilter';
 import type { Attachment, FocusSession, Recurrence, Subtask, Task, TaskVisibility } from '@/lib/types';
 import { useAuth } from './useAuth';
+import { useBlocks } from './useBlocks';
+import { stripBlocked } from '@/features/safety/filter';
 import { useEncryption } from './useEncryption';
 
 export interface NewTaskInput {
@@ -482,9 +484,13 @@ function useTasksState() {
     await updateDoc(taskRef(taskId), { attachments: current.filter((a) => a.id !== attachmentId) });
   }, []);
 
+  // Blocked people's comments/reactions are hidden from every screen (display only; writes re-read the doc).
+  const { blockedSet } = useBlocks();
+  const visibleTasks = useMemo(() => (blockedSet.size ? tasks.map((t) => stripBlocked(t, blockedSet)) : tasks), [tasks, blockedSet]);
+
   return useMemo(
     () => ({
-      tasks, loading, error, retry,
+      tasks: visibleTasks, loading, error, retry,
       addTask, addTasks, toggleComplete, completeTask, uncompleteTask, deferTask,
       updateText, setDueDate, setRemindAt, setVisibility, setCommitted, setFocusDate, commitFocus, skipFocus,
       setTags, setRecurrence, setNotes, setSubtasks, setSkipRollover, reorder,
@@ -492,7 +498,7 @@ function useTasksState() {
       deleteTask, restoreTask, permanentlyDeleteTask, fetchDeleted, emptyBin, addAttachment, removeAttachment,
     }),
     [
-      tasks, loading, error, retry, addTask, addTasks, toggleComplete, completeTask, uncompleteTask, deferTask, updateText, setDueDate,
+      visibleTasks, loading, error, retry, addTask, addTasks, toggleComplete, completeTask, uncompleteTask, deferTask, updateText, setDueDate,
       setRemindAt, setVisibility, setCommitted, setFocusDate, commitFocus, skipFocus, setTags, setRecurrence, setNotes, setSubtasks,
       setSkipRollover, reorder, parkTask, unparkTask, deleteTask, restoreTask, permanentlyDeleteTask, fetchDeleted, emptyBin, addAttachment, removeAttachment,
     ],

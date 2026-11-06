@@ -1,5 +1,6 @@
 // Fast paths: button/list ids and exact text commands. No model involved.
 import type { InboundMessage } from '@/lib/wa/types';
+import { parseCancelMeeting } from './meet';
 import { isLang, isLangCommand, parseLangName, type Lang } from './i18n';
 
 export type Fast =
@@ -9,6 +10,9 @@ export type Fast =
   | { t: 'sync'; arg: string }
   | { t: 'calendar'; view: 'month' | 'week'; offset: number }
   | { t: 'unknownCmd'; cmd: string }
+  | { t: 'meet'; text: string }
+  | { t: 'meetings' }
+  | { t: 'cancelMeeting'; n: number }
   | { t: 'done' | 'delete' | 'tomorrow' | 'park'; nums: number[] }
   | { t: 'undo'; id?: string }
   | { t: 'mute' | 'unmute' | 'help' | 'week' | 'friends' | 'checkinStart' | 'checkinSkip' | 'focusDone' | 'coachMenu' | 'reviewsOn' | 'reviewsOff' }
@@ -133,6 +137,9 @@ export function parseSlash(text: string): { rest: string } | { fast: Fast } | nu
   const cmd = m[1].toLowerCase();
   const arg = (m[2] ?? '').trim();
   if (ADD_CMDS.has(cmd)) return { fast: { t: 'addTask', text: arg } };
+  if (cmd === 'meet' || cmd === 'meeting') return { fast: { t: 'meet', text: arg } };
+  if (cmd === 'meetings') return { fast: { t: 'meetings' } };
+  if (cmd === 'cancel') { const n = parseCancelMeeting(arg); if (n !== null) return { fast: { t: 'cancelMeeting', n } }; }
   if (FILE_CMDS.has(cmd)) return { fast: { t: 'files' } };
   if (SOMEDAY_CMDS.has(cmd)) return { fast: somedayFast(arg) };
   if (SYNC_CMDS.has(cmd)) return { fast: { t: 'sync', arg: arg.toLowerCase() } };

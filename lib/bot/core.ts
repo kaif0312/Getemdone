@@ -11,6 +11,7 @@ import {
   askNextStep, focusPick, focusPrompt, focusSummary, pickedFocus, takeStep,
   addParked, keepParked, parkByIds, somedayList, somedayPick, unparkById,
 } from './actions';
+import { cancelMeetingCommand, meetCommand, meetingsCommand } from './meet';
 import { addTaskCommand, runGemini, transcriptOf } from './ai';
 import { parseFast, type Fast } from './fastpath';
 import { time12 } from './format';
@@ -298,6 +299,9 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
     case 'addTask':
       if (!f.text) await ctx.text(ctx.t('taskUsage')); else await addTaskCommand(ctx, f.text);
       return;
+    case 'meet': await meetCommand(ctx, f.text); return;
+    case 'meetings': await meetingsCommand(ctx); return;
+    case 'cancelMeeting': await cancelMeetingCommand(ctx, f.n); return;
     case 'calendar': await showCalendar(ctx, f.view, f.offset); return;
     case 'files': await ctx.text((await filesLines(ctx)).join('\n')); return;
     case 'sync': for (const m of await syncLines(ctx, f.arg)) await ctx.text(m); return;

@@ -1,6 +1,6 @@
 // Quick entry for weight / steps / sleep / water. Mirrors useFitness().logMetric.
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFitness } from '@/hooks/useFitness';
 import { useToday } from '@/hooks/useToday';
@@ -53,7 +53,7 @@ export default function LogMetric() {
 
   return (
     <SheetScaffold title="Log a number" footer={<Button label="Save" size="lg" fullWidth loading={busy} disabled={!valid} onPress={save} />}>
-      <View style={{ gap: 18 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 18, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {METRICS.map((m) => (
             <Chip
@@ -90,7 +90,7 @@ export default function LogMetric() {
           <Chip label="Today" selected={!yesterday} onPress={() => setYesterday(false)} />
           <Chip label="Yesterday" selected={yesterday} onPress={() => setYesterday(true)} />
         </View>
-      </View>
+      </ScrollView>
     </SheetScaffold>
   );
 }

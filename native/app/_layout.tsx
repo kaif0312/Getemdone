@@ -44,7 +44,7 @@ function Navigator() {
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(tabs)" />
           {/* Sheets: see native/src/ui/Sheet.tsx for the convention. */}
-          <Stack.Screen name="add" options={sheetOptions({ detents: [0.5, 0.92] }, colors)} />
+          <Stack.Screen name="add" options={sheetOptions({ detents: [0.92] }, colors)} />
           <Stack.Screen name="task/[id]" options={sheetOptions({ detents: [0.9] }, colors)} />
           <Stack.Screen name="friend/[uid]" options={{ presentation: 'card' }} />
           <Stack.Screen name="calendar" options={{ presentation: 'card' }} />

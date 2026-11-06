@@ -58,16 +58,16 @@ function Subtasks({ task }: { task: Task }) {
             <AnimatedCheckbox size={24} checked={s.completed} onToggle={(next) => save(subs.map((x) => (x.id === s.id ? { ...x, completed: next } : x)))} accessibilityLabel={s.title} />
             <StrikeText variant="body" struck={s.completed} style={{ flex: 1 }}>{s.title}</StrikeText>
             {subs.length > 1 ? (
-              <Pressable accessibilityLabel="Move up" hitSlop={6} onPress={() => move(i, -1)} disabled={i === 0} style={{ opacity: i === 0 ? 0.25 : 1, transform: [{ rotate: '-90deg' }] }}>
-                <Icon name="chevronRight" size={18} color={colors.textFaint} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Move up" hitSlop={{ left: 6, right: 6 }} onPress={() => move(i, -1)} disabled={i === 0} style={{ width: 32, height: 44, alignItems: 'center', justifyContent: 'center', opacity: i === 0 ? 0.25 : 1 }}>
+                <View style={{ transform: [{ rotate: '-90deg' }] }}><Icon name="chevronRight" size={18} color={colors.textFaint} /></View>
               </Pressable>
             ) : null}
             {subs.length > 1 ? (
-              <Pressable accessibilityLabel="Move down" hitSlop={6} onPress={() => move(i, 1)} disabled={i === subs.length - 1} style={{ opacity: i === subs.length - 1 ? 0.25 : 1, transform: [{ rotate: '90deg' }] }}>
-                <Icon name="chevronRight" size={18} color={colors.textFaint} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Move down" hitSlop={{ left: 6, right: 6 }} onPress={() => move(i, 1)} disabled={i === subs.length - 1} style={{ width: 32, height: 44, alignItems: 'center', justifyContent: 'center', opacity: i === subs.length - 1 ? 0.25 : 1 }}>
+                <View style={{ transform: [{ rotate: '90deg' }] }}><Icon name="chevronRight" size={18} color={colors.textFaint} /></View>
               </Pressable>
             ) : null}
-            <Pressable accessibilityLabel={`Delete ${s.title}`} hitSlop={8} onPress={() => save(subs.filter((x) => x.id !== s.id))} style={{ width: 28, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${s.title}`} hitSlop={{ left: 6, right: 6 }} onPress={() => save(subs.filter((x) => x.id !== s.id))} style={{ width: 32, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="x" size={16} color={colors.textFaint} />
             </Pressable>
           </View>

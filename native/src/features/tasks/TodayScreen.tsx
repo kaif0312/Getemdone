@@ -1,6 +1,6 @@
 /** The Today tab: header, focus ritual, schedule strip, sections, done, coach states. Route: app/(tabs)/today.tsx. */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -34,7 +34,7 @@ function SectionHeader({ title, count, extra, collapsed, onToggle }: { title: st
   );
   if (!onToggle) return inner;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${collapsed ? 'collapsed' : 'expanded'}`} onPress={() => { haptic.select(); onToggle(); }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${title}, ${collapsed ? 'collapsed' : 'expanded'}`} hitSlop={{ top: 6, bottom: 6 }} onPress={() => { haptic.select(); onToggle(); }}>
       {inner}
     </Pressable>
   );
@@ -47,6 +47,7 @@ export default function TodayScreen() {
   const toast = useToast();
   const confetti = useConfetti();
   const reduce = useReduceMotion();
+  const { width } = useWindowDimensions();
   const { colors } = useTheme();
   const { profile } = useAuth();
   const { unread } = useNotificationsInbox();
@@ -135,7 +136,7 @@ export default function TodayScreen() {
   const header = (
     <Header
       title="Today"
-      subtitle={fmtHeaderDate(today)}
+      subtitle={fmtHeaderDate(today, width < 390)}
       unread={unread}
       onBellPress={() => router.push('/inbox')}
       right={
@@ -144,6 +145,7 @@ export default function TodayScreen() {
             accessibilityRole="button"
             accessibilityLabel={`${current} day streak. Open progress`}
             onPress={() => router.navigate('/progress')}
+            hitSlop={{ top: 4, bottom: 4 }}
             style={{ height: 40, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.accentSoft, justifyContent: 'center' }}
           >
             <StreakBadge count={current} />
@@ -155,6 +157,7 @@ export default function TodayScreen() {
               haptic.select();
               router.push('/calendar');
             }}
+            hitSlop={4}
             style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border }}
           >
             <Icon name="calendar" size={20} color={colors.text} />
@@ -166,6 +169,7 @@ export default function TodayScreen() {
               haptic.select();
               router.push('/today/more');
             }}
+            hitSlop={4}
             style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.border }}
           >
             <Icon name="more" size={20} color={colors.text} />
@@ -295,6 +299,7 @@ export default function TodayScreen() {
                 <Pressable
                   key={t.id}
                   accessibilityRole="button"
+                  accessibilityLabel={`${t.text}, ${fmtTime(s.time!)}. Open details`}
                   onPress={() => onOpen(t)}
                   style={{
                     width: 150, padding: 12, borderRadius: radius.lg, borderWidth: 2, gap: 2,
@@ -321,7 +326,7 @@ export default function TodayScreen() {
               sec.key === 'focus' ? (
                 <Text variant="caption" tone="accent">{focusDone}/{focusTasks.length + focusDone} done</Text>
               ) : sec.key === 'rolled' ? (
-                <Pressable accessibilityRole="button" onPress={() => moveAllRolled(sec.tasks)} hitSlop={10}>
+                <Pressable accessibilityRole="button" onPress={() => moveAllRolled(sec.tasks)} hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }}>
                   <Text variant="caption" tone="primary">Move all to tomorrow</Text>
                 </Pressable>
               ) : null

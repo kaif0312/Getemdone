@@ -75,7 +75,7 @@ export function isLangCommand(s: string): boolean {
 type Entry = Record<Lang, string>;
 const e = (en: string, hi: string, ur: string, ml: string): Entry => ({ en, hi, ur, ml });
 
-const HELP_SLASH = '/task <text>, /today, /done 2, /undo, /week, /files, /meds, /language, /help';
+const HELP_SLASH = '/task <text>, /today, /done 2, /undo, /week, /files, /meds, /meet, /language, /help';
 
 export const STR = {
   apology: e(
@@ -128,6 +128,7 @@ export const STR = {
       '/cal month calendar, /cal week agenda, /cal next',
       '/files your last 5 Drive files, /meds medicine reminders, /language, /help',
       '/sync put your timed tasks in Google, Apple or Outlook calendar',
+      '/meet <title> <when> [with <name>] [for 30 min] books a Google Meet with reminders, /meetings lists the next 5, /cancel meeting 2',
     ].join('\n'),
     [
       '*मैं क्या-क्या कर सकता हूँ* 👇',

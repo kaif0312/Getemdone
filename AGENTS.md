@@ -346,6 +346,7 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
   sign in as ikaif0312@gmail.com, Allow, paste the landing URL) writes `~/.secrets/nudge/gcal.env`; then set the three vars in Vercel and redeploy. Without
   them meetings still save and remind (`calendar:'not_connected'`, no `meetUrl`). `--port N` (loopback) needs `http://localhost:N/oauth2callback` added to the client's redirect URIs.
 - Deploy needed: `firestore.rules` + `firestore.indexes.json` (`node scripts/deploy_rules.mjs ...`; the index via `firebase deploy --only firestore:indexes`).
+- WhatsApp: `/meet <title> <when> [with <name>] [for N min]` (alias `/meeting`; Gemini with ONLY the `create_meeting` tool, emails not literally typed are dropped; zone = the user's `waLinks.timezone`, default Asia/Kolkata), `/meetings` (next 5), `/cancel meeting <n>` (index of that list; plain `/cancel` stays unknown). Code `lib/bot/meet.ts`, deps `BotDeps.meetings` call `lib/server/meetings.ts` directly with `createdVia:'bot'`. Replies are English only. Test: `NUDGE_WA_DRY_RUN=1 npx tsx scripts/tests/test_meet_bot.mts`.
 - Tests: `npx tsx scripts/tests/test_meetings.mts`; `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetings_store.mts`.
 
 ## Meetings over WhatsApp (2026-11-06, branch `meetings-wa`): invites, reminders, cancellations to attendees

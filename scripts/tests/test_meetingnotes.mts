@@ -505,4 +505,37 @@ async function sentRig(opts: { windowOpen?: boolean } = {}) {
   assert.equal(r.tasks.length, 2);
 }
 
+// ------------------------------------------------------------------ review fixes: empty state, slid-in old notes, starving short docs
+{ // a state doc that exists but is empty behaves like a first run
+  const r = await rig();
+  for (let i = 0; i < 5; i++) addDoc(r, `old${i}`, T0 - (40 - i) * 3600_000);
+  await r.store.saveState({} as never);
+  const res = await scanNotes(r.d);
+  assert.equal(res.drafted, 0);
+  assert.equal(r.geminiCalls.n, 0);
+  assert.equal(r.sent.length, 0);
+  assert.equal(res.seeded, 5);
+}
+{ // an old note that slides into the 30-item window later (newer one trashed) is never drafted
+  const r = await rig();
+  addDoc(r, 'recent', T0 - 3600_000);
+  await scanNotes(r.d); // seeds: recent
+  addDoc(r, 'ancient', T0 - 90 * 24 * 3600_000);
+  r.setNow(T0 + 30 * MIN);
+  const res = await scanNotes(r.d);
+  assert.equal(res.drafted, 0);
+  assert.equal(r.geminiCalls.n, 0);
+}
+{ // permanently short docs do not block a newer real one forever
+  const r = await rig();
+  await scanNotes(r.d);
+  for (let i = 0; i < 4; i++) addDoc(r, `short${i}`, T0 + i * MIN, 'tiny');
+  addDoc(r, 'real', T0 + 10 * MIN);
+  r.setNow(T0 + 30 * MIN); await scanNotes(r.d);
+  assert.equal(r.geminiCalls.n, 0);
+  r.setNow(T0 + 14 * 3600_000); await scanNotes(r.d); // shorts give up (seen)
+  r.setNow(T0 + 15 * 3600_000); const res = await scanNotes(r.d);
+  assert.equal(res.drafted, 1);
+}
+
 console.log(`MEETING NOTES OK (${USE_FS ? 'firestore emulator' : 'in-memory'} store${runNo ? `, ${runNo} scenarios` : ''})`);

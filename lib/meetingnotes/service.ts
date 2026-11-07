@@ -22,6 +22,8 @@ export const SCAN_EVERY_MS = 25 * 60_000; // cron ticks every 15 min; this makes
 export const MAX_DOCS_PER_TICK = 3;
 export const MIN_NOTES_CHARS = 200;
 export const SEEN_KEEP = 200;
+export const NEW_SLACK_MS = 10 * 60_000;
+export const GIVE_UP_MS = 12 * 3600_000;
 /** Doc already handled by hand before the feature existed: never draft it. */
 export const PREMARKED_SEEN = ['1Joasd1FXg1Q5QRzsnqCqqONVU-K-kgj3QxLYOILv-f0'];
 export const CALENDAR_ENABLE_URL = 'https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=493071083202';
@@ -79,7 +81,9 @@ export interface ScanResult { skipped?: string; seeded?: number; drafted: number
 export async function scanNotes(d: NotesDeps): Promise<ScanResult> {
   const out: ScanResult = { drafted: 0, sent: 0, retry: 0 };
   const now = d.now();
-  const state = await d.store.getState();
+  const raw = await d.store.getState();
+  // A state doc that exists but is empty/corrupt must behave like "first run" (seed, draft nothing), never like "all notes are new".
+  const state = raw && Array.isArray(raw.seen) && Number.isFinite(raw.initAt) && Number.isFinite(raw.lastScanAt) ? raw : null;
   if (state && now - state.lastScanAt < SCAN_EVERY_MS) return { ...out, skipped: 'throttled' };
 
   const list = await d.google.listNotes();
@@ -91,11 +95,18 @@ export async function scanNotes(d: NotesDeps): Promise<ScanResult> {
   }
 
   const known = new Set(state.seen);
-  const fresh = list.filter((f) => !known.has(f.id)).reverse().slice(0, MAX_DOCS_PER_TICK); // oldest first
+  // Only docs created after the first run count as new: a trashed/deleted recent note shifts older ones into the 30-item
+  // window, and those must never be drafted. A doc without a parseable createdTime is never drafted.
+  const isNew = (f: { createdTime: string }) => Date.parse(f.createdTime) >= state.initAt - NEW_SLACK_MS;
+  const fresh = list.filter((f) => !known.has(f.id) && isNew(f)).reverse().slice(0, MAX_DOCS_PER_TICK); // oldest first
   const created: DraftDoc[] = [];
   for (const f of fresh) {
     const text = await d.google.exportText(f.id);
-    if (text === null || text.trim().length < MIN_NOTES_CHARS) { out.retry++; continue; } // not ready: next tick
+    if (text === null || text.trim().length < MIN_NOTES_CHARS) {
+      // Not ready: next tick. After GIVE_UP_MS it is marked seen, or a few empty docs would block newer ones forever.
+      if (now - Date.parse(f.createdTime) > GIVE_UP_MS) { known.add(f.id); state.seen.push(f.id); } else out.retry++;
+      continue;
+    }
     let draft: Draft;
     try {
       draft = await extractDraft((r) => d.gemini(r), f.name, text);

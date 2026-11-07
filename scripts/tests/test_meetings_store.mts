@@ -42,7 +42,7 @@ assert.equal(t0.remindFor, Date.parse(start));
 assert.match(t0.text, /^Meeting with Shamly at \d+:\d\d (AM|PM)$/);
 
 // connected: Meet link, invite, link in reminder text
-Object.assign(process.env, { GCAL_CLIENT_ID: 'c', GCAL_CLIENT_SECRET: 's', GCAL_REFRESH_TOKEN: 'r' });
+Object.assign(process.env, { ISK_CLIENT_ID: 'c', ISK_CLIENT_SECRET: 's', ISK_REFRESH_TOKEN: 'r' });
 r = await post({ title: 'Call', start, attendees: [{ name: 'A', email: 'a@x.com', uid: 'friend' }], createdVia: 'app' }, { authorization: 'Bearer tok_owner' });
 m = await r.json();
 assert.equal(m.calendar, 'ok');

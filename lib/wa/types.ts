@@ -125,6 +125,8 @@ export interface WaLink {
   /** A family member added by number only to receive medicine reminders (scripts/med_plan.mjs). Their messages go to
    *  lib/bot/care.ts (taps + short replies), never to the to-do bot, and they never get check-ins or recaps. */
   care?: boolean;
+  /** Owner only (lib/meetingnotes): the meeting-notes draft being answered. pending = not sent yet (24h window closed). */
+  notes?: { id: string; status: 'pending' | 'sent'; nagged?: boolean } | null;
 }
 
 /** Short-lived bot memory: doc `waSessions/{waId}`. */

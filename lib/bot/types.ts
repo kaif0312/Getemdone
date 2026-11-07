@@ -69,7 +69,13 @@ export interface CalendarDeps {
   sendImage(to: string, view: 'month' | 'week', model: import('@/lib/calendar/events').MonthModel | import('@/lib/calendar/events').WeekModel, caption: string, buttons: { id: string; title: string }[]): Promise<boolean>;
 }
 
+/** Meeting notes for the owner (lib/meetingnotes). Optional so older test fakes keep compiling. true = handled, stop here. */
+export interface MeetingNotesBotDeps {
+  handle(link: import('@/lib/wa/types').WaLink, text: string | undefined): Promise<boolean>;
+}
+
 export interface BotDeps {
+  meetingNotes?: MeetingNotesBotDeps;
   now(): number;
   gemini(req: GeminiRequest): Promise<GeminiResult>;
   // lib/wa

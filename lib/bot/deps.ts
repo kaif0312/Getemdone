@@ -16,11 +16,13 @@ import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
 import * as calLink from '@/lib/server/calendarLink';
 import * as gcal from '@/lib/server/googleCal';
+import { meetingNotesHandle } from '@/lib/meetingnotes';
 import type { BotDeps } from './types';
 import { sendCalendarImage } from '@/lib/calendar/send';
 
 export const defaultDeps: BotDeps = {
   now: () => Date.now(),
+  meetingNotes: { handle: meetingNotesHandle },
   gemini: (req) => callGemini(req),
   getLink: links.getLink,
   redeemLinkCode: links.redeemLinkCode,

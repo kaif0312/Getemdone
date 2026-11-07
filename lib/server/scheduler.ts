@@ -125,12 +125,17 @@ async function userName(uid: string): Promise<string> {
   return ((s.data() as { displayName?: string } | undefined)?.displayName || '').trim() || 'there';
 }
 
+/** Owner only: a meeting-notes draft that could not be sent (24h window was closed) is mentioned in the free check-in. */
+function notesLine(link: WaLink): string {
+  return link.notes?.status === 'pending' ? '📝 You have meeting notes waiting: reply *notes*.' : '';
+}
+
 async function sendCheckin(link: WaLink, now: number, counts: ScheduleCounts, date: string): Promise<void> {
   const lang = langOf(link);
   const [tasks, name] = await Promise.all([deps.listToday(link.uid), userName(link.uid)]);
   const open = tasks.filter((t) => !t.completed);
   if (deps.windowOpen(link.lastInboundAt, now)) {
-    const friends = await friendsLine(link);
+    const friends = [await friendsLine(link), notesLine(link)].filter(Boolean).join('\n\n');
     if (open.length) {
       const body = clip(
         (lang === 'en' ? coachOf(link.coach).morning(name, open.length) : t(lang, 'morning', { name, n: open.length })) +

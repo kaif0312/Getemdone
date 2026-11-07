@@ -489,4 +489,20 @@ await test('/files: last 5 vault items for the sender; bare "list" is still toda
   assert.match(e.sent.at(-1)!.body, /Nothing in your Drive vault/);
 });
 
+await test('meeting notes: a handled owner message stops before the session read and the model', async () => {
+  const f = makeFake({ link: { lastInboundAt: 1 } });
+  const seen: (string | undefined)[] = [];
+  f.deps.meetingNotes = { handle: async (_l, t) => { seen.push(t); return t === 'go 1'; } };
+  await handleWith(f.deps, text('go 1'));
+  assert.deepEqual(seen, ['go 1']);
+  assert.equal(f.sent.length, 0);
+  assert.equal(f.geminiReqs.length, 0);
+  assert.equal(f.getSession().turns.length, 0); // not saved, not logged
+  await handleWith(f.deps, text('today')); // not handled: the normal bot carries on
+  assert.deepEqual(seen, ['go 1', 'today']);
+  assert.ok(f.sent.length >= 1);
+  await handleWith(f.deps, tap('done:t9')); // taps and non-text never reach it
+  assert.equal(seen.length, 2);
+});
+
 console.log(`\n${passed} passed${process.exitCode ? ', SOME FAILED' : ''}`);

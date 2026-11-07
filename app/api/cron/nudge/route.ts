@@ -4,6 +4,7 @@ import { runSchedule } from '@/lib/server/scheduler';
 import { runReminders } from '@/lib/server/reminders';
 import { runMeds } from '@/lib/server/meds';
 import { runCalendarSync } from '@/lib/server/googleCal';
+import { runMeetingNotes } from '@/lib/meetingnotes';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -31,7 +32,12 @@ async function handle(req: Request) {
       console.error('[cron/nudge] calendar', e);
       return { error: 'calendar_failed' };
     });
-    return NextResponse.json({ ok: true, ...counts, reminders, meds, calendar });
+    // Meeting notes (Drive -> drafts -> WhatsApp to the owner): own try/catch, throttled inside to ~30 min.
+    const meetingNotes = await runMeetingNotes().catch((e) => {
+      console.error('[cron/nudge] meetingNotes', e);
+      return { error: 'meeting_notes_failed' };
+    });
+    return NextResponse.json({ ok: true, ...counts, reminders, meds, calendar, meetingNotes });
   } catch (e) {
     console.error('[cron/nudge]', e);
     return NextResponse.json({ ok: false, error: 'schedule_failed' }, { status: 500 });

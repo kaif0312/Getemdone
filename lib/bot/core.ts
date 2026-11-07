@@ -92,6 +92,9 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   d.markRead(msg.id, true).catch(() => undefined);
   if (msg.timestamp > link.lastInboundAt) d.updateLink(msg.from, { lastInboundAt: msg.timestamp }).catch(() => undefined);
 
+  // Owner only: meeting-notes drafts (go / drop / skip / notes). One cheap check; false for everyone else.
+  if (d.meetingNotes && msg.type === 'text' && (await d.meetingNotes.handle(link, msg.text))) return;
+
   const [session, user] = await Promise.all([d.getSession(msg.from), d.getUserLite(link.uid)]);
   const tz = link.timezone || user?.timezone || 'Asia/Kolkata';
   const now = d.now();

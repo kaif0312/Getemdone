@@ -277,6 +277,44 @@ Four small rules taken from Getting Things Done and friends, all inside the 24 h
 - Tests: `FIRESTORE_PORT=8685 bash scripts/test-emulator.sh scripts/tests/test_moderation.mts`; rules:
   `FIRESTORE_RULES=1 FIRESTORE_PORT=8785 bash scripts/test-emulator.sh scripts/tests/test_rules_moderation.mts`.
 
+## Meeting notes -> tasks + calendar (2026-11-07): `lib/meetingnotes/`
+After a Google Meet, Gemini saves "<title> - <date> - Notes by Gemini" Docs in the Drive of ibrahim@iskaria.com. The cron finds new ones, drafts
+tasks + events, WhatsApps the OWNER ONLY a numbered draft, and creates things only after he confirms. It replaces the local prototype
+(`~/.claude/scripts/nudge-transcripts.mjs`, scheduled task `NudgeMeetingNotes`, skill `nudge-meetings`): disable that once this is live.
+- **Files:** `google.ts` (Drive list/export + Calendar insert, injected fetch), `extract.ts` (Gemini: notes -> draft, draft + instruction -> edited
+  draft; one `save_followups` tool, so the model can only return a draft), `draft.ts` (pure: `sanitizeDraft` clamps, `formatDraft`, `parseOwnerCommand`,
+  `planApply`), `service.ts` (scan, send, owner replies, apply; all deps injected), `store.ts` (Firestore), `index.ts` (wiring).
+- **Scan:** `runMeetingNotes()` at the end of the 15-min cron (own try/catch), throttled by `meetingNotes/state {initAt, lastScanAt, seen[]}` to a
+  Drive list about every 30 min. The FIRST run records every existing Doc as seen and drafts nothing (also pre-marks doc `1Joasd1...` handled by hand).
+  Max 3 docs per tick; a Doc that fails export, is < 200 chars or fails extraction is retried next tick (not marked seen).
+- **Draft:** `meetingDrafts/{docId}` `{meeting, docName, tasks, events, status, createdAt, sentAt, createdTaskIds, createdEventIds, skipped}`;
+  status `pending` (not sent) | `sent` | `applying` (a "go" holds the claim; a claim older than 5 min can be retaken) | `applied` | `rejected`.
+  Both collections are server-only (`firestore.rules`, same as the default deny; no rules deploy needed), single-field queries only.
+  Numbering is continuous: his tasks, then others' tasks, then events.
+- **Owner only** (`NUDGE_OWNER_WA`, default `916238952660`; nobody else is ever messaged, the client is never emailed or messaged). Message inside the
+  24 h window = plain text. Window closed = NO send: no approved template fits, so the draft stays `pending`, `waLinks/<owner>.notes = {id, status}`
+  flags it, his next normal message gets one "You have meeting notes waiting: reply *notes*" line (before the bot's reply), the free-window morning
+  check-in mentions it (`notesLine` in `scheduler.ts`), and `notes` / `/notes` sends it. One draft is answered at a time; the next is sent after.
+- **Replies** (hook in `lib/bot/core.ts run()` via `deps.meetingNotes`, before the session read and Gemini; zero extra reads for anyone else, and for the
+  owner only `notes` or a command while `link.notes.status === 'sent'` reads the draft): `go` (all), `go 1 2 5` (only those, the rest kept in `skipped`),
+  `drop 3`, `skip`, `notes`, and free-text edits that start with edit/make/change/rename/reword/move/set/merge/update AND contain a number ("make 2 due
+  Friday": one small Gemini call, validated, shown again). "go to the gym" or "make coffee" stay normal chat.
+- **Apply:** claim `sent -> applying` in a transaction (a double "go" creates once), then `addTasks` (his: tag 🎬, `dueDate` only if stated, private;
+  others': parked/someday, text `Waiting on <name>: ...`, tag ⏳, private) and events on the iskaria calendar (`POST calendar/v3/calendars/primary/events`,
+  all-day when no time, `Asia/Kolkata` unless the owner link says otherwise, description = notes, NO attendees, event id derived from the draft so a retry
+  can't duplicate). Reply lists what was created; tasks show in the app via Firestore.
+- **Calendar API caveat:** it is OFF in GCP project 493071083202 (accessNotConfigured / SERVICE_DISABLED). Tasks are still created, the owner is told the events
+  were NOT created with the enable link, and the events stay on the draft (`status` back to `sent`): `notes` re-offers them, `go` retries. Enable once:
+  https://console.developers.google.com/apis/api/calendar-json.googleapis.com/overview?project=493071083202
+- **Env** (Vercel Production + Preview, sensitive): `ISK_CLIENT_ID`, `ISK_CLIENT_SECRET`, `ISK_REFRESH_TOKEN` (ibrahim@iskaria.com, scopes drive.readonly +
+  calendar.events; no token = silent no-op, so local dev and tests never touch Google). The OAuth app is the PUBLISHED Iskaria app, so the refresh token does not
+  expire after 7 days (`invalid_grant` = revoked: re-run `~/.claude/scripts/nudge-iskaria-auth.mjs`). Local copy: `~/.secrets/nudge/iskaria-google.env`.
+  Kill switch: `NUDGE_MEETING_NOTES=off`. Optional `NUDGE_OWNER_WA`. Gemini: the bot's models (`NUDGE_BOT_MODEL`), one call per new Doc plus one per edit.
+- **Deploying:** merging deploys; the first cron tick after that seeds the existing Docs silently. Crons only hit production, a Preview never scans.
+- **Tests:** `npx tsx scripts/tests/test_meetingnotes.mts` (in-memory store) and
+  `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetingnotes.mts` (same cases on the real Firestore store, incl. the claim transaction);
+  core wiring in `test_brain.mts`. Live READ-ONLY check of Drive + extraction (sends and writes nothing): `scripts/try_meetingnotes.mts`.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

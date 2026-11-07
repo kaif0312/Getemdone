@@ -365,3 +365,23 @@ tasks + events, WhatsApps the OWNER ONLY a numbered draft, and creates things on
   change row sizes (`npx tsx scripts/try_calendar.mts` writes `tmp-cal/*.png`).
 - Sending: `lib/calendar/send.ts` renders, uploads (`uploadMedia`), sends `sendImageButtons`; any failure returns false and the bot sends a text
   agenda instead. Tests: `scripts/tests/test_calendar_images.mts`.
+
+## Meetings (2026-11-06, branch `meetings-backend`): Google Meet + Nudge doc + reminders
+- Contract: `lib/meetings/types.ts` (`Meeting`, shared with PWA / native). Firestore `meetings/{id}`, Admin-written only; rules let the owner and
+  `attendeeUids` read; index `ownerUid + startAt`. Server: `lib/server/meetings.ts` (`createMeeting`, `listUpcomingMeetings`, `getMeeting`,
+  `cancelMeeting`, pure `parseStart` / `normalizeRequest` / `reminderText`), auth in `lib/server/meetingsApi.ts`. No UI yet (native has no meeting hooks).
+- Routes (same for web and native): `POST /api/meetings` body `{title, start, durationMin?=30, tz?='Asia/Kolkata', attendees?, notes?, reminderMinutes?=[30,10],
+  createdVia}` -> `201 {...Meeting, calendar:'ok'|'not_connected'|'error'}`; `GET /api/meetings?limit=` -> `{meetings}` (upcoming, scheduled);
+  `GET /api/meetings/[id]`; `DELETE /api/meetings/[id]` -> cancelled Meeting + `calendar` (deletes the Calendar event and the reminders). 400 `bad_request`, 401, 404.
+- Auth: EITHER `Authorization: Bearer <Firebase ID token>` (own meetings only) OR header `x-nudge-signature` = hex HMAC-SHA256(`NUDGE_FORWARD_SECRET`,
+  raw body for POST / `pathname+search` for GET and DELETE); body or query carries `ts` (ms, within 5 min) and `ownerWa` (digits) or `ownerUid`.
+  CLI for Claude Code: `node scripts/meeting.mjs create "Meeting with Shamly" "2026-11-07 23:00" --email a@x.com` (also `list`, `cancel <id>`).
+- Reminders: one reminder-only private task (tag `meeting`, text "Title at 11:00 PM <meet link>") per `reminderMinutes`, via `addTasks` -> QStash exact
+  time + the 15-min cron, so push / WhatsApp / caps are `reminders.ts` unchanged. Reminders already in the past are dropped. Push text clips the link.
+- Google: env `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET`, `GCAL_REFRESH_TOKEN` (scope `calendar.events`, owner's primary calendar, Meet via
+  `conferenceData.createRequest`, invites `sendUpdates=all`). The existing calendar sync only has `calendar.app.created` (secondary "Nudge" calendar) and the PWA's
+  tokens are client-encrypted, so a new token is needed: `node scripts/mint_gcal_token.mjs --paste` (reuses the registered getemdone redirect, no console change;
+  sign in as ikaif0312@gmail.com, Allow, paste the landing URL) writes `~/.secrets/nudge/gcal.env`; then set the three vars in Vercel and redeploy. Without
+  them meetings still save and remind (`calendar:'not_connected'`, no `meetUrl`). `--port N` (loopback) needs `http://localhost:N/oauth2callback` added to the client's redirect URIs.
+- Deploy needed: `firestore.rules` + `firestore.indexes.json` (`node scripts/deploy_rules.mjs ...`; the index via `firebase deploy --only firestore:indexes`).
+- Tests: `npx tsx scripts/tests/test_meetings.mts`; `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetings_store.mts`.

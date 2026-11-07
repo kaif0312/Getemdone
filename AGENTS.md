@@ -378,7 +378,7 @@ tasks + events, WhatsApps the OWNER ONLY a numbered draft, and creates things on
   CLI for Claude Code: `node scripts/meeting.mjs create "Meeting with Shamly" "2026-11-07 23:00" --email a@x.com` (also `list`, `cancel <id>`).
 - Reminders: one reminder-only private task (tag `meeting`, text "Title at 11:00 PM <meet link>") per `reminderMinutes`, via `addTasks` -> QStash exact
   time + the 15-min cron, so push / WhatsApp / caps are `reminders.ts` unchanged. Reminders already in the past are dropped. Push text clips the link.
-- Google: env `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET`, `GCAL_REFRESH_TOKEN` (scope `calendar.events`, owner's primary calendar, Meet via
+- Google: env `ISK_CLIENT_ID`, `ISK_CLIENT_SECRET`, `ISK_REFRESH_TOKEN` = **ibrahim@iskaria.com** (2026-11-07: meetings go on the work calendar so he is host; the first version used GCAL_* = ikaif0312@gmail.com, which made him a guest). `GCAL_*` (scope `calendar.events`) is only a fallback. Owner's primary calendar, Meet via
   `conferenceData.createRequest`, invites `sendUpdates=all`). The existing calendar sync only has `calendar.app.created` (secondary "Nudge" calendar) and the PWA's
   tokens are client-encrypted, so a new token is needed: `node scripts/mint_gcal_token.mjs --paste` (reuses the registered getemdone redirect, no console change;
   sign in as ikaif0312@gmail.com, Allow, paste the landing URL) writes `~/.secrets/nudge/gcal.env`; then set the three vars in Vercel and redeploy. Without

@@ -5,7 +5,7 @@
 // minutes, via addTasks -> scheduleFire (QStash exact time) and the 15-min cron safety net, so delivery (push for app users,
 // WhatsApp for the rest, caps, focus mode) is exactly lib/server/reminders.ts. cancelMeeting deletes those tasks.
 //
-// Google: env GCAL_CLIENT_ID / GCAL_CLIENT_SECRET / GCAL_REFRESH_TOKEN (scope calendar.events), minted once with
+// Google: env ISK_CLIENT_ID / ISK_CLIENT_SECRET / ISK_REFRESH_TOKEN (ibrahim@iskaria.com, scope calendar.events; fallback GCAL_*), GCAL_* minted once with
 // scripts/mint_gcal_token.mjs. Missing or failing = the meeting is still saved and reminded, meetUrl empty, calendar != 'ok'.
 import { randomUUID } from 'node:crypto';
 import { adminDb } from './firebaseAdmin';
@@ -120,15 +120,23 @@ export function calendarBody(n: Normalized, requestId: string): Record<string, u
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 export const gcalDeps = { fetch: ((u, i) => fetch(u, i)) as Fetch };
 
-export const gcalConfigured = (): boolean => !!(process.env.GCAL_CLIENT_ID && process.env.GCAL_CLIENT_SECRET && process.env.GCAL_REFRESH_TOKEN);
+/** Meetings are created on ibrahim@iskaria.com: the ISK_* credentials (also used by meeting notes) win; GCAL_* is only a fallback. */
+function gcalCreds(): { clientId: string; clientSecret: string; refreshToken: string } | null {
+  const e = process.env;
+  const pick = (a?: string, b?: string, c?: string) => (a && b && c ? { clientId: a, clientSecret: b, refreshToken: c } : null);
+  return pick(e.ISK_CLIENT_ID, e.ISK_CLIENT_SECRET, e.ISK_REFRESH_TOKEN) ?? pick(e.GCAL_CLIENT_ID, e.GCAL_CLIENT_SECRET, e.GCAL_REFRESH_TOKEN);
+}
+export const gcalConfigured = (): boolean => !!gcalCreds();
 
 async function accessToken(): Promise<string> {
+  const c = gcalCreds();
+  if (!c) throw new Error('gcal_token_not_configured');
   const res = await gcalDeps.fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: process.env.GCAL_CLIENT_ID!, client_secret: process.env.GCAL_CLIENT_SECRET!,
-      refresh_token: process.env.GCAL_REFRESH_TOKEN!, grant_type: 'refresh_token',
+      client_id: c.clientId, client_secret: c.clientSecret,
+      refresh_token: c.refreshToken, grant_type: 'refresh_token',
     }).toString(),
   });
   const j = (await res.json().catch(() => ({}))) as { access_token?: string; error?: string };

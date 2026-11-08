@@ -142,6 +142,7 @@ export function MeScreen() {
       <WhatsAppCard />
       <Group title="Settings">
         <Row icon="clock" tone="accent" title="Reminders" subtitle="Where reminders go, and how early" value={reminder} onPress={() => router.push('/me/reminders')} />
+        <Row icon="repeat" tone="sun" title="Routines" subtitle="Daily and weekly, with a Done button on WhatsApp" onPress={() => router.push('/me/routines')} />
         <Row icon="calendar" tone="success" title="Calendar" subtitle="Tasks in Google, Apple or Outlook calendar" onPress={() => router.push('/me/calendar')} />
         <Row icon="bell" tone="primary" title="Notifications" value={pushValue} onPress={() => router.push('/me/notifications')} />
         <Row icon="face" tone="success" title="Privacy and security" subtitle="Face ID lock, visibility, your data" value={profile?.biometricEnabled ? 'Lock on' : ''} onPress={() => router.push('/me/privacy')} />

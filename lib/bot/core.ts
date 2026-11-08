@@ -17,6 +17,7 @@ import { time12 } from './format';
 import { allowMeme, chooseRecipe, sendRecipe } from './memes';
 import { maybeOnboard } from './onboarding';
 import { handleCare } from './care';
+import { isBareDone, routineBareDone, routineTap, routinesList } from './routines';
 import { detectLang, langOf, t as tr, type Lang } from './i18n';
 
 export const APOLOGY = 'Sorry, something went wrong on my side. Please try again in a moment 🙏';
@@ -100,6 +101,8 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   const now = d.now();
   const ctx = new Ctx(d, msg.from, link, user, tz, session, d.localDate(tz, now), d.localTime(tz, now));
 
+  // A bare "done" answers a routine message that is waiting (none waiting = the normal flow).
+  if (msg.type === 'text' && msg.text && isBareDone(msg.text) && (await routineBareDone(ctx))) return;
   const fast = parseFast(msg);
   if (fast?.t === 'forgetYes') { await forget(d, msg.from); return; } // nothing saved or logged after this
   // "Next step" on a stale-task nudge waits for the user's next plain message; any button, command or other message ends the wait.
@@ -285,6 +288,8 @@ async function runFast(ctx: Ctx, f: Fast): Promise<void> {
       if (f.code) await flush(ctx, await setLangAction(ctx, f.code)); else await langMenu(ctx);
       return;
     case 'meds': await ctx.text((await medsLines(ctx)).join('\n')); return;
+    case 'routines': await ctx.text((await routinesList(ctx)).join('\n\n')); return;
+    case 'routineTap': await routineTap(ctx, f.id, f.status); return;
     case 'coachMenu': await coachMenu(ctx); return;
     case 'meme': ctx.wantMeme({ moment: 'random', format: f.format, asked: true }); return;
     case 'memesOff':

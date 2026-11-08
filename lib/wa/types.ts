@@ -74,6 +74,9 @@ export const BUTTON_IDS = {
   /** Medicine reminder taps (lib/server/meds.ts): taken / ask again in 30 min. `<x>` = a medDoses doc id. */
   medTaken: (doseId: string) => `med:taken:${doseId}`,
   medLater: (doseId: string) => `med:later:${doseId}`,
+  /** Routine reminder taps (lib/server/routines.ts): Done / Skip today. `<x>` = a routineLogs doc id. */
+  routineDone: (logId: string) => `rt:done:${logId}`,
+  routineSkip: (logId: string) => `rt:skip:${logId}`,
   /** Language picker row (lib/bot/i18n.ts Lang). */
   lang: (code: string) => `lang:${code}`,
 } as const;

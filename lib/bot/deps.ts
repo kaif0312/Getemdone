@@ -12,6 +12,7 @@ import * as reminders from '@/lib/server/reminders';
 import * as learning from '@/lib/server/learning';
 import * as privacy from '@/lib/wa/privacy';
 import * as meds from '@/lib/server/meds';
+import * as routines from '@/lib/server/routines';
 import { callGemini } from './gemini';
 import { listVaultFiles } from '@/lib/vault/audit';
 import * as calLink from '@/lib/server/calendarLink';
@@ -49,6 +50,14 @@ export const defaultDeps: BotDeps = {
     statusLines: meds.statusLines,
     addMedication: meds.addMedication,
     removeMedication: meds.removeMedication,
+  },
+  routines: {
+    setLogStatus: routines.setLogStatus,
+    openLogFor: routines.openLogFor,
+    upsertRoutine: routines.upsertRoutine,
+    updateRoutine: routines.updateRoutine,
+    removeRoutine: routines.removeRoutine,
+    statusLines: routines.statusLines,
   },
   calSync: {
     status: async (uid) => calLink.toPublicStatus(await calLink.getCalendarLink(uid)),

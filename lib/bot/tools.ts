@@ -159,6 +159,37 @@ export const TOOLS: FunctionDecl[] = [
     },
   },
   {
+    name: 'add_routine',
+    description:
+      'Set up a repeating routine for the USER THEMSELVES ("remind me to take isabgol every night at 10", "daily stretch at 7am", "water the plants on Sundays"): ' +
+      'a WhatsApp message at that time with a Done / Skip button, every day (or the given weekdays). Use this, not add_tasks, for anything the user does on a schedule with a time. ' +
+      'The same title again changes its time or days.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { ...S, description: 'Short name without the time words, e.g. "Take isabgol"' },
+        time: { ...S, description: 'Local time, HH:mm 24h (night = 22:00 if the user gives no hour)' },
+        days: { type: 'ARRAY', items: S, description: 'Omit for every day. Else weekdays like ["mon","wed"] or ["weekdays"] / ["weekends"]' },
+      },
+      required: ['title', 'time'],
+    },
+  },
+  {
+    name: 'update_routine',
+    description: 'Change an existing routine (ref = its title or part of it): a new time, other weekdays, or pause=true to stop it.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { ref: S, time: S, days: { type: 'ARRAY', items: S }, pause: { type: 'BOOLEAN' } },
+      required: ['ref'],
+    },
+  },
+  {
+    name: 'remove_routine',
+    description: 'Delete a routine ("stop the isabgol reminder").',
+    parameters: { type: 'OBJECT', properties: { ref: S }, required: ['ref'] },
+  },
+  { name: 'list_routines', description: "Show the user's routines with today's state and streaks.", parameters: { type: 'OBJECT', properties: {} } },
+  {
     name: 'add_medication',
     description:
       'Set up a daily WhatsApp medicine reminder for a family member the user looks after (they get a message with a Taken button; the user is told if they do not confirm). ' +

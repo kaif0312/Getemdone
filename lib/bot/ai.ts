@@ -13,6 +13,7 @@ import { setCoachAction } from './actions';
 import { MOMENTS, type MemeFormat, type Moment } from './memes';
 import { TOOLS } from './tools';
 import { str } from './format';
+import { addRoutineAction, removeRoutineAction, routinesList, updateRoutineAction } from './routines';
 
 const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 const MAX_CALLS = 8;
@@ -112,6 +113,10 @@ export async function runGemini(ctx: Ctx, msg: InboundMessage): Promise<void> {
         case 'set_schedule': lines.push(...await setScheduleAction(ctx, a)); break;
         case 'set_coach': lines.push(...await setCoachAction(ctx, str(a.coach))); break;
         case 'set_language': if (isLang(a.language)) lines.push(...await setLangAction(ctx, a.language)); break;
+        case 'add_routine': lines.push(...await addRoutineAction(ctx, a)); break;
+        case 'update_routine': lines.push(...await updateRoutineAction(ctx, a)); break;
+        case 'remove_routine': lines.push(...await removeRoutineAction(ctx, a)); break;
+        case 'list_routines': lines.push(...await routinesList(ctx)); break;
         case 'add_medication': lines.push(...await addMedicationAction(ctx, a)); break;
         case 'remove_medication': lines.push(...await removeMedicationAction(ctx, a)); break;
         case 'send_meme': {

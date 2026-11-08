@@ -6,6 +6,7 @@ import { LuCalendar } from 'react-icons/lu';
 import StorageUsage from './StorageUsage';
 import ConnectWhatsApp from './ConnectWhatsApp';
 import GoogleCalendarSettings from './GoogleCalendarSettings';
+import RoutinesSheet from './RoutinesSheet';
 import { useEncryption } from '@/hooks/useEncryption';
 import { E2EE_ENABLED } from '@/lib/config';
 
@@ -49,6 +50,7 @@ export default function SettingsMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const { isInitialized: encryptionInitialized, masterKey } = useEncryption();
   const [showGoogleCalendarSettings, setShowGoogleCalendarSettings] = useState(false);
+  const [showRoutines, setShowRoutines] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -172,6 +174,20 @@ export default function SettingsMenu({
             </div>
 
             <ConnectWhatsApp />
+
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowRoutines(true)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowRoutines(true); } }}
+              className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-surface-muted transition-colors text-left cursor-pointer"
+            >
+              <span className="text-[13px] text-fg-secondary">
+                Routines · Daily reminders with a Done button
+                <span className="text-primary ml-1">Manage</span>
+              </span>
+            </div>
+            <RoutinesSheet isOpen={showRoutines} onClose={() => setShowRoutines(false)} />
 
             {/* Storage Usage - Non-clickable display */}
             <div className="px-4 py-3 border-b border-border-subtle">

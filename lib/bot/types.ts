@@ -94,6 +94,8 @@ export interface BotDeps {
   memes?: MemeDeps;
   /** Medicine reminders (lib/server/meds.ts). Optional so older test fakes keep compiling. */
   meds?: MedBotDeps;
+  /** Routines (lib/server/routines.ts): Done / Skip taps, /routines and the tools. Optional like meds. */
+  routines?: import('./routines').RoutineBotDeps;
   /** Calendar sync: /sync on WhatsApp. Absent = the command says it is unavailable. */
   calSync?: CalendarBotDeps;
   markRead: typeof Send.markRead;

@@ -16,6 +16,8 @@ export type Fast =
   | { t: 'setCoach'; id: string }
   | { t: 'lang'; code?: Lang }
   | { t: 'meds' }
+  | { t: 'routines' }
+  | { t: 'routineTap'; id: string; status: 'done' | 'skipped' }
   | { t: 'meme'; format?: 'meme' | 'gif' | 'sticker' }
   | { t: 'memesOn' | 'memesOff' }
   | { t: 'doneId' | 'tmrwId' | 'delId' | 'taskOpen' | 'focus' | 'step' | 'parkId' | 'unparkId' | 'keepParked' | 'reviewOpen'; id: string }
@@ -59,6 +61,10 @@ function fromReply(id: string): Fast | null {
     case 'cal': { // cal:month:0 / cal:week:-1 (offset from the current month / week)
       const m = /^(month|week):(-?\d{1,3})$/.exec(rest);
       return m ? { t: 'calendar', view: m[1] as 'month' | 'week', offset: Math.max(-24, Math.min(24, +m[2])) } : null;
+    }
+    case 'rt': { // rt:done:<logId> / rt:skip:<logId> (lib/server/routines.ts)
+      const m = /^(done|skip):(.+)$/.exec(rest);
+      return m ? { t: 'routineTap', id: m[2], status: m[1] === 'done' ? 'done' : 'skipped' } : null;
     }
     case 'focus': return { t: 'focus', id: rest };
     case 'step': return { t: 'step', id: rest };
@@ -120,7 +126,7 @@ export function parseCalendar(cmd: string, arg: string): Fast | null {
 }
 /** "/done 2" and friends: a leading slash on a bare-word command just runs that command. */
 const BARE_CMDS = new Set(['today', 'list', 'tasks', 'todo', 'done', 'did', 'finished', 'complete', 'completed', 'del', 'delete', 'remove',
-  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines', 'review', 'reviews']);
+  'tmrw', 'tomorrow', 'undo', 'stop', 'start', 'help', 'menu', 'week', 'friends', 'language', 'lang', 'meds', 'medicine', 'medicines', 'routines', 'routine', 'review', 'reviews']);
 
 /**
  * Slash commands (WhatsApp has no native slash menu, so these are typed). null = not a slash command (text starts with
@@ -160,6 +166,7 @@ export function parseFast(msg: InboundMessage): Fast | null {
   const cal = /^(?:show |open |see |my )?(calendar|cal|agenda|schedule|month)(?: view)?(?:\s+(.+))?$/.exec(t) ?? /^(week|next week|this week)\s+(?:calendar|agenda|schedule)$/.exec(t);
   if (cal) return cal[2] === undefined && /^(week|next week|this week)$/.test(cal[1]) ? parseCalendar('calendar', cal[1]) : parseCalendar(cal[1], cal[2] ?? '');
   if (/^(meds|medicine|medicines|my meds|medicine status)$/.test(t)) return { t: 'meds' };
+  if (/^(routines?|my routines?|routine status)$/.test(t)) return { t: 'routines' };
   if (isLangCommand(t)) return { t: 'lang' };
   const lm = /^(?:language|lang)\s+(.+)$/.exec(t);
   if (lm) { const code = parseLangName(lm[1]); return code ? { t: 'lang', code } : { t: 'lang' }; }

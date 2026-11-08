@@ -315,6 +315,22 @@ tasks + events, WhatsApps the OWNER ONLY a numbered draft, and creates things on
   `FIRESTORE_PORT=8885 bash scripts/test-emulator.sh scripts/tests/test_meetingnotes.mts` (same cases on the real Firestore store, incl. the claim transaction);
   core wiring in `test_brain.mts`. Live READ-ONLY check of Drive + extraction (sends and writes nothing): `scripts/try_meetingnotes.mts`.
 
+## Routines (2026-11-08): daily "do X at time" reminders with a Done button, from the app or WhatsApp
+- Generic: `routines/{id}` = `{ uid, title, time "HH:mm" local, days [] (= every day) or weekdays 0-6, active }`; one doc per routine, so the
+  next thing (isabgol, stretch, vitamins) needs no code. `routineLogs/{routineId_yyyy-mm-dd}` is the day's state (sent/done/skipped).
+  Both collections are Admin-SDK only (rules deny the client); the app goes through `app/api/routines` (Bearer ID token).
+- `lib/server/routines.ts` (read its header): `runRoutines` runs on the 15-min cron (`app/api/cron/nudge`), creates the day's log once, sends,
+  and sends ONE follow-up after 45 min (free only: window open, or push). Inside the 24 h window = interactive message with
+  `Done ✅` / `Skip today` (`rt:done:<logId>` / `rt:skip:<logId>`); window closed = template `nudge_routine` (English, utility, 2 quick-reply
+  buttons; `node scripts/create_wa_templates.mjs --commit --only nudge_routine`), at most `NUDGE_MAX_ROUTINE_TEMPLATES_PER_USER_DAY` (3) per person
+  per day, the rest dropped. A tap reopens the window. Reminder delivery follows `users.reminderChannel`: WhatsApp when linked (the button lives
+  there), push when `app` or no WhatsApp. This is separate from task reminders (`reminders.ts` still skips recurring tasks).
+- Bot (`lib/bot/routines.ts`, tools `add_routine` / `update_routine` / `remove_routine` / `list_routines`, `/routines`): "remind me to take isabgol
+  every night at 10" -> add_routine; a bare "done" answers the newest waiting routine (otherwise the normal flow). Replies are English only.
+- Web: Settings -> Routines (`components/RoutinesSheet.tsx`). Native app (branch `native-app`): not ported yet, it can use the same `/api/routines`.
+- Tests: `FIRESTORE_PORT=8585 bash scripts/test-emulator.sh scripts/tests/test_routines.mts`; `npx tsx scripts/tests/test_routines_bot.mts`.
+- Add a first routine for someone: `node scripts/add_routine.mjs <uid> "Take isabgol" 22:00`.
+
 ## Rules
 - **Server-only code:** never import `lib/server/*` or `lib/wa/*` from client components.
 - **Time:** use the user's IANA timezone (`users.timezone`, default `Asia/Kolkata`) for "today". Never use the server's

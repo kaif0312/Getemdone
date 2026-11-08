@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { runSchedule } from '@/lib/server/scheduler';
 import { runReminders } from '@/lib/server/reminders';
 import { runMeds } from '@/lib/server/meds';
+import { runRoutines } from '@/lib/server/routines';
 import { runCalendarSync } from '@/lib/server/googleCal';
 import { runMeetingNotes } from '@/lib/meetingnotes';
 
@@ -27,6 +28,11 @@ async function handle(req: Request) {
       console.error('[cron/nudge] meds', e);
       return { error: 'meds_failed' };
     });
+    // Routines (daily Done-button reminders): own try/catch too.
+    const routines = await runRoutines(now).catch((e) => {
+      console.error('[cron/nudge] routines', e);
+      return { error: 'routines_failed' };
+    });
     // Google Calendar sync for connected users: own try/catch as well.
     const calendar = await runCalendarSync().catch((e) => {
       console.error('[cron/nudge] calendar', e);
@@ -37,7 +43,7 @@ async function handle(req: Request) {
       console.error('[cron/nudge] meetingNotes', e);
       return { error: 'meeting_notes_failed' };
     });
-    return NextResponse.json({ ok: true, ...counts, reminders, meds, calendar, meetingNotes });
+    return NextResponse.json({ ok: true, ...counts, reminders, meds, routines, calendar, meetingNotes });
   } catch (e) {
     console.error('[cron/nudge]', e);
     return NextResponse.json({ ok: false, error: 'schedule_failed' }, { status: 500 });

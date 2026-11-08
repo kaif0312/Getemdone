@@ -58,6 +58,9 @@ const templates = [
   tpl('nudge_med_reminder', 'ur', 'Nudge کی طرف سے دوا کی یاد دہانی: {{1}}، {{2}} لینے کا وقت ہو گیا ہے ({{3}})۔ دوا لینے کے بعد نیچے "لے لی" کا بٹن دبائیں۔', ['امی', 'BP کی گولی', '8:00 AM'], ['لے لی', 'بعد میں']),
   tpl('nudge_med_reminder', 'ml', 'Nudge-ൽ നിന്ന് മരുന്ന് ഓർമ്മ: {{1}}, {{2}} കഴിക്കാൻ സമയമായിട്ടോ ({{3}}). കഴിച്ചിട്ട് താഴെ "കഴിച്ചു" അമർത്തണേ.', ['അമ്മേ', 'BP ഗുളിക', '8:00 AM'], ['കഴിച്ചു', 'പിന്നെ കഴിക്കാം']),
 
+  // ---- routine reminder to the user themselves (vars: routine, time; buttons: done / skip today). lib/server/routines.ts
+  tpl('nudge_routine', 'en', 'Routine reminder from Nudge: it is time for {{1}} (scheduled for {{2}}). Please tap Done below once you have finished it.', ['Take isabgol', '10:00 PM'], ['Done', 'Skip today']),
+
   // ---- to the family member when a dose is still not confirmed and their own window is closed (vars: person, medicines, time)
   tpl('nudge_med_alert', 'en', 'Medicine check from Nudge: {{1}} has not confirmed {{2}} due at {{3}}. Please check on them.', ['Amma', 'BP tablet', '8:00 AM']),
 ];

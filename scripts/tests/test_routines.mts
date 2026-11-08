@@ -186,4 +186,66 @@ reset();
 await runRoutines(at('2026-11-21', '22:05'));
 assert.equal(templates.filter((x) => x.to === wa6).length, 0);
 
+// ---- at-most-once: the send is claimed first; a throwing send releases the claim and the next tick retries
+const uid7 = 'ru7_' + sfx, wa7 = '9140' + sfx.slice(-8);
+const D7 = '2026-11-23';
+await db.doc(`users/${uid7}`).set({ displayName: 'Q', friends: [], timezone: TZ });
+await link(wa7, uid7, at(D7, '21:30'));
+const rid7 = (await upsertRoutine(uid7, { title: 'Claimed', time: '22:00' }) as { ok: true; routine: { id: string } }).routine.id;
+const log7 = db.doc(`routineLogs/${logIdOf(rid7, D7)}`);
+const realButtons = deps.sendButtons;
+reset();
+deps.sendButtons = async () => { throw new Error('boom'); };
+const c7 = await runRoutines(at(D7, '22:05'));
+assert.equal(c7.failed >= 1, true);
+let l7 = (await log7.get()).data()!;
+assert.equal(l7.sentAt, null); // released
+assert.equal(l7.tries, 1);
+deps.sendButtons = async (to, body, bs) => {
+  // the claim is held while the send is in flight: a parallel tick must not send too
+  const inflight = (await log7.get()).data()!;
+  assert.equal(inflight.sentAt, at(D7, '22:20'));
+  assert.equal(inflight.tries, 2);
+  const c = await runRoutines(at(D7, '22:20'));
+  assert.equal(c.sent, 0);
+  return realButtons(to, body, bs);
+};
+reset();
+await runRoutines(at(D7, '22:20')); // retry inside the 2h window
+deps.sendButtons = realButtons;
+assert.equal(buttons.filter((b) => b.to === wa7).length, 1);
+l7 = (await log7.get()).data()!;
+assert.equal(l7.sentAt, at(D7, '22:20'));
+assert.equal(l7.tries, 2);
+assert.equal(l7.channel, 'free');
+assert.ok(l7.wamid);
+
+// ---- a crash after the claim (sentAt set, no wamid): no second first-send, but the 45-min follow-up still goes out
+const D8 = '2026-11-24';
+await link(wa7, uid7, at(D8, '21:30'));
+await log7.delete();
+await db.doc(`routineLogs/${logIdOf(rid7, D8)}`).set({
+  routineId: rid7, uid: uid7, date: D8, title: 'Claimed', time: '22:00', dueAt: at(D8, '22:00'), status: 'sent', sentAt: at(D8, '22:03'), tries: 1,
+});
+reset();
+const mine = () => [...buttons, ...templates].filter((x) => x.to === wa7) as { body: string }[];
+await runRoutines(at(D8, '22:20'));
+assert.equal(mine().length, 0);
+await runRoutines(at(D8, '22:50'));
+assert.equal(mine().length, 1);
+assert.match(mine()[0].body, /Still pending/);
+reset();
+await runRoutines(at(D8, '23:10'));
+assert.equal(mine().length, 0); // once only
+
+// ---- a bare "done" only answers a message sent in the last 8 hours; a tap on an old one still counts
+const uid8 = 'ru8_' + sfx;
+const mk = (date: string, sentAt: number) =>
+  db.doc(`routineLogs/old_${sfx}_${date}`).set({ routineId: 'old_' + sfx, uid: uid8, date, title: 'Old', time: '22:00', dueAt: at(date, '22:00'), status: 'sent', sentAt, tries: 1 });
+await mk('2026-11-25', at('2026-11-25', '22:00'));
+assert.equal(await openLogFor(uid8, at('2026-11-26', '07:30'), TZ), null); // 9.5 h later: too old
+assert.equal((await openLogFor(uid8, at('2026-11-26', '05:50'), TZ))?.id, `old_${sfx}_2026-11-25`); // 7 h 50 min: still open
+const late = await setLogStatus(`old_${sfx}_2026-11-25`, uid8, 'done', at('2026-11-26', '09:00')); // a late tap still counts
+assert.ok(late.ok && !late.already);
+
 console.log('routines: all passed');

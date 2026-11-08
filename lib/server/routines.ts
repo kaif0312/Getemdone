@@ -4,11 +4,10 @@
 //
 // Data:
 //   routines/{id}     { uid, title, time "HH:mm" (the user's local clock), days number[] (0=Sun..6=Sat; [] = every day),
-//                       active, createdAt }                          client-writable by the owner (firestore.rules)
+//                       active, createdAt }                          Admin SDK only (rules deny the client); the app uses app/api/routines
 //   routineLogs/{routineId_yyyy-mm-dd}  { routineId, uid, date, title, time, dueAt, status 'sent'|'done'|'skipped',
 //                       sentAt|null, tries, wamid, channel 'free'|'template'|'push', remindedAt, doneAt, skippedAt }
-//                                                                     the server creates it when it sends; the app may also set
-//                                                                     status 'done' (rules validate the shape)
+//                                                                     server-written only (cron, bot taps, app/api/routines)
 //
 // Flow (15-min cron, app/api/cron/nudge -> runRoutines): at the due time the day's log is created once (create-once = no
 // double send) and the message goes out. Not answered after REMIND_AFTER_MIN: one gentle second message, only when it is
@@ -258,12 +257,24 @@ async function advance(log: RoutineLog, who: Who, now: number, counts: RoutineCo
   const ref = logsCol().doc(log.id);
   if (!log.sentAt) {
     if (log.tries >= MAX_TRIES || now > log.dueAt + SEND_WINDOW_MS) { counts.skipped++; return; }
-    const r = await sendRoutine(log, who, now);
+    // At-most-once per attempt: claim first (sentAt + tries in one transaction, only while sentAt is still unset), then
+    // send. A crash after the claim loses this night's first send (the follow-up still goes out: sentAt is set); a
+    // failed send releases the claim so the next tick retries inside the window.
+    const claimed = await adminDb().runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const d = snap.data();
+      if (!snap.exists || d?.status !== 'sent' || d?.sentAt) return false;
+      tx.update(ref, { sentAt: now, tries: ((d?.tries as number | undefined) ?? 0) + 1 });
+      return true;
+    });
+    if (!claimed) return;
+    let r: Sent = 'failed';
+    try { r = await sendRoutine(log, who, now); } catch (e) { console.error('[routines] send threw', log.id, e); }
     if (typeof r === 'object') {
-      await ref.update({ sentAt: now, wamid: r.wamid, channel: r.channel, tries: log.tries + 1 });
+      await ref.update({ wamid: r.wamid, channel: r.channel });
       counts.sent++;
     } else {
-      await ref.update({ tries: log.tries + 1 });
+      await ref.update({ sentAt: null }); // release: the next tick may retry (tries already counted)
       if (r === 'capped' || r === 'no_channel') counts.skipped++; else counts.failed++;
     }
     return;
@@ -295,11 +306,15 @@ export async function setLogStatus(logId: string, uid: string, status: 'done' | 
   return { ok: true, title: r.l.title, already: r.already, streak: status === 'done' ? await streakOf(r.l.routineId, r.l.date) : 0 };
 }
 
-/** The log a bare "done" / thumbs-up reply refers to: the user's newest unanswered one. */
+/** A bare "done" only answers a message sent this recently; a button tap on an older message still counts. */
+const BARE_DONE_MAX_AGE_MS = 8 * 3_600_000;
+
+/** The log a bare "done" / thumbs-up reply refers to: the user's newest unanswered one sent in the last 8 hours. */
 export async function openLogFor(uid: string, now: number, tz: string): Promise<RoutineLog | null> {
   const today = localDate(tz, now);
   const logs = await Promise.all([today, addDays(today, -1)].map((d) => logsCol().where('uid', '==', uid).where('date', '==', d).get()));
-  const open = logs.flatMap((q) => q.docs.map((d) => toLog(d.id, d.data()))).filter((l) => l.status === 'sent' && l.sentAt);
+  const open = logs.flatMap((q) => q.docs.map((d) => toLog(d.id, d.data())))
+    .filter((l) => l.status === 'sent' && l.sentAt && now - l.sentAt <= BARE_DONE_MAX_AGE_MS);
   return open.sort((a, b) => b.dueAt - a.dueAt)[0] ?? null;
 }
 
@@ -350,8 +365,7 @@ export async function upsertRoutine(uid: string, a: { title: string; time: strin
   if (all.length >= MAX_ROUTINES_PER_USER) return { ok: false, reason: 'too_many' };
   const ref = routinesCol().doc();
   const routine: Routine = { id: ref.id, uid, title, time, days, active: true, createdAt: Date.now() };
-  const { id: _id, ...data } = routine;
-  await ref.set(data);
+  await ref.set({ uid, title, time, days, active: true, createdAt: routine.createdAt });
   return { ok: true, routine, created: true };
 }
 

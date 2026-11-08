@@ -64,9 +64,16 @@ function fakeRoutines(open: { id: string } | null = { id: 'r1_2026-11-01' }) {
   const f = makeFake();
   const { r, calls } = fakeRoutines();
   f.deps.routines = r;
+  const learned: { path: string }[] = [];
+  f.deps.logLearning = async (e) => { learned.push(e); };
   await handleWith(f.deps, text('done'));
   assert.deepEqual(calls, ['set r1_2026-11-01 u1 done']);
   assert.equal(f.geminiReqs.length, 0);
+  // like every fast path: the turn is saved in the session and logged for learning
+  const turns = f.getSession().turns;
+  assert.equal(turns[0].text, 'done');
+  assert.match(turns[1].text, /Take isabgol.*done/);
+  assert.equal(learned.at(-1)?.path, 'fast:routineDone');
 }
 // Bare "done" with nothing waiting falls through to the normal flow (the model here)
 {

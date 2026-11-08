@@ -102,12 +102,15 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   const ctx = new Ctx(d, msg.from, link, user, tz, session, d.localDate(tz, now), d.localTime(tz, now));
 
   // A bare "done" answers a routine message that is waiting (none waiting = the normal flow).
-  if (msg.type === 'text' && msg.text && isBareDone(msg.text) && (await routineBareDone(ctx))) return;
-  const fast = parseFast(msg);
+  // It is a fast path like the others: it falls through to the session save and the learning log below.
+  const bareDone = msg.type === 'text' && !!msg.text && isBareDone(msg.text) && (await routineBareDone(ctx));
+  const fast = bareDone ? null : parseFast(msg);
   if (fast?.t === 'forgetYes') { await forget(d, msg.from); return; } // nothing saved or logged after this
+  if (bareDone && ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined;
   // "Next step" on a stale-task nudge waits for the user's next plain message; any button, command or other message ends the wait.
   if (fast && fast.t !== 'step' && ctx.session.lastAction?.kind === 'pending_step') ctx.session.lastAction = undefined;
-  if (fast) await runFast(ctx, fast);
+  if (bareDone) { /* answered above */ }
+  else if (fast) await runFast(ctx, fast);
   else if (await takeStep(ctx, msg.type === 'text' ? msg.text : undefined)) { /* the reply was the first step */ }
   else await runGemini(ctx, msg);
   const memed = await runMeme(ctx);
@@ -127,7 +130,7 @@ async function run(d: BotDeps, msg: InboundMessage, state: { lang: Lang }): Prom
   await d.saveSession(msg.from, session);
   // Opt-out: `learning off` sets link.learning = false (this turn included); the `learning on` turn itself is not logged either.
   if (ctx.link.learning !== false && fast?.t !== 'learningOn') {
-    await learn(d, ctx.link, user?.displayName, { at: t, path: fast ? `fast:${fast.t}` : 'ai', user: userText, bot: botText });
+    await learn(d, ctx.link, user?.displayName, { at: t, path: bareDone ? 'fast:routineDone' : fast ? `fast:${fast.t}` : 'ai', user: userText, bot: botText });
   }
 }
 

@@ -71,6 +71,7 @@ function Navigator() {
           <Stack.Screen name="progress/log-workout" options={sheetOptions({ detents: [1] }, colors)} />
           <Stack.Screen name="progress/log-metric" options={sheetOptions({ detents: [1] }, colors)} />
           <Stack.Screen name="progress/goals" options={sheetOptions({ detents: [1] }, colors)} />
+          <Stack.Screen name="me/routines" options={sheetOptions({ detents: [0.94] }, colors)} />
           <Stack.Screen name="me/name" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="me/photo" options={sheetOptions({ detents: 'fitToContents' }, colors)} />
           <Stack.Screen name="me/bug" options={sheetOptions({ detents: [1] }, colors)} />

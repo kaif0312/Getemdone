@@ -76,10 +76,31 @@ first.
 `parseSlash` in `lib/bot/fastpath.ts`; no Gemini unless noted. A leading `/` works on every bare-word command (`/today`, `/list`, `/done 2`,
 `/undo`, `/week`, `/friends`, `/stop`, `/start`, `/help`). New: `/task <text>` (alias `/add`; newline or `;` separates tasks; plain text is added
 with no model call, text with a digit/comma/date or time word goes to Gemini with ONLY the `add_tasks` tool, raw text is the fallback, so it can
-never turn into another action), `/files` (alias `/vault`; last 5 from `vaultUploads` by sender, `lib/vault/audit.ts`, no composite index), unknown
+never turn into another action), `/pdf` (see Make a PDF), `/files` (alias `/vault`; last 5 from `vaultUploads` by sender, `lib/vault/audit.ts`, no composite index), unknown
 `/xyz` -> "Unknown command". Bare `list` stays today's tasks. `/ref` is only a photo/video/document caption prefix. WhatsApp has no slash menu: `/help` lists them.
 - **Claude Code side:** `~/.claude/scripts/vault.mjs` (latest / get / search against Drive with `~/.secrets/nudge/gdrive.env`) and the user skill
   `vault` let a Claude session fetch what the owner just forwarded ("grab what I just sent").
+
+## Make a PDF (2026-11-22): `lib/pdf/`, no Gemini
+- A linked user (not a `care` contact) sends bare `pdf`, `/pdf`, `make pdf` or `make a pdf` (`isPdfStart`; "send the pdf to Ali" is not a start) and gets a session
+  in Firestore `pdfJobs/{waId}` (status collecting|building, startedAt, expiresAt = 60 min after the last page, refreshed at most once a minute).
+  Pages are `pdfJobs/{waId}/pages/{wamid}` (media id, mime, filename, WhatsApp timestamp, arrival seq), one doc each so 100+ concurrent webhooks never
+  contend. While a session is open every image, image document, PDF and zip from that user goes there, not to the vault or the to-do bot
+  (`tryPdf` in `app/api/wa/inbound/route.ts`, after `tryAppLogin`, before `tryVault`). Each gets a 👍 reaction; one "Got N pages so far" text per 20 s
+  bucket (`claimMessage` on `pdfack:<wa>:<bucket>`), never one per page.
+- Shortcuts: a zip or PDF document captioned `pdf` builds at once (no session); a photo captioned `pdf` starts a session as page 1.
+- `done` / `/done` / `cancel` / `/cancel` (bare only) act only while a session is open, so the to-do bot's `done` and `done 2` are untouched. An expired session is
+  ignored (pages go back to normal handling). Build runs in the route's `after()`: media downloaded 8 at a time, sharp auto-rotates and shrinks to 2000 px,
+  JPEG q78, one image per page 595 pt wide (height from the aspect), PDFs merged with pdf-lib `copyPages`, zip entries in natural order (IMG_2 before IMG_10,
+  no `__MACOSX`, dotfiles, non-images). Over ~90 MB: re-encode at 1500 px / q60, then split into "part 1/2" PDFs. Undecodable files are skipped and counted in
+  the caption. Sent with `uploadMedia` + `sendDocumentId` (`lib/wa/media.ts`) as `Pages-<date>-<N>p.pdf`, inside the 24 h window. A failure tells the user and keeps
+  the session so `done` retries; a `building` lock older than 6 min counts as a crashed build.
+- Route `maxDuration` is now 300 (was 60): checked 2026-11-22, project `getemdone` is on the Pro team with Fluid Compute on (default timeout 300 s, 2 GB). Downloading/decoding stops at 200 s (`BUILD_BUDGET_MS`) so the re-encode, assemble and upload still fit. 119 phone-size photos build in ~8 s here.
+- `done` waits 1.5 s before taking the build lock (a page sent just before *done* can arrive after it) and 1 s after (writes already in flight). A page that arrives after that gets "still making your PDF, send it again". `tryPdf` never throws: on an error the message falls through to the vault / to-do bot. pdf / done / cancel refresh `waLinks.lastInboundAt` (handleMessage, which normally does it, never sees them).
+- Limits: HEIC is skipped unless sharp's libvips can decode it (the prebuilt one usually cannot; WhatsApp photos arrive as JPEG, only "Document" HEIC files hit this).
+  Order is WhatsApp timestamp (1 s resolution) then arrival, so a burst within one second can swap if Meta delivers it out of order. Fixed English replies only.
+  Pages of an abandoned session stay until the next `pdf` (which wipes them) or `done`/`cancel`; a Firestore TTL policy on `pdfJobs.expiresAt` would tidy them.
+  Test: `npx tsx scripts/tests/test_pdf.mts` (no emulator).
 
 ## WhatsApp onboarding + adding friends by number (2026-11-05)
 - `scripts/add_friend.mjs "<Name>" <digits with country code> <IANA tz>` adds a friend with no web-app signup: Firebase Auth user + `users/{uid}` + `waLinks/{waId}` (production, SA key in `~/.secrets/nudge`), with `onboarding: {step:'welcome'}`.

@@ -76,6 +76,11 @@ export function sendImageId(to: string, mediaId: string, caption?: string): Prom
   return post('image', to, { type: 'image', image: { id: mediaId, ...(caption ? { caption: cap(caption) } : {}) } });
 }
 
+/** Document (e.g. a PDF, <= 100 MB) by uploaded media id, with a file name and an optional caption. */
+export function sendDocumentId(to: string, mediaId: string, filename: string, caption?: string): Promise<string | null> {
+  return post('document', to, { type: 'document', document: { id: mediaId, filename: filename.slice(0, 240), ...(caption ? { caption: cap(caption) } : {}) } });
+}
+
 /** One message: an uploaded image on top, the body text and up to 3 reply buttons below (interactive header image). */
 export function sendImageButtons(to: string, mediaId: string, body: string, buttons: { id: string; title: string }[]): Promise<string | null> {
   const t = (s: string) => Array.from(s).slice(0, 20).join('');

@@ -148,6 +148,7 @@ export function MeScreen() {
         <Row icon="face" tone="success" title="Privacy and security" subtitle="Face ID lock, visibility, your data" value={profile?.biometricEnabled ? 'Lock on' : ''} onPress={() => router.push('/me/privacy')} />
       </Group>
       <Group title="More">
+        <Row icon="note" tone="accent" title="Make a PDF" subtitle="Photos and files into one PDF, on your phone" onPress={() => router.push('/pdf')} />
         <Row icon="trash" tone="neutral" title="Recycle bin" subtitle="Deleted tasks wait here" onPress={() => router.push(BIN_ROUTE as never)} />
         <Row icon="help" tone="sun" title="Help" subtitle="WhatsApp commands and tips" onPress={() => router.push('/me/help')} />
         <Row icon="bug" tone="danger" title="Report a bug" subtitle="Or suggest something" onPress={() => router.push('/me/bug')} />

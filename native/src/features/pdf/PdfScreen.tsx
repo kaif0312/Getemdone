@@ -60,9 +60,13 @@ export default function PdfScreen() {
         } catch {
           failed += 1;
         }
-        if (i % 5 === 4) setPages((p) => p.concat(added.splice(0)));
+        if (i % 5 === 4) {
+          const batch = added.splice(0); // take the batch now: updaters run later (twice in StrictMode)
+          setPages((p) => p.concat(batch));
+        }
       }
-      setPages((p) => p.concat(added));
+      const rest = added.splice(0);
+      setPages((p) => p.concat(rest));
       setSkipped([]);
       if (failed) toast.show(`${plural(failed, 'file', 'files')} could not be added.`, { kind: 'error' });
       else if (items.length > 1) toast.show(`${plural(items.length, 'page', 'pages')} added.`, { kind: 'success' });

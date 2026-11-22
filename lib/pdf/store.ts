@@ -5,6 +5,8 @@ import type { PdfPage, PdfSession, PdfStore } from './pdf';
 
 const jobRef = (wa: string) => adminDb().doc(`pdfJobs/${wa}`);
 const pagesRef = (wa: string) => adminDb().collection(`pdfJobs/${wa}/pages`);
+// A wamid is base64-ish; a '/' in it would turn the doc id into a path.
+const pageId = (id: string) => id.replace(/\//g, '_');
 
 export const firestorePdfStore: PdfStore = {
   async get(wa) {
@@ -19,7 +21,7 @@ export const firestorePdfStore: PdfStore = {
     await jobRef(wa).update({ expiresAt }).catch(() => undefined);
   },
   async addPage(wa, p: PdfPage) {
-    await pagesRef(wa).doc(p.id).set(p);
+    await pagesRef(wa).doc(pageId(p.id)).set(p);
   },
   async count(wa) {
     const agg = await pagesRef(wa).count().get();

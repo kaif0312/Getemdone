@@ -95,7 +95,8 @@ never turn into another action), `/pdf` (see Make a PDF), `/files` (alias `/vaul
   no `__MACOSX`, dotfiles, non-images). Over ~90 MB: re-encode at 1500 px / q60, then split into "part 1/2" PDFs. Undecodable files are skipped and counted in
   the caption. Sent with `uploadMedia` + `sendDocumentId` (`lib/wa/media.ts`) as `Pages-<date>-<N>p.pdf`, inside the 24 h window. A failure tells the user and keeps
   the session so `done` retries; a `building` lock older than 6 min counts as a crashed build.
-- Route `maxDuration` is now 300 (was 60); the build stops itself at 270 s. Needs a Vercel plan/Fluid Compute that allows 300 s. 119 phone-size photos build in ~8 s here.
+- Route `maxDuration` is now 300 (was 60): checked 2026-11-22, project `getemdone` is on the Pro team with Fluid Compute on (default timeout 300 s, 2 GB). Downloading/decoding stops at 200 s (`BUILD_BUDGET_MS`) so the re-encode, assemble and upload still fit. 119 phone-size photos build in ~8 s here.
+- `done` waits 1.5 s before taking the build lock (a page sent just before *done* can arrive after it) and 1 s after (writes already in flight). A page that arrives after that gets "still making your PDF, send it again". `tryPdf` never throws: on an error the message falls through to the vault / to-do bot. pdf / done / cancel refresh `waLinks.lastInboundAt` (handleMessage, which normally does it, never sees them).
 - Limits: HEIC is skipped unless sharp's libvips can decode it (the prebuilt one usually cannot; WhatsApp photos arrive as JPEG, only "Document" HEIC files hit this).
   Order is WhatsApp timestamp (1 s resolution) then arrival, so a burst within one second can swap if Meta delivers it out of order. Fixed English replies only.
   Pages of an abandoned session stay until the next `pdf` (which wipes them) or `done`/`cancel`; a Firestore TTL policy on `pdfJobs.expiresAt` would tidy them.

@@ -14,9 +14,9 @@ const BUILD_STALE_MS = 6 * 60_000; // a "building" lock older than this is a cra
 const PAGE_WIDTH_PT = 595; // A4 width
 const FETCH_CHUNK = 8;
 export const MAX_PDF_BYTES = 90 * 1024 * 1024; // WhatsApp documents are capped at 100 MB
-const BUILD_BUDGET_MS = 270_000; // route maxDuration is 300 s
+const BUILD_BUDGET_MS = 200_000; // downloads + decoding; route maxDuration is 300 s and the re-encode, assemble and upload still follow
 const MAX_ZIP_ENTRY_BYTES = 60 * 1024 * 1024;
-const MAX_ZIP_TOTAL_BYTES = 800 * 1024 * 1024;
+const MAX_ZIP_TOTAL_BYTES = 400 * 1024 * 1024; // unzipped bytes held in memory at once (the function has 2 GB)
 
 // ---------- trigger words
 /** Bare "pdf", "/pdf", "make pdf", "make a pdf" (any case, trailing punctuation). Anything longer ("send the pdf to Ali") is not a start. */
@@ -349,7 +349,8 @@ export async function handlePdf(d: PdfDeps, msg: InboundMessage): Promise<boolea
       const link = await eligible(d, wa);
       if (!link) return false;
       const s = await activeSession(d, wa);
-      if (s) await d.sendText(wa, MSG.already(await d.store.count(wa)));
+      if (s && s.status === 'building' && s.buildStartedAt && now - s.buildStartedAt < BUILD_STALE_MS) await d.sendText(wa, MSG.building);
+      else if (s) await d.sendText(wa, MSG.already(await d.store.count(wa)));
       else { await startSession(d, wa); await d.sendText(wa, MSG.start); }
       return true;
     }
@@ -360,9 +361,12 @@ export async function handlePdf(d: PdfDeps, msg: InboundMessage): Promise<boolea
     if (cmd === 'cancel') { await d.store.clear(wa); await d.sendText(wa, MSG.cancelled); return true; }
     const link = await eligible(d, wa);
     if (!link) return false;
-    if (!(await d.store.lockBuild(wa, now, BUILD_STALE_MS))) { await d.sendText(wa, MSG.building); return true; }
+    // Pages sent just before *done* can reach us after it: keep collecting for a moment, then lock, then give the
+    // webhooks that already saw "collecting" time to finish writing their page.
+    await d.sleep(1500);
+    if (!(await d.store.lockBuild(wa, d.now(), BUILD_STALE_MS))) { await d.sendText(wa, MSG.building); return true; }
     try {
-      await d.sleep(1500); // let the last pages' webhooks finish writing
+      await d.sleep(1000);
       const pages = await d.store.pages(wa);
       if (pages.length === 0) { await d.store.unlock(wa); await d.sendText(wa, MSG.empty); return true; }
       await d.sendText(wa, MSG.making(pages.length, pages.some((p) => p.kind !== 'image')));

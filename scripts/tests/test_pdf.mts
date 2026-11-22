@@ -249,6 +249,22 @@ for (const link of [null, { care: true }]) {
   assert.equal(log.texts.length + log.docs.length, 0);
 }
 
+// a page whose webhook lands just after *done* (during the grace before the lock) is still in the PDF;
+// *pdf* during a build says it is building
+{
+  const { d, log, store } = rig();
+  await handlePdf(d, text('pdf'));
+  await handlePdf(d, photo('p1'));
+  let late = true;
+  d.sleep = async () => { if (late) { late = false; assert.equal(await handlePdf(d, photo('p3')), true); } };
+  await handlePdf(d, text('done'));
+  assert.equal((await PDFDocument.load(log.docs[0].bytes)).getPageCount(), 2, 'late page included');
+  await handlePdf(d, text('pdf'));
+  await store.lockBuild(U, now(), 60_000);
+  await handlePdf(d, text('pdf'));
+  assert.equal(log.texts.at(-1), MSG.building);
+}
+
 // plain texts cost no IO
 {
   const { d } = rig();

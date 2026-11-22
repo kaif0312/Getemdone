@@ -1,5 +1,5 @@
 // Production wiring for "make a PDF" (real Graph, real Firestore). The route calls tryPdf(msg) after tryAppLogin.
-import { getLink } from '@/lib/wa/links';
+import { getLink, updateLink } from '@/lib/wa/links';
 import { claimMessage } from '@/lib/wa/sessions';
 import { sendDocumentId, uploadMedia } from '@/lib/wa/media';
 import * as send from '@/lib/wa/send';
@@ -27,5 +27,16 @@ export const defaultPdfDeps: PdfDeps = {
 
 /** True when the PDF flow handled the message (a page for an open session, pdf / done / cancel, a caption "pdf"). */
 export async function tryPdf(msg: InboundMessage): Promise<boolean> {
-  return handlePdf(defaultPdfDeps, msg);
+  let handled: boolean;
+  try {
+    handled = await handlePdf(defaultPdfDeps, msg);
+  } catch (e) {
+    // A Firestore/Graph hiccup here must not swallow an ordinary message: let the vault / to-do bot have it.
+    console.error('[pdf] tryPdf failed, falling through', msg.id, e);
+    return false;
+  }
+  // handleMessage records the 24 h window; a message the PDF flow took never reaches it. Pages skip this (100 at once
+  // would all write the one waLinks doc); pdf / done / cancel are enough to keep the window right.
+  if (handled && msg.type === 'text') updateLink(msg.from, { lastInboundAt: msg.timestamp }).catch(() => undefined);
+  return handled;
 }
